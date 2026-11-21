@@ -59,6 +59,9 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: '3.12'  # no `cache:` on purpose
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'      # no `cache:` on purpose
       - name: Go
         working-directory: src/modules/${{ matrix.module }}
         run: |
@@ -71,3 +74,11 @@ jobs:
             python -m pip install -q --disable-pip-version-check -e '.[test]'
             python -m pytest -q --tb=no -p no:cacheprovider
           else echo "no python"; fi
+      - name: TypeScript
+        working-directory: src/modules/${{ matrix.module }}
+        run: |
+          if [ -f ts/package.json ]; then
+            cd ts
+            if [ -f package-lock.json ]; then npm ci --silent --no-audit --no-fund; else npm install --silent --no-audit --no-fund; fi
+            npm test --silent
+          else echo "no ts"; fi
