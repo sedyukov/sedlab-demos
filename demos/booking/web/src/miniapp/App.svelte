@@ -340,7 +340,8 @@
   .days { display: flex; gap: 8px; overflow-x: auto; padding: 4px 0 10px; scrollbar-width: none; }
   .day { flex: none; width: 58px; padding: 8px 0; border-radius: 12px; border: 1.5px solid var(--line); background: var(--card); display: flex; flex-direction: column; align-items: center; gap: 2px; }
   .day b { font-size: 18px; }
-  .day .wd, .day .mon { font-size: 11px; color: var(--hint); text-transform: capitalize; }
+  .day .wd, .day .mon { font-size: 11px; color: var(--hint); }
+  .day .wd { text-transform: capitalize; }
   .day.on { background: var(--btn); border-color: var(--btn); color: var(--btn-text); }
   .day.on .wd, .day.on .mon { color: inherit; opacity: .85; }
   .day.empty:not(.on) { opacity: .45; }

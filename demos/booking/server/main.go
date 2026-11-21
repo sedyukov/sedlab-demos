@@ -5,6 +5,7 @@ package main
 
 import (
 	"context"
+	"fmt"
 	"log/slog"
 	"net/http"
 	"os"
@@ -143,6 +144,11 @@ func NewAppFromEnv(log *slog.Logger) (*App, error) {
 		AdminIDs: admins, Emulator: env("DEMO_EMULATOR", "true") == "true", DemoReset: env("DEMO_RESET", "false") == "true",
 		WebhookSecret: os.Getenv("TELEGRAM_WEBHOOK_SECRET"), PaymentsMock: p.Name() == "mock", TelegramLive: live,
 		MaxSecret: os.Getenv("MAX_WEBHOOK_SECRET"), MaxLive: env("MAX_PROVIDER", "mock") == "max",
+	}
+	// R9 (data localisation): the public demo host is outside RU, so it must never receive real users.
+	// Live bots (real Telegram/Max ids) run only on a RU host without DEMO_RESET.
+	if cfg.DemoReset && (cfg.TelegramLive || cfg.MaxLive) {
+		return nil, fmt.Errorf("live TELEGRAM/MAX provider is not allowed with DEMO_RESET=true (public demo host stores no real users)")
 	}
 	maxm := newMaxMessenger(mbot, cfg.MaxLive, cfg.Emulator, cfg.MaxSecret, env("MAX_BOT_USERNAME", "bloom_salon_bot"))
 	// notify: NOTIFY_TELEGRAM_PROVIDER=telegram + NOTIFY_TELEGRAM_BOT_TOKEN for a live bot (default mock)
