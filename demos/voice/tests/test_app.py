@@ -80,9 +80,9 @@ def test_edition_settings_and_defaults():
 def test_config_ru_edition():
     j = make(edition="ru").get("/api/config").json()
     assert j["edition"] == "ru" and j["lang"] == "ru" and j["other_url"].startswith("https://voice-en.")
-    assert j["providers"] == {"llm": {"gigachat": "demo", "yandexgpt": "demo"}, "stt": "demo", "tts": "demo",
+    assert j["providers"] == {"llm": {"yandexgpt": "demo", "gigachat": "demo"}, "stt": "demo", "tts": "demo",
                               "speech": "mock"}
-    assert j["default_llm"] == "gigachat"
+    assert list(j["providers"]["llm"]) == ["yandexgpt", "gigachat"] and j["default_llm"] == "yandexgpt"
     assert [s["id"] for s in j["samples"]] == RU_SAMPLES
     assert j["telegram"] is False
 
@@ -107,8 +107,8 @@ def test_foreign_keys_ignored_in_ru_and_russian_in_intl():
     env = {"AI_OPENAI_API_KEY": "k", "AI_ANTHROPIC_API_KEY": "a", "AI_GIGACHAT_AUTH_KEY": "g",
            "AI_YANDEX_API_KEY": "y", "AI_YANDEX_FOLDER_ID": "f", "VOICE_LIVE": "1"}
     ru = make(env, edition="ru").get("/api/config").json()["providers"]
-    assert ru == {"llm": {"gigachat": "demo", "yandexgpt": "live"}, "stt": "live", "tts": "live",
-                  "speech": "yandex_speechkit"}  # GigaChat on hold until the masker is fixed
+    assert ru == {"llm": {"yandexgpt": "live", "gigachat": "live"}, "stt": "live", "tts": "live",
+                  "speech": "yandex_speechkit"}
     en = make(env, edition="intl").get("/api/config").json()["providers"]
     assert en == {"llm": {"openai": "live", "anthropic": "live"}, "stt": "live", "tts": "live", "speech": "openai"}
 
@@ -258,7 +258,8 @@ def test_provider_selection_per_edition():
     assert Providers({"AI_OPENAI_API_KEY": "k"}, "intl").speech == "openai"
     assert Providers({"AI_OPENAI_API_KEY": "k"}, "intl", live_allowed=False).speech == "mock"
     assert Providers({}, "ru").client("gigachat").stt.name == "mock"
-    assert default_llm(Providers({}, "ru")) == "gigachat"
+    assert default_llm(Providers({}, "ru")) == "yandexgpt"
+    assert default_llm(Providers({"AI_GIGACHAT_AUTH_KEY": "g"}, "ru")) == "gigachat"  # the only live one
     assert default_llm(Providers({"AI_YANDEX_API_KEY": "y", "AI_YANDEX_FOLDER_ID": "f"}, "ru")) == "yandexgpt"
     assert default_llm(Providers({"AI_ANTHROPIC_API_KEY": "a"}, "intl")) == "anthropic"
     assert Providers({"AI_YANDEX_API_KEY": "y"}, "ru").llm_live("yandexgpt") is False  # needs a folder id too
@@ -303,11 +304,11 @@ def test_guess_lang_and_template():
 
 def test_gigachat_live_only_with_pii_masking(monkeypatch):
     import voice_demo.providers as pv
-    assert not Providers({"AI_GIGACHAT_AUTH_KEY": "g"}, "ru").llm_live("gigachat")  # on hold
-    monkeypatch.setattr(pv, "GIGACHAT_LIVE_ALLOWED", True)
     assert Providers({"AI_GIGACHAT_AUTH_KEY": "g"}, "ru").llm_live("gigachat")
     assert Providers({"AI_GIGACHAT_MODE": "cloudru", "AI_GIGACHAT_API_KEY": "c"}, "ru").llm_live("gigachat")
     off = Providers({"AI_GIGACHAT_AUTH_KEY": "g", "AI_GIGACHAT_PII_MASKING": "off"}, "ru")
     assert not off.llm_live("gigachat") and off.client("gigachat").llm.name == "mock"
     c = Providers({"AI_GIGACHAT_AUTH_KEY": "g"}, "ru").client("gigachat")
     assert c.llm.name == "gigachat" and c.pii_masking_enabled()
+    monkeypatch.setattr(pv, "GIGACHAT_LIVE_ALLOWED", False)  # emergency stop still works
+    assert not Providers({"AI_GIGACHAT_AUTH_KEY": "g"}, "ru").llm_live("gigachat")

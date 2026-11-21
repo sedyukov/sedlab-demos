@@ -12,13 +12,11 @@ from typing import Mapping
 
 from sedlab_ai import Client, Env, from_env
 
-EDITION_LLMS = {"ru": ("gigachat", "yandexgpt"), "intl": ("openai", "anthropic")}
+EDITION_LLMS = {"ru": ("yandexgpt", "gigachat"), "intl": ("openai", "anthropic")}  # first = default
 EDITION_SPEECH = {"ru": "yandex_speechkit", "intl": "openai"}
 # legal-ru: only depersonalised text may go to GigaChat. The ai module masks PII inside Client.chat for GigaChat
 # (AI_GIGACHAT_PII_MASKING=on by default); if someone turns it off, GigaChat never goes live here.
-# Hold: the module's masker misses known names ending in "-ей" (e.g. "Сергей"), see test_gigachat_gets_masked_names.
-# Flip to True once that test passes (it is a strict xfail and will fail loudly when the module is fixed).
-GIGACHAT_LIVE_ALLOWED = False
+GIGACHAT_LIVE_ALLOWED = True  # masker fixed in the ai module (d0b514c); False = emergency stop for GigaChat
 
 
 def default_llm(p: "Providers") -> str:

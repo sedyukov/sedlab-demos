@@ -5,10 +5,12 @@
     uv run --with playwright python tools/shoot_media.py [EN_URL] [RU_URL]
 
 Writes media/en-*.png, media/ru-*.png, media/demo-en.{mp4,gif}, media/demo-ru.{mp4,gif} (needs ffmpeg).
+ONLY=ru (or en) shoots one edition; the EN edition is frozen (owner decision), so normally ONLY=ru.
 """
 from __future__ import annotations
 
 import asyncio
+import os
 import shutil
 import subprocess
 import sys
@@ -100,7 +102,10 @@ async def main() -> None:
                 ("ru", RU, "planning-ru", "planning-ru", "voice-note-ru")]
     async with async_playwright() as p:
         b = await p.chromium.launch()
+        only = os.environ.get("ONLY", "")
         for tag, base, meeting, call, note in editions:
+            if only and tag != only:
+                continue
             await shots(b, base, tag, meeting, call, note)
             with tempfile.TemporaryDirectory() as tmp:
                 webm = await video(b, base, list(dict.fromkeys([meeting, call, note])), Path(tmp))

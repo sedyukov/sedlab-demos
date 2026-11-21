@@ -129,12 +129,8 @@ class SpyGigaChat(FakeLLM):
         return super().chat(req)
 
 
-@pytest.mark.xfail(strict=True, reason="ai module masker misses known names ending in -ей (Сергей); "
-                                      "when fixed: set GIGACHAT_LIVE_ALLOWED = True and drop this mark")
-def test_gigachat_gets_masked_names_for_samples(monkeypatch):
-    import voice_demo.providers as pv
+def test_gigachat_gets_masked_names_for_samples():
     from sedlab_ai import PIIConfig
-    monkeypatch.setattr(pv, "GIGACHAT_LIVE_ALLOWED", True)
     c = make({**RU_KEYS, "AI_GIGACHAT_AUTH_KEY": "g"}, edition="ru")
     spy, sp = SpyGigaChat(), FakeSpeech()
     sp.transcribe = lambda req: __import__("sedlab_ai").Transcript(
