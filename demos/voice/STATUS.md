@@ -8,7 +8,7 @@
 - **Тесты**: 25 штук, `pytest -q`. Покрывают демо-режим, живой режим с фейковыми провайдерами, лимиты по IP и дневной, парсер WAV и цикл бота на MockAPI из telegram-core.
 - **CI**: `.github/workflows/build-voice.yml` — тесты, затем сборка `ghcr.io/sedyukov/voice:sha-xxxxxxx`. Пакет PRIVATE, без кэшей и артефактов, правила SECURITY.md соблюдены.
 - **Образ**: python:3.12-slim, 140 МБ, около 85 МБ RAM в работе, `mem_limit 160m`. Compose: `~/freelance/infra/compose/voice` (по шаблону).
-- **Медиа**: `media/` — 5 скриншотов, `demo.mp4` (39 с) и `demo.gif`. README (RU и EN, цены и сроки), `portfolio.md` (RU и EN).
+- **Медиа**: `media/` — 5 скриншотов, `demo.mp4` (39 с) и `demo.gif`. README (RU и EN, цены и сроки утверждены владельцем), `portfolio.md` (RU и EN).
 
 ## Ссылки
 - Демо: https://voice.demo.sedlab.dev — **задеплоено 2026-11-21**, образ `sha-4066fa7`. На проде проверено end-to-end в браузере: все 3 примера проходят цепочку транскрипт → саммари → задачи → озвучка (ответ проигрывается), загрузка файла на моке работает, ошибок JS нет. Память: 58 МБ из 160 МБ.
@@ -19,4 +19,3 @@
 - Живой режим: ключи `AI_OPENAI_API_KEY` (STT и TTS), `AI_ANTHROPIC_API_KEY`, `AI_GIGACHAT_AUTH_KEY`, `AI_YANDEX_API_KEY` + `AI_YANDEX_FOLDER_ID`. После того как ключ появится в sec, раскомментировать его строку в `infra/compose/voice/env.keys` и передеплоить.
 - Telegram-бот: токен BotFather → `VOICE_TELEGRAM_TOKEN`.
 - Когда появятся ключи: пересчитать результаты примеров настоящими моделями (сейчас они составлены вручную по сценарию) и снять видео в живом режиме.
-- Цены в README — ориентир сессии (EN взят из INTL-FASTTRACK), их нужно согласовать с владельцем.

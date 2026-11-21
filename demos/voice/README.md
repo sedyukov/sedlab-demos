@@ -40,7 +40,7 @@ Under the hood it uses two of my reusable modules. Each has the same interface i
 
 I also run my own production speech-recognition service: a Go server with workers (GigaAM on CPU, Whisper on GPU), Opus encoding in the browser and chunking by pauses. It transcribes about 1 hour of audio in ~30 s. When cloud STT is too expensive or not allowed, I can move a project onto self-hosted recognition.
 
-### Price and timeline (ballpark)
+### Price and timeline
 | Scope | Timeline | Price |
 |---|---|---|
 | Telegram bot: voice note → transcript + summary | 3–5 days | from $600 |
@@ -87,7 +87,7 @@ OpenAI Whisper / gpt-4o-transcribe и TTS · Anthropic, GigaChat, YandexGPT · T
 
 Кроме того, у меня есть свой сервис распознавания речи в проде: Go-сервер и воркеры (GigaAM на CPU, Whisper на GPU), кодирование Opus в браузере, нарезка по паузам. Час аудио он расшифровывает примерно за 30 секунд. Если облачное распознавание дорого или запрещено политикой, проект можно перевести на своё.
 
-### Ориентир цены и сроков
+### Цена и сроки
 | Объём | Срок | Цена |
 |---|---|---|
 | Telegram-бот: голосовое → расшифровка и саммари | 3–5 дней | от 40 000 ₽ |
