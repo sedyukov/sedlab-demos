@@ -293,3 +293,21 @@ func (s *Store) UnnotifiedLeads(ctx context.Context) ([]Lead, error) {
 func (s *Store) MarkLeadNotified(ctx context.Context, id string, now int64) error {
 	return s.st.MarkLeadNotified(ctx, id, now)
 }
+
+// ---- consent journal (152-ФЗ ч.3 ст.9: the operator proves consent) ------------------------------------------
+
+// consentJournal: the module Store's journal API (s2). Checked at runtime so the service builds against both the
+// current and the next module version; until the module has it, RecordKindConsent reports errNotSupported.
+type consentJournal interface {
+	RecordConsent(ctx context.Context, userID, kind, version string, now int64) error
+}
+
+var errNotSupported = errors.New("consent journal not available in this module version")
+
+func (s *Store) RecordKindConsent(ctx context.Context, userID, kind, version string, now int64) error {
+	j, ok := any(s.st).(consentJournal)
+	if !ok {
+		return errNotSupported
+	}
+	return j.RecordConsent(ctx, userID, kind, version, now)
+}

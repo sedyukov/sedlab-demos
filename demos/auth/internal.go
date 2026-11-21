@@ -8,6 +8,7 @@ import (
 	"encoding/json"
 	"errors"
 	"net/http"
+	"regexp"
 	"strconv"
 )
 
@@ -29,6 +30,8 @@ func (a *App) serviceDemo(r *http.Request) (string, bool) {
 }
 
 type internalIn struct {
+	Kind           string `json:"kind"`
+	Version        string `json:"version"`
 	Token          string `json:"token"`
 	Demo           string `json:"demo"`
 	Resource       string `json:"resource"`
@@ -82,6 +85,9 @@ func (a *App) internal(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 		writeJSON(w, 200, map[string]any{"authenticated": true, "resources": a.remaining(r, u.ID, demo)})
+		return
+	case "consent":
+		a.internalConsent(w, r, demo, u, in)
 		return
 	case "check", "consume":
 	default:
@@ -183,4 +189,38 @@ func (a *App) isAdmin(r *http.Request, userID, prov string) bool {
 		}
 	}
 	return false
+}
+
+// consentKinds: per-demo upload consents (legal/consents.md §1а, §1б). A demo's key may record only its own kind.
+var consentKinds = map[string]string{"voice": "voice", "prices": "prices"}
+
+var consentVersionRe = regexp.MustCompile(`^([a-z]+)-v[0-9]{1,3}$`)
+
+func (a *App) internalConsent(w http.ResponseWriter, r *http.Request, demo string, u *User, in internalIn) {
+	if in.Kind != "voice" && in.Kind != "prices" {
+		moduleErr(w, 400, "invalid_argument", "kind must be voice or prices")
+		return
+	}
+	if m := consentVersionRe.FindStringSubmatch(in.Version); m == nil || m[1] != in.Kind {
+		moduleErr(w, 400, "invalid_argument", "version must be <kind>-v<N>")
+		return
+	}
+	if consentKinds[demo] != in.Kind {
+		moduleErr(w, 403, "permission_denied", "this service key may not record "+in.Kind+" consent")
+		return
+	}
+	if u == nil {
+		writeJSON(w, 200, map[string]any{"ok": false, "reason": "unauthenticated"})
+		return
+	}
+	now := a.now()
+	if err := a.store.RecordKindConsent(r.Context(), u.ID, in.Kind, in.Version, now); err != nil {
+		if errors.Is(err, errNotSupported) {
+			moduleErr(w, 503, "unavailable", "consent journal not deployed yet")
+			return
+		}
+		moduleErr(w, 503, "unavailable", "storage")
+		return
+	}
+	writeJSON(w, 200, map[string]any{"ok": true, "kind": in.Kind, "version": in.Version, "recorded_at": rfc3339(now)})
 }

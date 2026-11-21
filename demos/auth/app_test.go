@@ -506,3 +506,27 @@ func TestLeadsGetsBitrix24(t *testing.T) {
 		t.Fatalf("bitrix24: %+v %v", b, ok1)
 	}
 }
+
+func TestInternalConsent(t *testing.T) {
+	app, srv := newTestApp(t, map[string]string{"AUTH_SVC_PRICES": "prices-service-key-0123456789abcd"})
+	tok := devSignup(t, srv, client(), "80")
+	if code, d := internalCall(t, srv, svcKey, "consent", map[string]any{"token": tok, "kind": "voice", "version": "prices-v1"}); code != 400 {
+		t.Fatalf("bad version: %d %v", code, d)
+	}
+	if code, _ := internalCall(t, srv, svcKey, "consent", map[string]any{"token": tok, "kind": "prices", "version": "prices-v1"}); code != 403 {
+		t.Fatalf("voice key wrote prices consent: %d", code)
+	}
+	if _, d := internalCall(t, srv, svcKey, "consent", map[string]any{"token": "", "kind": "voice", "version": "voice-v1"}); d["reason"] != "unauthenticated" {
+		t.Fatalf("anonymous: %v", d)
+	}
+	code, d := internalCall(t, srv, svcKey, "consent", map[string]any{"token": tok, "kind": "voice", "version": "voice-v1"})
+	if _, ok := any(app.store.st).(consentJournal); !ok {
+		if code != 503 {
+			t.Fatalf("without journal: %d %v", code, d)
+		}
+		t.Skip("module has no consent journal yet (s2)")
+	}
+	if code != 200 || d["ok"] != true {
+		t.Fatalf("record: %d %v", code, d)
+	}
+}
