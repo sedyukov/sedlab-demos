@@ -11,11 +11,11 @@
 - **Медиа**: `media/` — 5 скриншотов, `demo.mp4` (39 с) и `demo.gif`. README (RU и EN, цены и сроки), `portfolio.md` (RU и EN).
 
 ## Ссылки
-- Демо: https://voice.demo.sedlab.dev
+- Демо: https://voice.demo.sedlab.dev — **задеплоено 2026-11-21**, образ `sha-4066fa7`. На проде проверено end-to-end в браузере: все 3 примера проходят цепочку транскрипт → саммари → задачи → озвучка (ответ проигрывается), загрузка файла на моке работает, ошибок JS нет. Память: 58 МБ из 160 МБ.
 - Код: `sedlab-demos/demos/voice`
 
 ## Осталось / зависит от владельца
-- Деплой: нужен `GHCR_TOKEN` в `sec -p freelance` (запрошен через оркестратора), затем `~/freelance/infra/deploy.sh voice --tag sha-…`.
+- Передеплой: `~/freelance/infra/deploy.sh voice --tag sha-<новый>` (теги — из CI build-voice).
 - Живой режим: ключи `AI_OPENAI_API_KEY` (STT и TTS), `AI_ANTHROPIC_API_KEY`, `AI_GIGACHAT_AUTH_KEY`, `AI_YANDEX_API_KEY` + `AI_YANDEX_FOLDER_ID`. После того как ключ появится в sec, раскомментировать его строку в `infra/compose/voice/env.keys` и передеплоить.
 - Telegram-бот: токен BotFather → `VOICE_TELEGRAM_TOKEN`.
 - Когда появятся ключи: пересчитать результаты примеров настоящими моделями (сейчас они составлены вручную по сценарию) и снять видео в живом режиме.
