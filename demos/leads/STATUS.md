@@ -46,7 +46,7 @@ EN-версия https://leads-en.demo.sedlab.dev (EDITION=intl, freelance-1).
 ## Осталось
 - Переезд RU: `infra/deploy.sh leads-ru --host freelance-ru --tag sha-<7>`, затем A-запись `leads.demo → IP freelance-ru` в Cloudflare,
   `check-demos.sh leads-ru --host freelance-ru`, потом `deploy.sh rm leads` на freelance-1 и удалить `infra/compose/leads`.
-- Таблица RU: провайдер Яндекс Диск (XLSX) от s2 → подключить в профилях `ru` и `ru_b24` (env `RU_SHEETS_*`, `RU_B24_SHEETS_*`).
+- Таблица RU (sheets-storage 6280924) готова к включению: `RU_SHEETS_PROVIDER=yandex_disk_table`, `RU_SHEETS_YADISK_TOKEN` (секрет), `RU_SHEETS_YADISK_ROOT=app:/`, `RU_SHEETS_SHEET_ID=app:/leads/leads.xlsx` (то же с `RU_B24_`); заголовок «Lead ID…» приложение пишет само в пустой файл. Тест `TestYandexDiskTableLiveByEnv`. По умолчанию mock.
 - Битрикс24 live (crm 1fcaa49) готов к включению: `RU_B24_CRM_PROVIDER=bitrix24`, `RU_B24_CRM_BITRIX24_WEBHOOK_URL` (секрет), `..._ENTITY`, `..._CATEGORY_ID`, `..._APP_TOKEN`; тест `TestBitrix24LiveByEnv`. По умолчанию mock.
 - Модуль accounts (sedlab-modules a027917): интеграция позже, вместе с сессией accounts. **На проде обязательно `ACCOUNTS_PROVIDER=http`**,
   на mock живой режим принудительно выключен.

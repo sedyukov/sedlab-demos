@@ -60,7 +60,8 @@ type Stack struct {
 	payMock  *payments.Mock
 	SheetID  string
 	SheetTab string
-	once     sync.Once
+	hdrMu    sync.Mutex
+	hdrOK    bool // header verified/written (retried on failure, unlike sync.Once)
 }
 
 func mode(live bool) string {
@@ -202,16 +203,27 @@ func (p *Profile) NewStack(checkoutURL string) *Stack {
 // SheetHeader is row 1 of the leads sheet.
 var SheetHeader = []any{"Lead ID", "Date (UTC)", "Name", "Email", "Phone", "Company", "Plan", "Amount", "CRM deal", "Status", "Payment"}
 
-// ensureHeader writes the header once per mock sheet (live sheets are expected to have it).
+// ensureHeader writes the header row if the sheet/file has none yet (mock, Google Sheets, Yandex Disk table):
+// the payment step finds the lead's row by the "Lead ID" column. Checked once per stack.
 func (s *Stack) ensureHeader(ctx context.Context) error {
-	var err error
-	s.once.Do(func() {
-		if _, isMock := s.Sheets.(*sheets.MockSheets); !isMock {
-			return
+	s.hdrMu.Lock()
+	defer s.hdrMu.Unlock()
+	if s.hdrOK {
+		return nil
+	}
+	rows, err := s.Sheets.ReadRows(ctx, sheets.ReadRowsInput{SheetID: s.SheetID, Tab: s.SheetTab, Range: "1:1"})
+	switch {
+	case err == nil && len(rows.Rows) > 0 && len(rows.Rows[0]) > 0 && rows.Rows[0][0] != "":
+		// header present
+	case err != nil && sheetskit.CodeOf(err) != sheetskit.NotFound:
+		return err
+	default:
+		if _, err := s.Sheets.AppendRows(ctx, sheets.AppendRowsInput{SheetID: s.SheetID, Tab: s.SheetTab, Rows: [][]any{SheetHeader}}); err != nil {
+			return err
 		}
-		_, err = s.Sheets.AppendRows(ctx, sheets.AppendRowsInput{SheetID: s.SheetID, Tab: s.SheetTab, Rows: [][]any{SheetHeader}})
-	})
-	return err
+	}
+	s.hdrOK = true
+	return nil
 }
 
 func (p *Profile) Plan(key string) (Plan, bool) {

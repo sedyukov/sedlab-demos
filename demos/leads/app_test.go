@@ -618,3 +618,14 @@ func TestBitrix24LiveByEnv(t *testing.T) {
 		t.Fatal("missing webhook URL must be a config error")
 	}
 }
+
+func TestYandexDiskTableLiveByEnv(t *testing.T) {
+	env := map[string]string{"RU_SHEETS_PROVIDER": "yandex_disk_table", "RU_SHEETS_YADISK_TOKEN": "t", "RU_SHEETS_SHEET_ID": "app:/leads/leads.xlsx"}
+	ps, err := LoadProfiles(func(k string) (string, bool) { v, ok := env[k]; return v, ok }, EditionRU)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if ps["ru"].Modes.Sheets != "live" || ps["ru"].sheetID != "app:/leads/leads.xlsx" || ps["ru_b24"].Modes.Sheets != "mock" {
+		t.Fatalf("modes: ru=%s ru_b24=%s id=%s", ps["ru"].Modes.Sheets, ps["ru_b24"].Modes.Sheets, ps["ru"].sheetID)
+	}
+}
