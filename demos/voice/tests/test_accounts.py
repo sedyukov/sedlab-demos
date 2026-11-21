@@ -178,3 +178,9 @@ def test_consent_is_recorded_for_signed_in_and_never_blocks(monkeypatch):
     monkeypatch.setattr(c.acc, "record_consent", down, raising=False)
     r = c.post("/api/consent", json={"version": "voice-v1"}, headers=token(c))
     assert r.status_code == 200 and r.json()["recorded"] is False
+
+
+def test_consent_recorded_by_accounts_module_mock():
+    c = ru_app()
+    assert c.post("/api/consent", json={"version": "voice-v1"}, headers=token(c)).json()["recorded"] is True
+    assert c.post("/api/consent", json={"version": "voice-v1"}).json()["recorded"] is False
