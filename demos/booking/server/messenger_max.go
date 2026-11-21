@@ -97,7 +97,16 @@ func (m *maxMessenger) ParseUpdate(ctx context.Context, headers map[string]strin
 	if err != nil {
 		return nil, err
 	}
-	return &Update{Kind: u.Kind, ChatID: u.ChatID, UserID: u.UserID, Text: u.Text, Command: u.Command, Duplicate: u.Duplicate}, nil
+	return &Update{Kind: u.Kind, ChatID: u.ChatID, UserID: u.UserID, Text: u.Text, Command: u.Command,
+		Data: u.Data, CallbackQueryID: u.CallbackQueryID, Duplicate: u.Duplicate}, nil
+}
+
+func (m *maxMessenger) AnswerCallback(ctx context.Context, id, text string) error {
+	if id == "" {
+		return nil
+	}
+	_, err := m.bot.AnswerCallbackQuery(ctx, mx.AnswerCallbackInput{CallbackQueryID: id, Text: text})
+	return err
 }
 
 func (m *maxMessenger) SetWebhook(ctx context.Context, u string) error {
@@ -126,6 +135,16 @@ func (m *maxMessenger) VerifySession(token string) (int64, error) {
 		return 0, err
 	}
 	return s.UserID, nil
+}
+
+// maxEmulatorCallback builds a Max "message_callback" webhook body for a button pressed in the emulator.
+func maxEmulatorCallback(userID int64, cbID, data string, ts int64) []byte {
+	b, _ := json.Marshal(map[string]any{
+		"update_type": "message_callback", "timestamp": ts * 1000,
+		"callback": map[string]any{"callback_id": cbID, "payload": data, "user": map[string]any{"user_id": userID}},
+		"message":  map[string]any{"recipient": map[string]any{"chat_id": userID}},
+	})
+	return b
 }
 
 // emulatorUpdate builds a Max "message_created" webhook body for text typed in the emulator.

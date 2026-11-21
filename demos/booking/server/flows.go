@@ -269,11 +269,24 @@ func (a *App) processUpdateOn(ctx context.Context, m Messenger, headers map[stri
 		a.store.db.Exec(`INSERT OR IGNORE INTO users(id,lang,platform,created_at) VALUES(?,?,?,?)`, u.UserID, "en", m.Platform(), a.now().Unix())
 	}
 	lang := a.langFor(u.UserID)
+	if u.Kind == "command" && u.Command != "start" && u.Command != "delete" && a.needsConsent(u.UserID) {
+		a.askConsent(ctx, u.ChatID, lang)
+		return nil
+	}
 	switch u.Kind {
 	case "command":
 		switch u.Command {
 		case "start":
-			a.tell(ctx, u.ChatID, "welcome", T(lang, "welcome", a.firstName(u.UserID)), &WebAppButton{Text: T(lang, "open"), URL: a.cfg.PublicURL + "/app/"}, "")
+			if a.needsConsent(u.UserID) {
+				a.askConsent(ctx, u.ChatID, lang)
+				return nil
+			}
+			a.welcome(ctx, u.ChatID, u.UserID, lang)
+		case "delete":
+			if err := a.store.DeleteUserData(u.UserID); err != nil {
+				return err
+			}
+			a.tell(ctx, u.ChatID, "deleted", T(lang, "deleted"), nil, "")
 		case "admin":
 			if a.roleFor(u.UserID, isEmulatorUser(u.UserID)) == "owner" {
 				a.tell(ctx, u.ChatID, "admin", "🛠", &WebAppButton{Text: "Admin", URL: a.cfg.PublicURL + "/admin/"}, "")
@@ -286,7 +299,19 @@ func (a *App) processUpdateOn(ctx context.Context, m Messenger, headers map[stri
 			a.tell(ctx, u.ChatID, "help", T(lang, "help"), nil, "")
 		}
 	case "message":
+		if a.needsConsent(u.UserID) {
+			a.askConsent(ctx, u.ChatID, lang)
+			return nil
+		}
 		a.tell(ctx, u.ChatID, "help", T(lang, "help"), &WebAppButton{Text: T(lang, "open"), URL: a.cfg.PublicURL + "/app/"}, "")
+	case "callback_query":
+		m.AnswerCallback(ctx, u.CallbackQueryID, "")
+		if u.Data == consentData {
+			if err := a.store.SetConsent(u.UserID, consentVersion, m.Platform(), a.now().Unix()); err != nil {
+				return err
+			}
+			a.welcome(ctx, u.ChatID, u.UserID, lang)
+		}
 	case "pre_checkout_query":
 		// Telegram waits ≤10 s for this answer: check the booking is still payable.
 		okPay, msg := a.checkStarsPayable(u.UserID, u.Payment)
@@ -315,6 +340,28 @@ func (a *App) processUpdateOn(ctx context.Context, m Messenger, headers map[stri
 		return a.confirmPaid(ctx, id, u.Payment.TelegramPaymentChargeID)
 	}
 	return nil
+}
+
+// RU bots ask for consent (legal bot-v1) before storing anything; INTL bots store nothing about real users.
+const (
+	consentVersion = "bot-v1"
+	consentData    = "consent:bot-v1"
+)
+
+func (a *App) needsConsent(uid int64) bool {
+	return a.cfg.Edition == "ru" && uid != DemoOwnerID && !a.store.HasConsent(uid)
+}
+
+func (a *App) askConsent(ctx context.Context, chatID int64, lang string) {
+	a.tell(ctx, chatID, "consent", T(lang, "consent"), &WebAppButton{Text: T(lang, "consent_btn"), Data: consentData}, "")
+}
+
+func (a *App) welcome(ctx context.Context, chatID, uid int64, lang string) {
+	text := T(lang, "welcome", a.firstName(uid))
+	if a.cfg.Edition != "ru" {
+		text += T(lang, "demo_note")
+	}
+	a.tell(ctx, chatID, "welcome", text, &WebAppButton{Text: T(lang, "open"), URL: a.cfg.PublicURL + "/app/"}, "")
 }
 
 func (a *App) checkStarsPayable(userID int64, p *tg.Payment) (bool, string) {
@@ -367,6 +414,9 @@ func (a *App) tick(ctx context.Context) {
 		a.log.Info("holds expired", "n", n)
 	}
 	a.store.CompletePast(now)
+	if n, err := a.store.Purge(now - retentionDays*86400); err == nil && n > 0 {
+		a.log.Info("purged old demo data", "bookings", n)
+	}
 	a.sendReminders(ctx)
 	if a.cfg.DemoReset {
 		day := a.now().In(a.cfg.TZ).Format("2006-01-02")
@@ -412,6 +462,9 @@ func (a *App) runLoop(ctx context.Context) {
 		}
 	}
 }
+
+// retentionDays: demo data is deleted after at most 7 days (legal: privacy policy / consent bot-v1).
+const retentionDays = 7
 
 func truncate(s string, n int) string {
 	r := []rune(s)

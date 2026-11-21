@@ -54,7 +54,8 @@ runs the schedule, masters, services and bookings from an admin panel that also 
 ### Personal data (152-FZ)
 The Russian edition runs on a Russian VPS with backups in Russian S3 storage. It is one Docker image plus SQLite, so it
 moves between servers in minutes. Privacy-policy and consent texts are drafted in the client's name. The international
-demo stores no personal data: no phone field, test names only, daily reset.
+demo stores no personal data: no phone field, test names only, daily reset, everything deleted after 7 days at most.
+The Russian edition asks for consent in the chat first ("Согласен, начать") and supports /delete.
 
 ### Try the demo
 The page emulates the Telegram client: a bot chat on the left of the phone, the Mini App opens on top. The server signs
@@ -136,7 +137,9 @@ holds the thin demo layer only.
   сервис auth; если он недоступен или лимит исчерпан, демо остаётся в демо-режиме и показывает баннер.
 
 ### Персональные данные (152-ФЗ)
-Российская редакция работает на российском VPS, бэкапы идут в российское S3-хранилище. Это один Docker-образ и SQLite,
+Российская редакция работает на российском VPS, бэкапы идут в российское S3-хранилище. Бот сначала просит согласие
+(кнопка «Согласен, начать»), до неё ничего не сохраняет; команда /delete удаляет данные чата; данные демо удаляются
+автоматически не позже чем через 7 дней. Это один Docker-образ и SQLite,
 переезд между серверами занимает минуты. Политику обработки ПД и тексты согласий готовлю от имени заказчика. Данные
 демо тестовые и сбрасываются раз в сутки.
 

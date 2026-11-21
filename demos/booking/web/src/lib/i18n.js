@@ -17,6 +17,7 @@ const dict = {
     starsNote: 'Demo: no real Stars are spent. In Telegram this is the native payment sheet.', close: 'Close',
     err: 'Something went wrong', slotTaken: 'This time was just taken, please choose another one', reopen: 'Session expired. Reopen the app',
     today: 'Today', tomorrow: 'Tomorrow',
+    consentFirst: 'Press the consent button in the bot chat first, then open the app again.',
     liveOn: 'Live payment in the provider test shop. Left today: {n}', liveOff: 'Live limit for today is used up, showing the demo mode',
   },
   ru: {
@@ -36,6 +37,7 @@ const dict = {
     starsNote: 'Демо: настоящие Stars не списываются. В Telegram здесь нативное окно оплаты.', close: 'Закрыть',
     err: 'Что-то пошло не так', slotTaken: 'Это время только что заняли, выберите другое', reopen: 'Сессия истекла, откройте приложение заново',
     today: 'Сегодня', tomorrow: 'Завтра',
+    consentFirst: 'Сначала нажмите «Согласен, начать» в чате бота, затем откройте запись снова.',
     liveOn: 'Живая оплата: тестовый магазин ЮKassa. Осталось сегодня: {n}', liveOff: 'Живой лимит на сегодня исчерпан, показываем демо-режим',
   },
 }

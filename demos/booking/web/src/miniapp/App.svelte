@@ -71,7 +71,8 @@
       else if (q.get('screen') === 'my') await openMy()
       ready = true
     } catch (e) {
-      fatal = tg.initData() ? L('reopen') : 'Open this app from the Telegram bot (or the demo emulator).'
+      if (e instanceof ApiError && e.code === 'consent_required') fatal = t('ru', 'consentFirst')
+      else fatal = tg.initData() ? L('reopen') : 'Open this app from the Telegram bot (or the demo emulator).'
     }
   })
   onDestroy(() => { clearInterval(timer); clearInterval(poller); window.removeEventListener('message', onMessage) })

@@ -96,7 +96,7 @@ func (a *App) Seed() error {
 				sl := slots[rng.Intn(len(slots))]
 				b := &Booking{UserID: EmulatorUserBase + 500 + int64(rng.Intn(1000)), ClientName: clients[rng.Intn(len(clients))],
 					ServiceID: sid, MasterID: m.ID, StartAt: sl.Start, EndAt: sl.Start + int64(svc.DurationMin)*60,
-					Status: "confirmed", Lang: a.cfg.Lang, CreatedAt: sl.Start - int64(2+rng.Intn(10))*86400}
+					Status: "confirmed", Lang: a.cfg.Lang, CreatedAt: max(sl.Start-int64(1+rng.Intn(5))*86400, now-6*86400)}
 				if a.cfg.Edition == "intl" && rng.Intn(2) == 0 {
 					b.PayMethod, b.PayCurrency, b.PayAmount = "stars", "XTR", a.deposit(svc.PriceStars, 1)
 				} else {

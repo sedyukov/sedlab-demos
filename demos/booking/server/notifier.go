@@ -19,12 +19,14 @@ type Notifier interface {
 //
 // Emulator users don't exist in Telegram, so in live mode only the outbox gets their messages.
 func (a *App) tell(ctx context.Context, userID int64, kind, text string, btn *WebAppButton, idemKey string) {
-	m := &Message{ChatID: userID, Text: text, Kind: kind}
-	if btn != nil {
-		m.Button = mustJSON(btn)
-	}
-	if err := a.store.AddMessage(m); err != nil {
-		a.log.Error("outbox", "err", err)
+	if isEmulatorUser(userID) { // the emulator's chat pane reads this outbox; real chats live in the messenger only
+		m := &Message{ChatID: userID, Text: text, Kind: kind}
+		if btn != nil {
+			m.Button = mustJSON(btn)
+		}
+		if err := a.store.AddMessage(m); err != nil {
+			a.log.Error("outbox", "err", err)
+		}
 	}
 	platform := a.platformOf(userID)
 	if isEmulatorUser(userID) && ((platform == "telegram" && a.cfg.TelegramLive) || (platform == "max" && a.cfg.MaxLive)) {
@@ -37,7 +39,9 @@ func (a *App) tell(ctx context.Context, userID int64, kind, text string, btn *We
 	}
 	if btn != nil {
 		b := notify.Button{Text: btn.Text, WebApp: btn.URL}
-		if platform == "max" { // open_app targets the bot; the screen goes in the payload → start_param
+		if btn.Data != "" {
+			b = notify.Button{Text: btn.Text, Data: btn.Data}
+		} else if platform == "max" { // open_app targets the bot; the screen goes in the payload → start_param
 			b.WebApp, b.Payload = a.max.botName, screenOf(btn.URL)
 		}
 		rm, err := notify.InlineKeyboard([][]notify.Button{{b}})

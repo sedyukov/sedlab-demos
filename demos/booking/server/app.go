@@ -98,6 +98,7 @@ func (a *App) Routes() http.Handler {
 		mux.HandleFunc("POST /demo/initdata", a.handleDemoInitData)
 		mux.HandleFunc("GET /demo/chat", a.handleDemoChat)
 		mux.HandleFunc("POST /demo/send", a.handleDemoSend)
+		mux.HandleFunc("POST /demo/callback", a.handleDemoCallback)
 		mux.HandleFunc("POST /demo/stars/pay", a.authed(a.handleDemoStarsPay))
 		mux.HandleFunc("POST /demo/reminders/run", a.authed(a.handleDemoRunReminders))
 	}
@@ -196,8 +197,13 @@ func (a *App) handleAuth(w http.ResponseWriter, r *http.Request) {
 		writeErr(w, 401, "unauthenticated", "invalid initData")
 		return
 	}
+	if a.needsConsent(u.ID) { // RU: the bot asks "Согласен, начать" first (legal bot-v1)
+		writeErr(w, 403, "consent_required", "open the bot chat and press the consent button first")
+		return
+	}
 	name := u.FirstName
-	if !a.cfg.PDAllowed && !emulated { // host outside RU: real users' names stay in the session only
+	// real Telegram users: never stored (RU: test data only; INTL host is outside RU); emulator names are typed test data
+	if !emulated && (!a.cfg.PDAllowed || m.Platform() == "telegram") {
 		name = ""
 	}
 	if err := a.store.UpsertUser(u.ID, name, "" /* username not stored */, a.userLangOr(u.ID, u.Lang), m.Platform()); err != nil {

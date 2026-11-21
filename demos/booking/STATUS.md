@@ -27,6 +27,10 @@ Until the RU host exists, `infra/compose/booking` (DO) serves the RU edition wit
 - Personal data: the public demo stores no phone/username/real names; daily reset (DEMO_RESET). README: 152-FZ note
   (RU clients → Russian VPS + Russian S3).
 
+- Legal v2 (2a131ec): RU bots ask consent bot-v1 ("Согласен, начать", callback button) before storing anything, the Mini App
+  API returns 403 consent_required until then; /delete wipes the chat's data; background purge ≤ 7 days (both editions);
+  real Telegram users' names are never stored; INTL welcome carries "Demo: use test data only…". Tests: TestConsentDeleteRetention.
+
 ## Left
 - RU edition move: `deploy.sh booking-ru --tag sha-…` on freelance-ru + A record `booking.demo` → RU host; then `deploy.sh rm booking` on DO.
 - accounts (RU) is wired: `server/accounts.go` (mode → consume → live YooKassa TEST shop, refund on failure, fail-closed to

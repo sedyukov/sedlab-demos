@@ -62,9 +62,15 @@
     initData = r.init_data
     const changed = userId !== r.user_id
     userId = r.user_id
-    const a = await post('/api/auth', { init_data: initData, platform: r.platform })
-    token = a.token
+    await authApi(r.platform)
     if (changed) { messages = []; await loadChat(true) }
+  }
+
+  // RU: the Mini App API is closed until the consent button is pressed in the chat (legal bot-v1)
+  let authPlatform = 'telegram'
+  async function authApi(p) {
+    authPlatform = p || authPlatform
+    try { token = (await post('/api/auth', { init_data: initData, platform: authPlatform })).token } catch { token = '' }
   }
 
   async function loadChat(first = false) {
@@ -94,6 +100,11 @@
     if (platform === 'max' && persona === 'guest') u.searchParams.set('platform', 'max')
     appUrl = u.pathname + u.search + '#tgWebAppData=' + encodeURIComponent(initData) + '&tgWebAppVersion=8.0&tgWebAppPlatform=unknown'
   }
+  async function pressButton(data) {
+    await post('/demo/callback', { user: userId, data })
+    await authApi()
+    await loadChat()
+  }
   function openAdmin() { window.open('/admin/#tgWebAppData=' + encodeURIComponent(initData), '_blank', 'noopener') }
 
   async function remindNow() {
@@ -105,7 +116,10 @@
   function flash(m) { notice = m; setTimeout(() => (notice = ''), 3000) }
 
   // safe subset of Telegram HTML: escape everything, then allow <b>
-  const render = (s) => s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/&lt;(\/?)b&gt;/g, '<$1b>').replace(/\n/g, '<br>')
+  const render = (s) => s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+    .replace(/&lt;(\/?)b&gt;/g, '<$1b>')
+    .replace(/&lt;a href="(https:\/\/[^"<>\s]+)"&gt;([^<]*?)&lt;\/a&gt;/g, '<a href="$1" target="_blank" rel="noopener">$2</a>')
+    .replace(/\n/g, '<br>')
   const btnOf = (m) => { try { return m.button ? JSON.parse(m.button) : null } catch { return null } }
   const time = (ts) => new Date(ts * 1000).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
 
@@ -202,7 +216,7 @@
           {@const b = btnOf(m)}
           <div class="msg" class:me={m.kind === 'user'}>
             <div class="bubble">{@html render(m.text)}<span class="ts">{time(m.created_at)}</span></div>
-            {#if b}<button class="inline-btn" onclick={() => openApp(b.url)}>{b.text}</button>{/if}
+            {#if b}<button class="inline-btn" onclick={() => (b.data ? pressButton(b.data) : openApp(b.url))}>{b.text}</button>{/if}
           </div>
         {/each}
       </div>

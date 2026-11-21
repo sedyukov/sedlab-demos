@@ -54,7 +54,15 @@ async function payByCard() {
 
 const closeApp = () => page.locator('.ma-head button').click()
 
+async function consentIfAsked() {
+  if (ED !== 'ru') return
+  const btn = page.getByRole('button', { name: 'Согласен, начать' }).last()
+  await btn.waitFor(); await pause(1000)
+  await btn.click(); step('consent bot-v1 pressed')
+}
+
 await page.goto(BASE)
+await consentIfAsked()
 await page.getByRole('button', { name: T.book }).last().waitFor()
 step('welcome message in chat'); await pause(1200)
 await shot(page, `01-emulator-chat-${SFX}.png`)
@@ -95,6 +103,7 @@ if (ED === 'intl') {
   // Max
   await page.getByRole('button', { name: 'Max', exact: true }).click()
   await page.locator('.chat-head', { hasText: 'Max' }).waitFor()
+  await consentIfAsked()
   await page.getByRole('button', { name: T.book }).last().waitFor(); await pause(1000)
   await pickSlot('Мужская стрижка', T.any, 0)
   await app().getByRole('button', { name: T.next }).click(); await pause(600)
@@ -103,6 +112,7 @@ if (ED === 'intl') {
   await closeApp()
   await page.locator('.bubble', { hasText: T.chatBooked }).last().waitFor(); await pause(800)
   await page.getByRole('button', { name: 'Telegram', exact: true }).click(); await pause(500)
+  await page.getByRole('button', { name: T.book }).last().waitFor()
   // accounts: until the auth service is up the sign-in button is a stub that explains it
   await page.getByRole('button', { name: 'Войти и попробовать вживую' }).click()
   await page.locator('.notice', { hasText: 'сервиса аккаунтов' }).waitFor(); step('accounts sign-in stub')

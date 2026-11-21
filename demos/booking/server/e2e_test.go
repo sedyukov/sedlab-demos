@@ -100,6 +100,9 @@ func (h *harness) login(persona string, guest int64, lang string) (string, int64
 	if code != 200 {
 		h.t.Fatalf("initdata %d %v", code, r)
 	}
+	if h.app.cfg.Edition == "ru" && persona == "guest" { // RU: consent pressed in the bot chat first
+		h.app.store.SetConsent(int64(r["user_id"].(float64)), consentVersion, "telegram", h.now.Unix())
+	}
 	code, a := h.do("POST", "/api/auth", "", map[string]any{"init_data": r["init_data"]})
 	if code != 200 {
 		h.t.Fatalf("auth %d %v", code, a)
@@ -335,21 +338,29 @@ func TestMaxFlow(t *testing.T) {
 		t.Fatalf("max initdata %d %v", code, r)
 	}
 	uid := int64(r["user_id"].(float64))
+	// RU: no consent yet → the Mini App is refused
+	if code, _ := h.do("POST", "/api/auth", "", map[string]any{"init_data": r["init_data"], "platform": "max"}); code != 403 {
+		t.Fatalf("auth without consent: %d", code)
+	}
 	// Telegram must not accept Max launch data (different sandbox tokens)
 	if code, _ := h.do("POST", "/api/auth", "", map[string]any{"init_data": r["init_data"]}); code != 401 {
 		t.Fatalf("telegram accepted max initData: %d", code)
+	}
+	// /start → consent prompt (callback button); pressing it → welcome
+	h.do("POST", "/demo/send", "", map[string]any{"user": uid, "first_name": "Олег", "lang": "ru", "text": "/start"})
+	if msgs := h.chat(uid); len(msgs) != 2 || !strings.Contains(msgs[1]["text"].(string), "Согласен, начать") || !strings.Contains(msgs[1]["button"].(string), consentData) {
+		t.Fatalf("consent prompt: %v", msgs)
+	}
+	if code, _ := h.do("POST", "/demo/callback", "", map[string]any{"user": uid, "data": consentData}); code != 200 {
+		t.Fatalf("callback %d", code)
 	}
 	code, a := h.do("POST", "/api/auth", "", map[string]any{"init_data": r["init_data"], "platform": "max"})
 	if code != 200 || a["platform"] != "max" {
 		t.Fatalf("max auth %d %v", code, a)
 	}
 	tok := a["token"].(string)
-	// /start typed in the emulator goes through max-core's webhook parsing
-	if code, _ := h.do("POST", "/demo/send", "", map[string]any{"user": uid, "first_name": "Олег", "lang": "ru", "text": "/start"}); code != 200 {
-		t.Fatalf("max send %d", code)
-	}
-	if msgs := h.chat(uid); len(msgs) != 2 || !strings.Contains(msgs[1]["text"].(string), "Олег") {
-		t.Fatalf("max welcome: %v", msgs)
+	if msgs := h.chat(uid); len(msgs) != 3 || !strings.Contains(msgs[2]["text"].(string), "Олег") {
+		t.Fatalf("max welcome after consent: %v", msgs)
 	}
 	b := h.book(tok, "2026-11-24")
 	id := int64(b["id"].(float64))
@@ -365,7 +376,7 @@ func TestMaxFlow(t *testing.T) {
 	}
 	// confirmation went to the notify "max" channel (open_app button), not to Telegram
 	md, _ := h.notify.ListDeliveries("max")
-	if len(md) != 2 { // welcome + confirmation
+	if len(md) != 3 { // consent prompt + welcome + confirmation
 		t.Fatalf("max deliveries: %d", len(md))
 	}
 	if d, _ := h.notify.ListDeliveries("telegram"); len(d) != 1 { // owner alert only (owner persona is in Telegram)
@@ -458,5 +469,44 @@ func TestRuLiveModeViaAccounts(t *testing.T) {
 	payOnce(it.Token)
 	if p := payOnce(it.Token); p["live"] != false || p["live_reason"] != "user_daily" {
 		t.Fatalf("over limit: %v", p)
+	}
+}
+
+// RU bots: consent before anything is stored, /delete wipes the chat's data, retention ≤ 7 days.
+func TestConsentDeleteRetention(t *testing.T) {
+	h := newHarness(t, "ru")
+	tok, uid := h.login("guest", 31, "ru") // consent set by the helper
+	b := h.book(tok, "2026-11-24")
+	h.do("POST", "/demo/send", "", map[string]any{"user": uid, "first_name": "Тест", "text": "/delete"})
+	if _, err := h.app.store.Booking(int64(b["id"].(float64))); err == nil {
+		t.Fatal("/delete kept the booking")
+	}
+	if h.app.store.HasConsent(uid) {
+		t.Fatal("/delete kept the consent")
+	}
+	if msgs := h.chat(uid); len(msgs) != 1 || !strings.Contains(msgs[0]["text"].(string), "данные этого чата удалены") {
+		t.Fatalf("delete reply: %v", msgs)
+	}
+	// retention: anything created more than 7 days ago is purged by the background tick
+	_, uid2 := h.login("guest", 32, "ru")
+	h.app.store.db.Exec(`UPDATE users SET created_at=? WHERE id=?`, h.now.Add(-8*24*time.Hour).Unix(), uid2)
+	h.app.tick(t.Context())
+	if h.app.store.HasConsent(uid2) {
+		t.Fatal("old user not purged")
+	}
+	var old int
+	h.app.store.db.QueryRow(`SELECT COUNT(*) FROM bookings WHERE created_at<?`, h.now.Add(-7*24*time.Hour).Unix()).Scan(&old)
+	if old != 0 {
+		t.Fatalf("%d bookings older than 7 days", old)
+	}
+}
+
+func TestIntlNoConsentNoNames(t *testing.T) {
+	h := newHarness(t, "intl")
+	_, uid := h.login("guest", 41, "en")
+	h.do("POST", "/demo/send", "", map[string]any{"user": uid, "first_name": "Tester", "text": "/start"})
+	msgs := h.chat(uid)
+	if len(msgs) != 2 || !strings.Contains(msgs[1]["text"].(string), "Nothing is stored after the session") {
+		t.Fatalf("intl welcome: %v", msgs)
 	}
 }

@@ -122,6 +122,42 @@ func (a *App) handleDemoSend(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, 200, map[string]any{"ok": true})
 }
 
+// POST /demo/callback {user, data} — the emulator user presses an inline (callback) button.
+func (a *App) handleDemoCallback(w http.ResponseWriter, r *http.Request) {
+	var in struct {
+		User int64  `json:"user"`
+		Data string `json:"data"`
+	}
+	if !readJSON(w, r, &in) {
+		return
+	}
+	if !isEmulatorUser(in.User) || in.Data == "" || len(in.Data) > 64 {
+		writeErr(w, 400, "invalid_argument", "bad callback")
+		return
+	}
+	a.mu.Lock()
+	a.updSeq++
+	upd := a.updSeq
+	a.mu.Unlock()
+	var err error
+	if a.platformOf(in.User) == "max" {
+		body := maxEmulatorCallback(in.User, fmt.Sprintf("cb.emu.%d", upd), in.Data, a.now().Unix())
+		err = a.processUpdateOn(r.Context(), a.max, map[string]string{"X-Max-Bot-Api-Secret": a.cfg.MaxSecret}, body)
+	} else {
+		body := mustJSON(map[string]any{
+			"update_id": 900_000_000 + upd,
+			"callback_query": map[string]any{"id": fmt.Sprintf("cb%d", upd), "data": in.Data,
+				"from": map[string]any{"id": in.User}, "message": map[string]any{"chat": map[string]any{"id": in.User}}},
+		})
+		err = a.processUpdate(r.Context(), map[string]string{"X-Telegram-Bot-Api-Secret-Token": a.cfg.WebhookSecret}, []byte(body))
+	}
+	if err != nil {
+		a.fail(w, err)
+		return
+	}
+	writeJSON(w, 200, map[string]any{"ok": true})
+}
+
 // POST /demo/stars/pay {booking_id} — the emulator's Stars sheet "Pay" button: telegram-core MockStarsPayment
 // produces pre_checkout_query + successful_payment updates which go through the regular webhook handler.
 func (a *App) handleDemoStarsPay(w http.ResponseWriter, r *http.Request) {

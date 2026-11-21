@@ -47,6 +47,8 @@ CREATE TABLE IF NOT EXISTS users (
   first_name TEXT NOT NULL DEFAULT '', username TEXT NOT NULL DEFAULT '',
   lang TEXT NOT NULL DEFAULT 'en',
   platform TEXT NOT NULL DEFAULT 'telegram',  -- telegram | max
+  consent_at INTEGER NOT NULL DEFAULT 0,      -- RU bots: "Согласен, начать" (legal bot-v1)
+  consent_ver TEXT NOT NULL DEFAULT '',
   created_at INTEGER NOT NULL
 );
 CREATE TABLE IF NOT EXISTS bookings (
@@ -91,6 +93,8 @@ func OpenStore(path string) (*Store, error) {
 		return nil, fmt.Errorf("schema: %w", err)
 	}
 	db.Exec(`ALTER TABLE bookings ADD COLUMN pay_live INTEGER NOT NULL DEFAULT 0`)
+	db.Exec(`ALTER TABLE users ADD COLUMN consent_at INTEGER NOT NULL DEFAULT 0`)
+	db.Exec(`ALTER TABLE users ADD COLUMN consent_ver TEXT NOT NULL DEFAULT ''`)
 	db.Exec(`ALTER TABLE services ADD COLUMN price_usd INTEGER NOT NULL DEFAULT 0`) // older DBs; error = already there
 	return &Store{db: db}, nil
 }
@@ -576,8 +580,42 @@ func (s *Store) SetMeta(k, v string) error {
 }
 
 func (s *Store) Wipe() error {
-	_, err := s.db.Exec(`DELETE FROM bookings; DELETE FROM messages; DELETE FROM hours; DELETE FROM master_services; DELETE FROM masters; DELETE FROM services; DELETE FROM meta;`)
+	_, err := s.db.Exec(`DELETE FROM bookings; DELETE FROM messages; DELETE FROM users; DELETE FROM hours; DELETE FROM master_services; DELETE FROM masters; DELETE FROM services; DELETE FROM meta;`)
 	return err
+}
+
+// ---- consent and data deletion (legal: bot-v1 consent, /delete, ≤7 days retention) ----
+
+func (s *Store) SetConsent(id int64, ver, platform string, now int64) error {
+	_, err := s.db.Exec(`INSERT INTO users(id,platform,consent_at,consent_ver,created_at) VALUES(?,?,?,?,?)
+		ON CONFLICT(id) DO UPDATE SET consent_at=excluded.consent_at, consent_ver=excluded.consent_ver`, id, platform, now, ver, now)
+	return err
+}
+
+func (s *Store) HasConsent(id int64) bool {
+	var at int64
+	s.db.QueryRow(`SELECT consent_at FROM users WHERE id=?`, id).Scan(&at)
+	return at > 0
+}
+
+// DeleteUserData removes everything stored about one chat user (/delete).
+func (s *Store) DeleteUserData(id int64) error {
+	_, err := s.db.Exec(`DELETE FROM bookings WHERE user_id=?; DELETE FROM messages WHERE chat_id=?; DELETE FROM users WHERE id=?;`, id, id, id)
+	return err
+}
+
+// Purge deletes demo data older than the retention window (bookings by creation, chat, users without activity).
+func (s *Store) Purge(before int64) (int64, error) {
+	res, err := s.db.Exec(`DELETE FROM bookings WHERE created_at<?`, before)
+	if err != nil {
+		return 0, err
+	}
+	n, _ := res.RowsAffected()
+	if _, err := s.db.Exec(`DELETE FROM messages WHERE created_at<?`, before); err != nil {
+		return n, err
+	}
+	_, err = s.db.Exec(`DELETE FROM users WHERE created_at<? AND id NOT IN (SELECT user_id FROM bookings)`, before)
+	return n, err
 }
 
 func mustAffect(res sql.Result, err error) error {

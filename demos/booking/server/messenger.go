@@ -24,6 +24,7 @@ type Messenger interface {
 	RefundStars(ctx context.Context, userID int64, chargeID string) error
 	ParseUpdate(ctx context.Context, headers map[string]string, body []byte) (*Update, error)
 	SetWebhook(ctx context.Context, url string) error
+	AnswerCallback(ctx context.Context, callbackID, text string) error
 	// Sessions for the Mini App API after launch-data validation.
 	IssueSession(u *WebUser, ttl time.Duration) (token string, exp int64, err error)
 	VerifySession(token string) (userID int64, err error)
@@ -36,6 +37,8 @@ type Update struct {
 	Kind               string // message | command | callback_query | pre_checkout_query | successful_payment | other
 	ChatID, UserID     int64
 	Text, Command      string
+	Data               string // callback data
+	CallbackQueryID    string
 	PreCheckoutQueryID string
 	Payment            *tg.Payment // Telegram Stars only
 	Duplicate          bool
@@ -50,9 +53,11 @@ type WebUser struct {
 	Lang      string
 }
 
+// WebAppButton is one inline button: a Mini App button (URL) or a callback button (Data).
 type WebAppButton struct {
 	Text string `json:"text"`
-	URL  string `json:"url"`
+	URL  string `json:"url,omitempty"`
+	Data string `json:"data,omitempty"`
 }
 
 type StarsInvoice struct {
@@ -153,6 +158,7 @@ func (m *telegramMessenger) ParseUpdate(ctx context.Context, headers map[string]
 		return nil, err
 	}
 	return &Update{Kind: u.Kind, ChatID: u.ChatID, UserID: u.UserID, Text: u.Text, Command: u.Command,
+		Data: u.Data, CallbackQueryID: u.CallbackQueryID,
 		PreCheckoutQueryID: u.PreCheckoutQueryID, Payment: u.Payment, Duplicate: u.Duplicate}, nil
 }
 
@@ -176,6 +182,14 @@ func (m *telegramMessenger) VerifySession(token string) (int64, error) {
 // ready webhook requests (pre_checkout_query, successful_payment) with the secret header.
 func (m *telegramMessenger) EmulatorStarsPayment(userID int64, payload string, amount int64) (*tg.MockStarsPayment, error) {
 	return m.emu.MockStarsPayment(tg.MockStarsPaymentInput{UserID: userID, Payload: payload, Amount: amount})
+}
+
+func (m *telegramMessenger) AnswerCallback(ctx context.Context, id, text string) error {
+	if id == "" {
+		return nil
+	}
+	_, err := m.bot.AnswerCallbackQuery(ctx, tg.AnswerCallbackInput{CallbackQueryID: id, Text: text})
+	return err
 }
 
 func (m *telegramMessenger) SetWebhook(ctx context.Context, url string) error {
