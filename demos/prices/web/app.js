@@ -482,7 +482,10 @@
   });
 
   document.addEventListener('change', function (ev) {
-    if (ev.target.id === 'ownConsent') $('ownBtn').disabled = !ev.target.checked;
+    if (ev.target.id === 'ownConsent') {
+      $('ownBtn').disabled = !ev.target.checked;
+      if (ev.target.checked) api('POST', '/api/consent', { version: 'prices-v1' }).catch(function () {}); // journal; never blocks
+    }
   });
 
   document.addEventListener('submit', function (ev) {

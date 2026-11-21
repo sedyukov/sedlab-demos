@@ -96,6 +96,7 @@ func NewServer(app *App, g *Guard) *Server {
 	s.mux.HandleFunc("POST /api/competitors/remove", s.with(s.removeCompetitor))
 	s.mux.HandleFunc("POST /api/report/send", s.with(s.sendReport))
 	s.mux.HandleFunc("POST /api/reviews", s.with(s.addReview))
+	s.mux.HandleFunc("POST /api/consent", s.with(s.consent))
 	s.mux.HandleFunc("POST /api/reviews/{id}/draft", s.with(s.draft))
 	s.mux.HandleFunc("POST /api/reviews/{id}/answer", s.with(s.answer))
 	s.mux.HandleFunc("GET /api/export.csv", s.with(s.exportCSV))
@@ -425,6 +426,36 @@ func (s *Server) sendReport(w http.ResponseWriter, r *http.Request, sess *Sessio
 		return
 	}
 	writeJSON(w, http.StatusOK, map[string]any{"message": m, "messages": sess.messages})
+}
+
+// consent: the prices-v1 checkbox was ticked. Kept in the session for everyone; for signed-in visitors (RU) it is
+// also written to the auth consent journal (accounts.RecordConsent). Never blocks: auth errors are only logged.
+func (s *Server) consent(w http.ResponseWriter, r *http.Request, sess *Session, lang string) {
+	var in struct {
+		Version string `json:"version"`
+	}
+	if err := readJSON(r, &in); err != nil || in.Version != ConsentPrices {
+		apiErr(w, http.StatusBadRequest, "invalid_argument", "version must be "+ConsentPrices)
+		return
+	}
+	sess.consent = &Consent{Version: ConsentPrices, At: time.Now().UTC().Format(time.RFC3339)}
+	journal := "session"
+	if s.App.Acc != nil {
+		if tok := s.App.Acc.TokenFromRequest(r.Header); tok != "" {
+			ctx, cancel := context.WithTimeout(r.Context(), 5*time.Second)
+			res, err := s.App.Acc.RecordConsent(ctx, accounts.RecordConsentInput{Token: tok, Kind: "prices", Version: ConsentPrices})
+			cancel()
+			switch {
+			case err != nil:
+				s.App.Log.Warn("consent journal unavailable", "err", err.Error()) // module errors carry no token
+			case res.OK:
+				journal = "auth"
+				sess.consent.At = res.RecordedAt
+			}
+		}
+	}
+	s.App.Log.Info("consent", "version", ConsentPrices, "journal", journal, "session", sess.ID[:8])
+	writeJSON(w, http.StatusOK, map[string]any{"consent": sess.consent, "journal": journal})
 }
 
 // addReview: the visitor pastes a review (RU edition: prices-v1 consent checkbox is required).

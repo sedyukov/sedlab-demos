@@ -3,6 +3,8 @@ package main
 import (
 	"context"
 	"encoding/json"
+	accounts "github.com/sedyukov/sedlab-modules/modules/accounts/go"
+	accountskit "github.com/sedyukov/sedlab-modules/modules/accounts/go/kit"
 	"io"
 	"log/slog"
 	"net/http"
@@ -301,6 +303,7 @@ func TestReviewDraftAndAnswer(t *testing.T) {
 // ---- HTTP ----
 
 type client struct {
+	app *App
 	t   *testing.T
 	srv *httptest.Server
 	jar []*http.Cookie
@@ -335,7 +338,7 @@ func newTestServer(t *testing.T, edition string) *client {
 	g := DefaultGuard()
 	srv := httptest.NewServer(NewServer(app, g))
 	t.Cleanup(srv.Close)
-	return &client{t: t, srv: srv}
+	return &client{t: t, srv: srv, app: app}
 }
 
 func TestHTTPFlow(t *testing.T) {
@@ -525,5 +528,44 @@ func TestHTTPOwnReviewNeedsConsent(t *testing.T) {
 	code, st := c.do("POST", "/api/reviews", `{"product_id":"prod_1","rating":4,"text":"Хороший чай","consent":"prices-v1"}`)
 	if code != 200 || st["consent"] == nil || st["unanswered"].(float64) != 5 {
 		t.Fatalf("own review: %d %v", code, st["unanswered"])
+	}
+}
+
+func TestHTTPConsentEndpoint(t *testing.T) {
+	c := newTestServer(t, EditionRU)
+	if code, _ := c.do("POST", "/api/consent", `{"version":"x"}`); code != 400 {
+		t.Fatalf("bad version: %d", code)
+	}
+	code, m := c.do("POST", "/api/consent", `{"version":"prices-v1"}`)
+	if code != 200 || m["journal"] != "session" || m["consent"] == nil {
+		t.Fatalf("consent: %d %v", code, m)
+	}
+}
+
+// Signed-in visitor: the consent goes to the accounts journal (mock provider here).
+func TestConsentJournalSignedIn(t *testing.T) {
+	env := map[string]string{"X_PROVIDER": "mock", "X_DEMO": "prices"}
+	acc, err := accounts.FromEnv(accountskit.Env{Prefix: "X_", Lookup: func(k string) (string, bool) { v, ok := env[k]; return v, ok }})
+	if err != nil {
+		t.Fatal(err)
+	}
+	c := newTestServer(t, EditionRU)
+	c.app.Acc = acc
+	tok, err := acc.Mock().IssueToken(accounts.IssueTokenInput{UserID: "u1", SID: "s1", Prov: "max"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	c.jar = []*http.Cookie{{Name: "sl_auth", Value: tok.Token}}
+	code, m := c.do("POST", "/api/consent", `{"version":"prices-v1"}`)
+	if code != 200 || m["journal"] != "auth" {
+		t.Fatalf("journal: %d %v", code, m)
+	}
+	if n := len(acc.Mock().Consents("u1")); n != 1 {
+		t.Fatalf("consents in journal: %d", n)
+	}
+	// auth down: the checkbox still works (session only)
+	acc.Mock().SetUnavailable(true)
+	if code, m := c.do("POST", "/api/consent", `{"version":"prices-v1"}`); code != 200 || m["journal"] != "session" {
+		t.Fatalf("outage: %d %v", code, m)
 	}
 }
