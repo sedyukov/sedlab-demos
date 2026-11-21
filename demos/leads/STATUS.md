@@ -47,7 +47,7 @@ EN-версия https://leads-en.demo.sedlab.dev (EDITION=intl, freelance-1).
 - Переезд RU: `infra/deploy.sh leads-ru --host freelance-ru --tag sha-<7>`, затем A-запись `leads.demo → IP freelance-ru` в Cloudflare,
   `check-demos.sh leads-ru --host freelance-ru`, потом `deploy.sh rm leads` на freelance-1 и удалить `infra/compose/leads`.
 - Таблица RU: провайдер Яндекс Диск (XLSX) от s2 → подключить в профилях `ru` и `ru_b24` (env `RU_SHEETS_*`, `RU_B24_SHEETS_*`).
-- Битрикс24 live от s2 → env `RU_B24_CRM_*` (имена уточнить).
+- Битрикс24 live (crm 1fcaa49) готов к включению: `RU_B24_CRM_PROVIDER=bitrix24`, `RU_B24_CRM_BITRIX24_WEBHOOK_URL` (секрет), `..._ENTITY`, `..._CATEGORY_ID`, `..._APP_TOKEN`; тест `TestBitrix24LiveByEnv`. По умолчанию mock.
 - Модуль accounts (sedlab-modules a027917): интеграция позже, вместе с сессией accounts. **На проде обязательно `ACCOUNTS_PROVIDER=http`**,
   на mock живой режим принудительно выключен.
 - После подъёма RU-VPS: RU-провайдеры через ru-relay, `RU_PAYMENTS_YOOKASSA_BASE_URL=https://<relay>/yookassa/v3`,

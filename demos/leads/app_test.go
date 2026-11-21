@@ -599,3 +599,22 @@ func TestRUEditionLogIsRussian(t *testing.T) {
 		}
 	}
 }
+
+// Live Bitrix24 is switched on per profile by env (RU_B24_CRM_*); the amoCRM stack stays on its own settings.
+func TestBitrix24LiveByEnv(t *testing.T) {
+	env := map[string]string{"RU_B24_CRM_PROVIDER": "bitrix24", "RU_B24_CRM_BITRIX24_WEBHOOK_URL": "https://portal.example/rest/1/token/"}
+	ps, err := LoadProfiles(func(k string) (string, bool) { v, ok := env[k]; return v, ok }, EditionRU)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if ps["ru_b24"].Modes.CRM != "live" || ps["ru_b24"].shared.CRM.Name() != "bitrix24" {
+		t.Fatalf("ru_b24 crm: %s %v", ps["ru_b24"].Modes.CRM, ps["ru_b24"].shared.CRM)
+	}
+	if ps["ru"].Modes.CRM != "mock" {
+		t.Fatalf("ru crm must stay mock: %s", ps["ru"].Modes.CRM)
+	}
+	delete(env, "RU_B24_CRM_BITRIX24_WEBHOOK_URL")
+	if _, err := LoadProfiles(func(k string) (string, bool) { v, ok := env[k]; return v, ok }, EditionRU); err == nil {
+		t.Fatal("missing webhook URL must be a config error")
+	}
+}
