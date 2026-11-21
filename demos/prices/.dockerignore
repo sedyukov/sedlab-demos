@@ -1,0 +1,8 @@
+e2e
+media
+*.md
+Dockerfile
+deploy
+.modules-src/.git
+.modules-src/**/python
+.modules-src/**/tests

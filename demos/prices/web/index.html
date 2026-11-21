@@ -1,0 +1,107 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Мониторинг цен WB и Ozon · демо</title>
+<meta name="description" content="Live demo: competitor prices and stock on Wildberries and Ozon, history charts, price recommendations, a daily report to Telegram / Max and a sheet, AI drafts of replies to reviews.">
+<meta property="og:title" content="Price monitoring on Wildberries and Ozon · live demo">
+<meta property="og:description" content="Competitor prices and stock, charts, daily report, export to a sheet, AI replies to reviews.">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='8' fill='%237a3ff2'/%3E%3Cpath d='M6 22l6-7 5 4 9-10' fill='none' stroke='white' stroke-width='3' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E">
+<link rel="stylesheet" href="/style.css">
+</head>
+<body>
+<header class="top">
+  <div class="brand">
+    <span class="logo" aria-hidden="true"></span>
+    <div>
+      <h1 data-i18n="title">Мониторинг цен WB и Ozon</h1>
+      <p class="tag" data-i18n="tagline">Цены и остатки конкурентов, графики, рекомендации, отчёт в мессенджер и таблицу, ответы на отзывы</p>
+    </div>
+  </div>
+  <div class="controls">
+    <a class="ghost edlink" id="otherEdition" hidden></a>
+    <div class="seg small" role="radiogroup" aria-label="Language" id="langSeg" hidden>
+      <button role="radio" data-lang="ru" aria-checked="true">RU</button>
+      <button role="radio" data-lang="en" aria-checked="false">EN</button>
+    </div>
+  </div>
+</header>
+
+<section class="bar">
+  <div class="bar-info">
+    <div class="asof"><span data-i18n="asOf">Данные на</span> <b id="asOf">…</b></div>
+    <div class="hint" id="schedule"></div>
+  </div>
+  <div class="bar-actions">
+    <button class="ghost" id="resetBtn" data-i18n="reset">Сбросить</button>
+    <button class="primary" id="refreshBtn"><span class="spin" aria-hidden="true"></span><span data-i18n="refresh">Обновить сейчас</span></button>
+  </div>
+</section>
+
+<section class="kpis" id="kpis" aria-label="Summary"></section>
+
+<nav class="tabs" role="tablist" id="tabs">
+  <button role="tab" data-tab="prices" aria-selected="true" data-i18n="tabPrices">Цены</button>
+  <button role="tab" data-tab="report" aria-selected="false"><span data-i18n="tabReport">Отчёт</span></button>
+  <button role="tab" data-tab="sheet" aria-selected="false" data-i18n="tabSheet">Таблица</button>
+  <button role="tab" data-tab="reviews" aria-selected="false"><span data-i18n="tabReviews">Отзывы</span> <span class="count" id="revCount"></span></button>
+  <button role="tab" data-tab="log" aria-selected="false" data-i18n="tabLog">Журнал сбора</button>
+</nav>
+
+<main>
+  <section class="panel" data-panel="prices" id="products"></section>
+
+  <section class="panel" data-panel="report" hidden>
+    <div class="card">
+      <div class="card-h">
+        <div>
+          <h2 data-i18n="reportTitle">Ежедневный отчёт</h2>
+          <p class="hint" data-i18n="reportHint">Уходит каждое утро после сбора. В демо отправка идёт в тестовый режим: сообщение никуда не уходит, видно, что получил бы менеджер.</p>
+        </div>
+        <div class="send" id="sendBtns"></div>
+      </div>
+      <pre class="report" id="reportText"></pre>
+    </div>
+    <div class="card">
+      <h2 data-i18n="sentTitle">Отправленные</h2>
+      <div id="messages" class="messages"></div>
+    </div>
+  </section>
+
+  <section class="panel" data-panel="sheet" hidden>
+    <div class="card">
+      <div class="card-h">
+        <div>
+          <h2 id="sheetTitle"></h2>
+          <p class="hint" id="sheetHint"></p>
+        </div>
+        <a class="ghost btn" id="csvBtn" href="/api/export.csv" download data-i18n="csv">Скачать CSV</a>
+      </div>
+      <div class="tablewrap"><table class="sheet" id="sheet"></table></div>
+    </div>
+  </section>
+
+  <section class="panel" data-panel="reviews" hidden>
+    <p class="hint lead" id="reviewsHint"></p>
+    <div id="reviews"></div>
+  </section>
+
+  <section class="panel" data-panel="log" hidden>
+    <div class="card">
+      <h2 data-i18n="logTitle">Последний сбор</h2>
+      <p class="hint" id="logSummary"></p>
+      <div class="tablewrap"><table class="log" id="log"></table></div>
+      <p class="hint" data-i18n="logNote">В публичном демо страницы витрин смоделированы и отдаются модулю парсинга через тестовый транспорт: тот же код запросов, robots.txt, лимитов, повторов и разбора, но без обращений к wildberries.ru и ozon.ru.</p>
+    </div>
+  </section>
+</main>
+
+<footer class="foot">
+  <span data-i18n="foot">Демо sedlab.dev. Данные товаров и конкурентов вымышленные, песочница своя у каждого посетителя и очищается раз в сутки.</span>
+</footer>
+
+<div class="toast" id="toast" role="status" aria-live="polite" hidden></div>
+<script src="/app.js"></script>
+</body>
+</html>
