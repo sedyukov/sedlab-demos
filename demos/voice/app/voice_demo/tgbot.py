@@ -32,6 +32,9 @@ TEXT = {
     },
     "too_long": {"en": "Audio is limited to {n} s in this demo.", "ru": "В демо аудио — не длиннее {n} с."},
     "too_big": {"en": "The file is too large for this demo ({n} MB max).", "ru": "Файл слишком большой для демо (до {n} МБ)."},
+    "speechkit_fmt": {"en": "Please send a voice message or an mp3/ogg file — this format isn't supported by the "
+                            "speech service.", "ru": "Пришлите, пожалуйста, голосовое или файл mp3/ogg — этот формат "
+                                                     "сервис распознавания не принимает."},
     "unsupported": {"en": "Send a voice message, audio or video, please.", "ru": "Пришлите, пожалуйста, голосовое, аудио или видео."},
     "limit": {"en": "Demo limit reached, try again later.", "ru": "Лимит демо исчерпан, попробуйте позже."},
     "demo": {"en": "Live speech recognition is off in this demo build.", "ru": "Живое распознавание в этой сборке выключено."},
@@ -60,6 +63,15 @@ def format_result(transcript: str, r: dict[str, Any], lang: str) -> str:
         meta = " · ".join(v for v in (x.get("owner"), x.get("due")) if v)
         lines.append("• " + e(x["title"]) + (f" — <i>{e(meta)}</i>" if meta else ""))
     return "\n".join(lines)[:4000]
+
+
+def speechkit_ok(f: Any) -> bool:
+    """SpeechKit accepts OGG/Opus, WAV and MP3; round videos, m4a, webm etc. would need transcoding."""
+    if f.kind == "voice":
+        return True
+    name = (f.file_name or "").lower()
+    return f.mime_type in ("audio/ogg", "audio/opus", "audio/mpeg", "audio/mp3", "audio/wav", "audio/x-wav") or \
+        name.endswith((".ogg", ".oga", ".opus", ".mp3", ".wav"))
 
 
 def user_lang(u: Update) -> str:
@@ -127,6 +139,9 @@ class VoiceBot:
             return
         if f and f.file_size > self.max_bytes:
             self._send(chat, t("too_big", lang, n=self.s.max_upload_mb))
+            return
+        if f and self.prov.speech == "yandex_speechkit" and not speechkit_ok(f):
+            self._send(chat, t("speechkit_fmt", lang))
             return
         if f and not self.prov.stt_live:
             self._send(chat, t("demo", lang))

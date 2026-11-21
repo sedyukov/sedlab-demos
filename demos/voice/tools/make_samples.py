@@ -81,6 +81,9 @@ def build(s: dict, tmp: Path, order: int) -> None:
     else:
         raise SystemExit(f"unknown container {c}")
 
+    # OGG/Opus copy for live STT (SpeechKit takes OGG/WAV/MP3, not MP4): same audio as input.*
+    run("ffmpeg", "-y", "-i", str(full), "-c:a", "libopus", "-b:a", "24k", str(d / "stt.ogg"))
+
     reply_aiff = tmp / f"{sid}-reply.aiff"
     run("say", "-v", s["reply_voice"], "-o", str(reply_aiff), s["reply"])
     run("ffmpeg", "-y", "-i", str(reply_aiff), "-ac", "1", "-c:a", "libmp3lame", "-b:a", "48k", str(d / "reply.mp3"))

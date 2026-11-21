@@ -13,8 +13,9 @@ from voice_demo.tgbot import VoiceBot, format_result
 from test_app import FakeLLM, FakeSpeech
 
 
-def make_bot(live=True):
+def make_bot(live=True, env_extra=None):
     env = {"AI_OPENAI_API_KEY": "k"} if live else {}
+    env.update(env_extra or {})
     s = Settings.from_env({**env, "VOICE_TELEGRAM_TOKEN": "123:abc", "VOICE_MAX_AUDIO_SEC": "60",
                            "VOICE_MAX_UPLOAD_MB": "1"})
     prov = Providers(s.environ)
@@ -81,3 +82,15 @@ def test_handler_error_is_reported_not_raised():
 def test_format_result_escapes_html():
     out = format_result("<b>x</b>", {"summary": "a & b", "tasks": [{"title": "<t>", "owner": None, "due": None}]}, "en")
     assert "&lt;b&gt;" in out and "a &amp; b" in out and "&lt;t&gt;" in out
+
+
+def test_speechkit_asks_for_supported_format():
+    vb, api = make_bot(env_extra={"AI_YANDEX_API_KEY": "y"})
+    api.put_file("V", b"OggS-voice")
+    push(api, 1, video_note={"file_id": "R", "duration": 5})
+    push(api, 2, document={"file_id": "M", "mime_type": "audio/mp4", "file_name": "call.m4a"})
+    push(api, 3, voice={"file_id": "V", "duration": 3})
+    vb.poll_once()
+    t = sent_texts(api)
+    assert "mp3/ogg" in t[0] and "mp3/ogg" in t[1] and "Live summary." in t[2]
+    assert [c.params["file_id"] for c in api.calls("getFile")] == ["V"]

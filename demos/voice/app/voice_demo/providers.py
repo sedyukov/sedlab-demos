@@ -43,23 +43,32 @@ class Providers:
                 "yandexgpt": self.yandexgpt}.get(name, False)
 
     @property
+    def speechkit(self) -> bool:  # Yandex SpeechKit: API key or IAM token (folder id optional)
+        return self._has("AI_YANDEX_API_KEY", "AI_YANDEX_IAM_TOKEN")
+
+    @property
+    def speech(self) -> str:
+        """STT/TTS provider: Russian SpeechKit first (152-FZ), then OpenAI, else mock."""
+        return "yandex_speechkit" if self.speechkit else ("openai" if self.openai else "mock")
+
+    @property
     def stt_live(self) -> bool:
-        return self.openai
+        return self.speech != "mock"
 
     @property
     def tts_live(self) -> bool:
-        return self.openai
+        return self.speech != "mock"
 
     def status(self) -> dict:
         llm = {}
         for n in LLMS:
             llm[n] = "live" if self.llm_live(n) else "demo"
-        return {"llm": llm, "stt": "live" if self.stt_live else "demo", "tts": "live" if self.tts_live else "demo"}
+        return {"llm": llm, "stt": "live" if self.stt_live else "demo", "tts": "live" if self.tts_live else "demo",
+                "speech": self.speech}
 
     def client(self, llm: str) -> Client:
-        """Client for one request: chosen LLM if live (else mock), OpenAI STT/TTS if live (else mock)."""
+        """Client for one request: chosen LLM if live (else mock), SpeechKit / OpenAI STT+TTS if live (else mock)."""
         env = dict(self.environ)
         env["AI_LLM_PROVIDER"] = llm if self.llm_live(llm) else "mock"
-        env["AI_STT_PROVIDER"] = "openai" if self.stt_live else "mock"
-        env["AI_TTS_PROVIDER"] = "openai" if self.tts_live else "mock"
+        env["AI_STT_PROVIDER"] = env["AI_TTS_PROVIDER"] = self.speech
         return from_env(Env("AI_", env))

@@ -143,7 +143,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
                 raise ApiError(404, "not_found", "unknown sample")
             if not prov.stt_live:  # demo mode: replay the pre-computed result
                 return sample_payload(sample)
-            path = s.samples_dir / sample / r["file"]
+            path = s.samples_dir / sample / "stt.ogg"  # OGG/Opus copy: accepted by SpeechKit and OpenAI alike
             data, filename, duration = path.read_bytes(), path.name, float(r["duration_sec"])
         elif file is not None:
             data = await file.read(max_bytes + 1)

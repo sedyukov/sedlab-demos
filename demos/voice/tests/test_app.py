@@ -38,7 +38,7 @@ def test_health_and_index():
 def test_config_demo_mode():
     j = make().get("/api/config").json()
     assert j["providers"] == {"llm": {"openai": "demo", "anthropic": "demo", "gigachat": "demo", "yandexgpt": "demo"},
-                              "stt": "demo", "tts": "demo"}
+                              "stt": "demo", "tts": "demo", "speech": "mock"}
     assert [s["id"] for s in j["samples"]] == ["standup-en", "planning-ru", "voice-note-ru"]
     assert j["telegram"] is False
 
@@ -128,6 +128,7 @@ class FakeSpeech:
     name = "fake"
 
     def transcribe(self, req):
+        self.last_filename = req.filename
         return Transcript(text="Kate sends the invoice by December second.", language="en", provider="fake",
                           duration_sec=2.0, segments=[Segment(0.0, 2.0, "Kate sends the invoice by December second.")])
 
@@ -247,3 +248,34 @@ def test_default_llm_prefers_russian_providers():
     assert default_llm(Providers({"AI_OPENAI_API_KEY": "k"})) == "openai"
     assert make().get("/api/config").json()["default_llm"] == "gigachat"
     assert list(make().get("/api/config").json()["providers"]["llm"])[:2] == ["gigachat", "yandexgpt"]
+
+
+
+# ---------- Yandex SpeechKit (Russian STT/TTS, preferred over OpenAI) ----------
+
+def test_speechkit_detection_and_priority():
+    from voice_demo.providers import Providers
+    p = Providers({"AI_YANDEX_API_KEY": "y", "AI_OPENAI_API_KEY": "k"})
+    assert p.speech == "yandex_speechkit" and p.stt_live and p.tts_live
+    c = p.client("gigachat")
+    assert c.stt.name == "yandex_speechkit" and c.tts.name == "yandex_speechkit"
+    assert c.llm.name == "mock"  # gigachat has no key → mock; yandexgpt would need a folder id
+    assert Providers({"AI_OPENAI_API_KEY": "k"}).speech == "openai"
+    assert Providers({}).speech == "mock" and Providers({}).client("gigachat").stt.name == "mock"
+    j = make({"AI_YANDEX_API_KEY": "y"}).get("/api/config").json()
+    assert j["providers"]["stt"] == "live" and j["providers"]["speech"] == "yandex_speechkit"
+
+
+@pytest.mark.parametrize("sid", ["standup-en", "planning-ru", "voice-note-ru"])
+def test_samples_have_ogg_copy_for_live_stt(sid):
+    from pathlib import Path
+    ogg = Path(__file__).resolve().parent.parent / "samples" / sid / "stt.ogg"
+    assert ogg.read_bytes()[:4] == b"OggS"
+
+
+def test_live_sample_sends_ogg_copy():
+    c = make({"AI_YANDEX_API_KEY": "y"})
+    sp = FakeSpeech()
+    c.app.state.providers.client = lambda name: Client(FakeLLM(), sp, sp)
+    r = c.post("/api/process", data={"sample": "planning-ru", "llm": "openai"}, headers={"X-Forwarded-For": "7.7.7.7"})
+    assert r.status_code == 200 and sp.last_filename == "stt.ogg"
