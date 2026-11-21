@@ -324,7 +324,7 @@ func (a *App) allowedOrigin(o string) bool {
 	if a.cfg.Dev && (h == "localhost" || h == "127.0.0.1") {
 		return true
 	}
-	return u.Scheme == "https" && strings.HasSuffix(h, a.cfg.ReturnSuffix)
+	return u.Scheme == "https" && strings.HasSuffix(h, a.cfg.ReturnSuffix) && !isIntlHost(h, a.cfg.ReturnSuffix)
 }
 
 func (a *App) cors(h http.HandlerFunc) http.HandlerFunc {

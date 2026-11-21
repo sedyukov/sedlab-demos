@@ -88,23 +88,20 @@
   },
   "demos": {
     "voice": [
-      "openai",
-      "anthropic",
       "gigachat",
       "yandex-llm",
       "yandex-stt",
       "yandex-tts",
-      "telegram"
+      "telegram",
+      "max"
     ],
     "booking": [
       "yookassa-test",
-      "stripe-test",
       "telegram",
       "max"
     ],
     "leads": [
       "amocrm",
-      "hubspot-dev",
       "telegram",
       "max"
     ]

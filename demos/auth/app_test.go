@@ -154,19 +154,19 @@ func TestSignupConsumeLogoutFlow(t *testing.T) {
 		t.Fatalf("me: %v", me)
 	}
 
-	if code, _ := internalCall(t, srv, "wrong-key-wrong-key-wrong-key", "check", map[string]any{"token": tok, "resource": "openai"}); code != 401 {
+	if code, _ := internalCall(t, srv, "wrong-key-wrong-key-wrong-key", "check", map[string]any{"token": tok, "resource": "gigachat"}); code != 401 {
 		t.Fatalf("bad key: %d", code)
 	}
-	if code, _ := internalCall(t, srv, svcKey, "check", map[string]any{"token": tok, "demo": "booking", "resource": "openai"}); code != 403 {
+	if code, _ := internalCall(t, srv, svcKey, "check", map[string]any{"token": tok, "demo": "booking", "resource": "gigachat"}); code != 403 {
 		t.Fatalf("other demo: %d", code)
 	}
 	for i := 0; i < 3; i++ {
-		code, d := internalCall(t, srv, svcKey, "consume", map[string]any{"token": tok, "resource": "openai", "idempotency_key": fmt.Sprint("r", i)})
+		code, d := internalCall(t, srv, svcKey, "consume", map[string]any{"token": tok, "resource": "gigachat", "idempotency_key": fmt.Sprint("r", i)})
 		if code != 200 || d["allowed"] != true {
 			t.Fatalf("consume %d: %d %v", i, code, d)
 		}
 	}
-	_, d := internalCall(t, srv, svcKey, "consume", map[string]any{"token": tok, "resource": "openai", "idempotency_key": "r3"})
+	_, d := internalCall(t, srv, svcKey, "consume", map[string]any{"token": tok, "resource": "gigachat", "idempotency_key": "r3"})
 	if d["allowed"] != false || d["reason"] != "user_daily" {
 		t.Fatalf("limit: %v", d)
 	}
@@ -181,7 +181,7 @@ func TestSignupConsumeLogoutFlow(t *testing.T) {
 
 	r, _ = c.PostForm(srv.URL+"/logout", nil)
 	r.Body.Close()
-	_, d = internalCall(t, srv, svcKey, "consume", map[string]any{"token": tok, "resource": "anthropic", "idempotency_key": "after-logout"})
+	_, d = internalCall(t, srv, svcKey, "consume", map[string]any{"token": tok, "resource": "yandex-llm", "idempotency_key": "after-logout"})
 	if d["reason"] != "unauthenticated" {
 		t.Fatalf("revoked session still live: %v", d)
 	}
@@ -203,7 +203,7 @@ func TestAccountDeleteAndExport(t *testing.T) {
 	if _, err := app.store.GetUser(context.Background(), c2.Sub); err != errNotFound {
 		t.Fatal("account not deleted")
 	}
-	if _, d := internalCall(t, srv, svcKey, "check", map[string]any{"token": tok, "resource": "openai"}); d["reason"] != "unauthenticated" {
+	if _, d := internalCall(t, srv, svcKey, "check", map[string]any{"token": tok, "resource": "gigachat"}); d["reason"] != "unauthenticated" {
 		t.Fatalf("deleted account still live: %v", d)
 	}
 }
@@ -366,7 +366,7 @@ func TestSafeReturn(t *testing.T) {
 
 func TestInternalIPAllowlist(t *testing.T) {
 	_, srv := newTestApp(t, map[string]string{"AUTH_INTERNAL_ALLOW_IPS": "167.71.38.231"})
-	if code, _ := internalCall(t, srv, svcKey, "check", map[string]any{"resource": "openai"}); code != 401 {
+	if code, _ := internalCall(t, srv, svcKey, "check", map[string]any{"resource": "gigachat"}); code != 401 {
 		t.Fatalf("non-allowlisted IP got %d", code)
 	}
 }
@@ -442,7 +442,7 @@ func TestLegalPagesFilledFromEnvOnly(t *testing.T) {
 func TestRefundOnlyByOwningDemo(t *testing.T) {
 	_, srv := newTestApp(t, map[string]string{"AUTH_SVC_BOOKING": "booking-service-key-0123456789abcd"})
 	tok := devSignup(t, srv, client(), "60")
-	_, d := internalCall(t, srv, svcKey, "consume", map[string]any{"token": tok, "resource": "openai", "idempotency_key": "z1"})
+	_, d := internalCall(t, srv, svcKey, "consume", map[string]any{"token": tok, "resource": "gigachat", "idempotency_key": "z1"})
 	cid, _ := d["consumption_id"].(string)
 	if cid == "" {
 		t.Fatalf("consume: %v", d)
@@ -452,5 +452,16 @@ func TestRefundOnlyByOwningDemo(t *testing.T) {
 	}
 	if code, _ := internalCall(t, srv, svcKey, "refund", map[string]any{"consumption_id": cid}); code != 200 {
 		t.Fatalf("own refund: %d", code)
+	}
+}
+
+func TestIntlEditionNotServed(t *testing.T) {
+	app, _ := newTestApp(t, nil)
+	app.cfg.Dev = false
+	if app.allowedOrigin("https://voice-en.demo.sedlab.dev") || !app.allowedOrigin("https://voice.demo.sedlab.dev") {
+		t.Fatal("CORS: INTL edition must be refused, RU edition allowed")
+	}
+	if _, ok := app.limits.For("voice", "openai"); ok {
+		t.Fatal("RU voice must not get live OpenAI")
 	}
 }

@@ -194,6 +194,9 @@ func (a *App) safeReturn(raw string) string {
 	}
 	host := strings.ToLower(u.Hostname())
 	okScheme := u.Scheme == "https" || (a.cfg.Dev && u.Scheme == "http")
+	if isIntlHost(host, a.cfg.ReturnSuffix) { // INTL editions (<app>-en) don't use the RU account
+		return "/account"
+	}
 	if okScheme && u.User == nil && (strings.HasSuffix(host, a.cfg.ReturnSuffix) || host == strings.TrimPrefix(a.cfg.ReturnSuffix, ".") ||
 		(a.cfg.Dev && (host == "localhost" || host == "127.0.0.1"))) {
 		return u.String()
@@ -423,4 +426,10 @@ func randToken(n int) string {
 	b := make([]byte, n)
 	_, _ = rand.Read(b)
 	return b64.EncodeToString(b)
+}
+
+// isIntlHost: <app>-en.demo.sedlab.dev is the INTL edition (DO, mock only, no RU sign-in). Only RU editions
+// (<app>.demo.sedlab.dev on the RU host) may use this service as return target or CORS origin.
+func isIntlHost(host, suffix string) bool {
+	return strings.HasSuffix(host, suffix) && strings.HasSuffix(strings.TrimSuffix(host, suffix), "-en")
 }
