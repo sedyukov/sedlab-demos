@@ -23,7 +23,7 @@ await ctx.addInitScript((lang) => { try { localStorage.clear(); localStorage.set
 const page = await ctx.newPage();
 const errors = [];
 page.on("pageerror", (e) => errors.push(String(e)));
-const pause = (ms) => page.waitForTimeout(MEDIA ? ms : Math.min(ms, 150));
+const pause = (ms) => page.waitForTimeout(MEDIA ? ms * 2 : Math.min(ms, 150));
 const shot = async (name, opts = {}) => { if (MEDIA) await page.screenshot({ path: `${OUT}${name}-${tag}.png`, ...opts }); };
 
 await page.goto(BASE + "/", { waitUntil: "networkidle" });

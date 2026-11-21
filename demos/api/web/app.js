@@ -5,7 +5,7 @@
   var T = {
     ru: {
       h1: "REST API на Go и Python: один контракт, одинаковые ответы",
-      lead: "Учёт заказов небольшой компании: клиенты, заказы со статусами, фоновые задачи. Один OpenAPI-контракт и две реализации, Go и Python (FastAPI), на общей базе. Переключайте бэкенд и сравнивайте: ответы совпадают до байта.",
+      lead: "Учёт заказов небольшой компании: клиенты, заказы со статусами, фоновые задачи. Один OpenAPI-контракт и две реализации, Go и Python (FastAPI), на общей базе. Переключайте бэкенд и сравнивайте: ответы совпадают.",
       f1: "Авторизация по токену, у каждого посетителя своя песочница с тестовыми данными",
       f2: "CRUD, фильтры, сортировка и постраничный вывод, понятные ошибки",
       f3: "Очередь фоновых задач с повторами при сбоях, её разбирают оба бэкенда",
@@ -41,7 +41,7 @@
     },
     en: {
       h1: "REST API in Go and Python: one contract, identical answers",
-      lead: "An order desk for a small business: customers, orders with a status workflow, background jobs. One OpenAPI contract, two implementations, Go and Python (FastAPI), on one shared database. Switch the backend and compare: the answers match byte for byte.",
+      lead: "An order desk for a small business: customers, orders with a status workflow, background jobs. One OpenAPI contract, two implementations, Go and Python (FastAPI), on one shared database. Switch the backend and compare: the answers match.",
       f1: "Token auth, every visitor gets a private sandbox with sample data",
       f2: "CRUD, filters, sorting, cursor pagination, clear errors",
       f3: "Background job queue with retries on failures, served by both backends",
