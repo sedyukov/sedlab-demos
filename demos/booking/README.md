@@ -35,6 +35,11 @@ runs the schedule, masters, services and bookings from an admin panel that also 
   through one interface, so all booking logic is reused. Max has no Stars, so payment there is by card (YooKassa), and
   the Mini App opens from an `open_app` button. Switch **Telegram / Max** in the demo.
 
+### Personal data (152-FZ)
+For Russian clients the bot is deployed on a Russian VPS, and backups go to Russian S3 storage. It is one Docker image
+plus SQLite, so it moves between servers in minutes. Privacy-policy and consent texts are drafted in the client's name.
+The public demo collects no personal data: no phone field, test names only, daily reset.
+
 ### Try the demo
 The page emulates the Telegram client: a bot chat on the left of the phone, the Mini App opens on top. The server signs
 launch data and turns your chat messages into real webhook updates, so it runs **the same code as the live bot**. Only
@@ -111,6 +116,11 @@ holds the thin demo layer only.
 - **Версия для Max (VK)**: тот же бот и мини-апп в Max через модуль `max-core`. Бот общается с мессенджером через один
   интерфейс, поэтому вся логика записи переиспользуется. Stars в Max нет, оплата там картой (ЮKassa), мини-апп
   открывается кнопкой `open_app`. В демо есть переключатель **Telegram / Max**.
+
+### Персональные данные (152-ФЗ)
+Для российских заказчиков бот разворачивается на российском VPS, бэкапы идут в российское S3-хранилище. Это один
+Docker-образ и SQLite, переезд между серверами занимает минуты. Политику обработки ПД и тексты согласий готовлю от имени
+заказчика. Публичное демо персональных данных не собирает: поля телефона нет, имена тестовые, данные сбрасываются раз в сутки.
 
 ### Как попробовать демо
 Страница эмулирует Telegram: справа телефон с чатом бота, мини-апп открывается поверх. Сервер подписывает данные запуска и

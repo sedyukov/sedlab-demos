@@ -181,7 +181,7 @@ func (a *App) handleAuth(w http.ResponseWriter, r *http.Request) {
 		writeErr(w, 401, "unauthenticated", "invalid initData")
 		return
 	}
-	if err := a.store.UpsertUser(u.ID, u.FirstName, u.Username, a.userLangOr(u.ID, u.Lang), m.Platform()); err != nil {
+	if err := a.store.UpsertUser(u.ID, u.FirstName, "" /* username not stored */, a.userLangOr(u.ID, u.Lang), m.Platform()); err != nil {
 		a.fail(w, err)
 		return
 	}

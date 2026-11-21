@@ -236,7 +236,7 @@
         </div>
       </div>
       <label class="field"><span>{L('name')}</span><input bind:value={form.name} maxlength="60" autocomplete="name" /></label>
-      <label class="field"><span>{L('phone')}</span><input bind:value={form.phone} maxlength="30" inputmode="tel" autocomplete="tel" placeholder="+7 …" /></label>
+      {#if !tg.isEmulator}<label class="field"><span>{L('phone')}</span><input bind:value={form.phone} maxlength="30" inputmode="tel" autocomplete="tel" placeholder="+7 …" /></label>{/if}
 
       <h3>{L('prepay')}</h3>
       <p class="hint">{L('prepayHint', { p: cfg.deposit_percent })}</p>

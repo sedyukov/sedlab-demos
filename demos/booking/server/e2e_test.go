@@ -151,6 +151,9 @@ func TestYooKassaFlow(t *testing.T) {
 		t.Fatalf("checkout %d", code)
 	}
 	_, got := h.do("GET", fmt.Sprintf("/api/bookings/%d", id), tok, nil)
+	if got["client_phone"] != "" {
+		t.Fatalf("demo stored a phone number: %v", got["client_phone"])
+	}
 	if got["status"] != "confirmed" || got["pay_currency"] != "RUB" {
 		t.Fatalf("not confirmed: %v", got)
 	}

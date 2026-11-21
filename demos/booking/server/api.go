@@ -177,6 +177,9 @@ func (a *App) handleCreateBooking(w http.ResponseWriter, r *http.Request) {
 		writeErr(w, 429, "rate_limited", "too many unpaid bookings — pay or wait 15 minutes")
 		return
 	}
+	if s.Emulated {
+		in.Phone = "" // public demo (hosted outside RU): never store visitors' personal data
+	}
 	now := a.now().Unix()
 	b := &Booking{UserID: s.UserID, ClientName: in.Name, ClientPhone: in.Phone, ServiceID: svc.ID, MasterID: in.MasterID,
 		StartAt: in.Start, EndAt: in.Start + int64(svc.DurationMin)*60, HoldUntil: now + int64(a.cfg.HoldMinutes)*60,
