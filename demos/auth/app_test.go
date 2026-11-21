@@ -402,7 +402,7 @@ func TestConsentRequiresBothBoxesAndCancelStoresNothing(t *testing.T) {
 	r.Body.Close()
 	id, _ := app.store.FindIdentity(context.Background(), "max", "51")
 	u, _ := app.store.GetUser(context.Background(), id)
-	if u.ConsentVersion != "demo-v1" || u.ConsentAt == 0 || u.TermsVersion != "terms-v1" || u.TermsAt == 0 || !u.ContactOK || u.ContactConsentAt == 0 {
+	if u.ConsentVersion != "demo-v2" || u.ConsentAt == 0 || u.TermsVersion != "terms-v2" || u.TermsAt == 0 || !u.ContactOK || u.ContactConsentAt == 0 {
 		t.Fatalf("consents not stored: %+v", u)
 	}
 	r, _ = c.PostForm(srv.URL+"/account/contact", url.Values{}) // withdraw

@@ -17,8 +17,8 @@ const widgetSrc = `(function(){
 var s=document.currentScript||document.querySelector('script[src*="/widget.js"]');if(!s)return;
 var AUTH=%AUTH%,demo=s.getAttribute('data-demo')||'',res=s.getAttribute('data-resource')||'';
 var lang=(s.getAttribute('data-lang')||document.documentElement.lang||navigator.language||'ru').slice(0,2)==='en'?'en':'ru';
-var T={ru:{in:'Войти и попробовать вживую',hint:'Живой режим отправляет ваш запрос провайдеру: {p}. Не вводите чужие персональные данные.',lim:'Живой режим: осталось {n}/{m} сегодня',out:'Живой лимит на сегодня исчерпан, показываем демо-режим',acc:'Мой аккаунт'},
-en:{in:'Sign in to try live',hint:"Live mode sends your request to: {p}. Don't enter other people's personal data.",lim:'Live mode: {n}/{m} left today',out:"Today's live limit is used up, showing demo mode",acc:'My account'}}[lang];
+var T={ru:{in:'Войти и попробовать вживую',hint:'Живой режим отправляет ваш запрос провайдеру: {p}. Не вводите чужие персональные данные.',lim:'Живой режим: осталось {n}/{m} сегодня',out:'Живой лимит на сегодня исчерпан: показываем демо-режим',acc:'Мой аккаунт'},
+en:{in:'Sign in to try live',hint:"Live mode sends your request to: {p}. Don't enter other people's personal data.",lim:'Live mode: {n}/{m} left today',out:"Today's live limit is used up. Showing demo mode",acc:'My account'}}[lang];
 var plist=s.getAttribute('data-providers')||'';
 function el(t,a,c){var e=document.createElement(t);for(var k in a)e.setAttribute(k,a[k]);if(c)e.textContent=c;return e}
 var box=document.getElementById('sl-account');if(!box){box=el('div',{id:'sl-account'});box.style.cssText='position:fixed;right:12px;bottom:12px;z-index:9999';document.body.appendChild(box)}
