@@ -16,9 +16,11 @@ from fastapi.responses import HTMLResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field
 
+from sedlab_ai import Client as AIClient
 from sedlab_ai import Code, ModuleError
 
 from . import pipeline
+from .account import LLM_RESOURCE, STT_RESOURCE, TTS_RESOURCE, Accounts, Gate, stt_units
 from .limits import Limits, wav_duration
 from .providers import Providers, default_llm
 from .settings import Settings
@@ -67,6 +69,8 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     s = settings or Settings.from_env()
     prov = Providers(s.environ, s.edition, s.live_allowed)
     limits = Limits(s.ip_per_hour, s.daily_live)
+    accounts = Accounts(s.environ, enabled=s.edition == "ru")  # RU: live only for signed-in users, limits on auth
+    mock = AIClient.mock()
     samples = {k: r for k, r in load_samples(s.samples_dir).items() if r["lang"] == s.lang}
     max_bytes = s.max_upload_mb * 1024 * 1024
 
@@ -75,14 +79,16 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         bot = None
         if s.telegram_token:
             from .tgbot import VoiceBot
-            bot = VoiceBot(s, prov, limits)
+            # RU: Telegram users carry no sign-in token, so the bot never spends live limits (mock only)
+            bot_prov = prov if s.edition != "ru" else Providers(s.environ, s.edition, live_allowed=False)
+            bot = VoiceBot(s, bot_prov, limits)
             bot.start()
         yield
         if bot:
             bot.stop()
 
     app = FastAPI(title="voice demo", docs_url=None, redoc_url=None, openapi_url=None, lifespan=lifespan)
-    app.state.settings, app.state.providers, app.state.limits = s, prov, limits
+    app.state.settings, app.state.providers, app.state.limits, app.state.accounts = s, prov, limits, accounts
 
     @app.exception_handler(ApiError)
     async def _api_error(_: Request, e: ApiError):
@@ -109,6 +115,17 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         if why == "daily":
             raise ApiError(429, "limit_daily", "The daily live budget is used up. Try the samples or come back tomorrow.")
 
+    def gate_for(req: Request, live: bool) -> Gate | None:
+        """RU: accounts gate (limits per user on auth). Otherwise the local per-IP / daily limiter."""
+        g = accounts.gate(req.headers)
+        if g is None and live:
+            spend(req)
+        return g
+
+    def run(g: Gate | None, resource: str, units: int, fn):
+        """Live call: under the user's accounts limit (RU) or directly (limits already spent). None → serve the mock."""
+        return fn() if g is None else g.call(resource, units, fn)
+
     def check_llm(name: str) -> str:
         name = name or default_llm(prov)
         if name not in prov.llms:
@@ -133,6 +150,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
                          "file": f"/samples/{r['id']}/{r['file']}", "duration_sec": r["duration_sec"]}
                         for r in samples.values()],
             "telegram": bool(s.telegram_token),
+            "accounts": {"enabled": accounts.enabled, "widget": s.accounts_widget, "auth_url": s.auth_public_url},
         }
 
     @app.get("/api/samples/{sid}")
@@ -182,51 +200,79 @@ def create_app(settings: Settings | None = None) -> FastAPI:
                 raise ApiError(400, "need_wav", "Live mode expects 16 kHz mono WAV (the page converts files automatically).")
             if duration > s.max_audio_sec:
                 raise ApiError(400, "too_long", f"Live mode accepts audio up to {s.max_audio_sec} s.")
-        if live:
-            spend(req)
-
+        g = gate_for(req, live)
         client = prov.client(llm)
+
+        t = None
         if prov.stt_live:
-            t = client.transcribe(data, filename=filename)
+            t = run(g, STT_RESOURCE, stt_units(duration), lambda: client.transcribe(data, filename=filename))
+        if t is not None:
             transcript = {"text": t.text, "language": t.language, "provider": t.provider,
                           "segments": [{"start": x.start, "end": x.end, "text": x.text} for x in t.segments]}
+        elif sample:  # live refused for a sample: replay the pre-computed result
+            out = sample_payload(sample)
+            out["notices"] = (g.notices() if g else []) + out["notices"]
+            return out
         elif browser_transcript.strip():
             text = browser_transcript.strip()[:20000]
             transcript = {"text": text, "language": pipeline.guess_lang(text, lang or "en"), "provider": "browser",
                           "segments": []}
             notices.append("stt_browser")
         else:
-            t = client.transcribe(data, filename=filename)
+            t = mock.transcribe(data, filename=filename)
             transcript = {"text": t.text, "language": lang or t.language, "provider": t.provider, "segments": []}
             notices.append("stt_mock")
         out_lang = pipeline.guess_lang(transcript["text"], lang or "en") if transcript["provider"] != "mock" else (lang or "en")
-        result = pipeline.analyze(client, transcript["text"], out_lang, live_llm=prov.llm_live(llm))
-        if not prov.llm_live(llm):
+
+        result, llm_live = analyze_text(g, llm, client, transcript["text"], out_lang)
+        if not llm_live:
             notices.append("llm_mock")
-        result["reply"].update(pipeline.speak(client, result["reply"]["text"]) if prov.tts_live
-                               else {"audio": None, "provider": "browser"})
+        audio = speak_text(g, client, result["reply"]["text"])
+        result["reply"].update(audio or {"audio": None, "provider": "browser"})
+        if g:
+            notices = g.notices() + notices
         return {"transcript": transcript, "duration_sec": duration, "lang": out_lang, **result,
-                "mode": {"stt": "live" if prov.stt_live else transcript["provider"],
-                         "llm": "live" if prov.llm_live(llm) else "mock",
-                         "tts": "live" if prov.tts_live else "browser"},
+                "mode": {"stt": "live" if transcript["provider"] not in ("mock", "browser") else transcript["provider"],
+                         "llm": "live" if llm_live else "mock",
+                         "tts": "live" if audio else "browser"},
+                "account": account_info(g),
                 "notices": notices}
+
+    def analyze_text(g: Gate | None, llm: str, client, text: str, lang: str) -> tuple[dict[str, Any], bool]:
+        if prov.llm_live(llm):
+            r = run(g, LLM_RESOURCE.get(llm, llm), 1, lambda: pipeline.analyze(client, text, lang, live_llm=True))
+            if r is not None:
+                return r, True
+        return pipeline.analyze(mock, text, lang, live_llm=False), False
+
+    def speak_text(g: Gate | None, client, text: str) -> dict[str, str] | None:
+        if not prov.tts_live:
+            return None
+        return run(g, TTS_RESOURCE if prov.speech == "yandex_speechkit" else prov.speech, 1,
+                   lambda: pipeline.speak(client, text))
+
+    def account_info(g: Gate | None) -> dict[str, Any] | None:
+        return None if g is None else {"user_left": g.user_left}
 
     @app.post("/api/analyze")
     def analyze(req: Request, body: AnalyzeIn):
         llm = check_llm(body.llm)
-        if prov.llm_live(llm):
-            spend(req)
+        g = gate_for(req, prov.llm_live(llm))
         lang = pipeline.guess_lang(body.text, body.lang or s.lang)
-        result = pipeline.analyze(prov.client(llm), body.text, lang, live_llm=prov.llm_live(llm))
-        notices = [] if prov.llm_live(llm) else ["llm_mock"]
-        return {**result, "lang": lang, "mode": {"llm": "live" if prov.llm_live(llm) else "mock"}, "notices": notices}
+        result, live = analyze_text(g, llm, prov.client(llm), body.text, lang)
+        notices = (g.notices() if g else []) + ([] if live else ["llm_mock"])
+        return {**result, "lang": lang, "mode": {"llm": "live" if live else "mock"}, "account": account_info(g),
+                "notices": notices}
 
     @app.post("/api/speak")
     def speak(req: Request, body: SpeakIn):
         if not prov.tts_live:
             raise ApiError(409, "tts_demo", "Live TTS is off in demo mode; the page uses the browser voice.")
-        spend(req)
-        return pipeline.speak(prov.client(default_llm(prov)), body.text)
+        g = gate_for(req, True)
+        audio = speak_text(g, prov.client(default_llm(prov)), body.text)
+        if audio is None:
+            raise ApiError(409, "tts_refused", "Live voice is not available right now; the page uses the browser voice.")
+        return audio
 
     app.mount("/samples", StaticFiles(directory=s.samples_dir), name="samples")
     app.mount("/static", StaticFiles(directory=s.static_dir), name="static")

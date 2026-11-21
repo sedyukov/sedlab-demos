@@ -31,6 +31,8 @@ class Settings:
     edition: str = "intl"             # EDITION=ru|intl: language, providers, samples, link to the other edition
     live_allowed: bool = False        # VOICE_LIVE: ru → on by default (Russian stack), intl → off for now
     other_url: str = ""               # link to the other edition (default from DEMO_DOMAIN)
+    accounts_widget: bool = False     # VOICE_ACCOUNTS_WIDGET=1: load auth's widget.js (sign-in button); 0 = stub button
+    auth_public_url: str = ""         # public auth URL for the widget (default https://auth.<DEMO_DOMAIN>)
     environ: Mapping[str, str] = field(default_factory=lambda: dict(os.environ))
 
     @property
@@ -48,6 +50,8 @@ class Settings:
         domain = (env.get("DEMO_DOMAIN") or "demo.sedlab.dev").strip()
         other = env.get("VOICE_OTHER_URL") or (f"https://voice-en.{domain}" if edition == "ru" else f"https://voice.{domain}")
         return cls(
+            accounts_widget=(env.get("VOICE_ACCOUNTS_WIDGET") or "0").strip().lower() in ("1", "true", "yes", "on"),
+            auth_public_url=(env.get("VOICE_AUTH_PUBLIC_URL") or f"https://auth.{domain}").rstrip("/"),
             edition=edition,
             live_allowed=live,
             other_url=other,

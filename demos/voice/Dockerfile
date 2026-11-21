@@ -7,9 +7,10 @@ ENV PIP_NO_CACHE_DIR=1 PIP_DISABLE_PIP_VERSION_CHECK=1
 WORKDIR /src
 COPY modules-src/modules/ai/python ai
 COPY modules-src/modules/telegram-core/python telegram-core
+COPY modules-src/modules/accounts/python accounts
 COPY demos/voice/pyproject.toml demo/pyproject.toml
 COPY demos/voice/app demo/app
-RUN pip wheel --no-deps -w /wheels ./ai ./telegram-core ./demo \
+RUN pip wheel --no-deps -w /wheels ./ai ./telegram-core ./accounts ./demo \
  && python -m venv /opt/venv \
  && /opt/venv/bin/pip install /wheels/*.whl \
  && find /opt/venv -name '__pycache__' -prune -exec rm -rf {} + \

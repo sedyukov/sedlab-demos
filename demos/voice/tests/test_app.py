@@ -190,12 +190,11 @@ def test_analyze_and_speak_demo():
 
 # ---------- live mode (fake providers behind the same Client) ----------
 
-@pytest.fixture(params=["ru", "intl"])
-def live(request):
-    keys = {"ru": {"AI_GIGACHAT_AUTH_KEY": "g", "AI_YANDEX_API_KEY": "y"},
-            "intl": {"AI_OPENAI_API_KEY": "k", "VOICE_LIVE": "1"}}[request.param]
-    c = make({**keys, "VOICE_IP_PER_HOUR": "2", "VOICE_DAILY_LIVE": "3", "VOICE_MAX_AUDIO_SEC": "5"},
-             edition=request.param)
+@pytest.fixture
+def live():
+    """intl edition with live forced on: the local per-IP / daily limiter guards spend (RU: see test_accounts.py)."""
+    c = make({"AI_OPENAI_API_KEY": "k", "VOICE_LIVE": "1", "VOICE_IP_PER_HOUR": "2", "VOICE_DAILY_LIVE": "3",
+              "VOICE_MAX_AUDIO_SEC": "5"}, edition="intl")
     llm, sp = FakeLLM(), FakeSpeech()
     c.app.state.providers.client = lambda name: Client(llm, sp, sp)
     c.llm, c.sp = llm, sp
@@ -204,7 +203,7 @@ def live(request):
 
 def test_live_config(live):
     j = live.get("/api/config").json()
-    assert j["providers"]["stt"] == "live" and j["default_llm"] in ("gigachat", "openai")
+    assert j["providers"]["stt"] == "live" and j["default_llm"] == "openai"
     assert j["providers"]["llm"][j["default_llm"]] == "live"
     assert j["limits"]["daily_left"] == 3
 
@@ -246,14 +245,6 @@ def test_live_analyze_and_speak_count_against_limits(live):
     assert live.post("/api/analyze", json={"text": "x"}, headers=h).status_code == 200
     assert live.post("/api/speak", json={"text": "x"}, headers=h).status_code == 200
     assert live.post("/api/speak", json={"text": "x"}, headers=h).status_code == 429
-
-
-def test_live_sample_sends_ogg_copy():
-    c = make({"AI_YANDEX_API_KEY": "y"}, edition="ru")
-    sp = FakeSpeech()
-    c.app.state.providers.client = lambda name: Client(FakeLLM(), sp, sp)
-    r = c.post("/api/process", data={"sample": "planning-ru"}, headers={"X-Forwarded-For": "7.7.7.7"})
-    assert r.status_code == 200 and sp.last_filename == "stt.ogg"
 
 
 # ---------- providers ----------

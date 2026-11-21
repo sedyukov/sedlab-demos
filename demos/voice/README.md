@@ -8,7 +8,7 @@ Two editions of the same app, one codebase (`EDITION=intl|ru`):
 | Language | English | Русский |
 | LLM | OpenAI, Anthropic (Claude) | GigaChat, YandexGPT |
 | Speech (STT/TTS) | OpenAI Whisper / TTS | Yandex SpeechKit |
-| Sign-in | none | Max, Яндекс ID, VK ID (подключается) |
+| Sign-in, limits | none | вход Max, Яндекс ID, VK ID; живые запуски по лимитам на пользователя |
 | Hosting, data | EU server, no personal data | сервер и данные в России (152-ФЗ) |
 | Public demo | samples + mocks | примеры + моки |
 
@@ -66,7 +66,7 @@ API usage is billed separately at the provider's price. Typical cost: about $0.0
 ```bash
 pip install -e ../../path/to/modules/ai/python -e ../../path/to/modules/telegram-core/python -e '.[test]'
 EDITION=intl uvicorn voice_demo.main:app --port 8080    # or EDITION=ru; demo mode, no keys needed
-pytest -q                                                # 46 tests: both editions, demo and live mode with fakes, limits, Telegram bot
+pytest -q                                                # 55 tests: both editions, demo and live mode with fakes, accounts limits, Telegram bot
 ```
 Config: see [.env.example](.env.example). `EDITION` picks the language, providers and samples. In the intl edition live mode
 also needs `VOICE_LIVE=1`; then `AI_OPENAI_API_KEY` turns on STT/TTS and each LLM goes live once its key is set.
@@ -90,7 +90,9 @@ The `ai` and `telegram-core` modules are private and come with client projects. 
 - **Саммари** в 1–3 предложения на языке записи.
 - **Задачи в JSON** (`title`, `owner`, `due`): их можно сразу отправить в amoCRM, Битрикс24, Notion, Jira или Google Таблицу. Модели запрещено придумывать ответственных и сроки.
 - **Ответ голосом (TTS)**: короткое резюме. В Telegram приходит голосовым сообщением.
-- **Российский стек и 152-ФЗ**: LLM GigaChat или YandexGPT, распознавание и озвучка Yandex SpeechKit, сервер и данные в России. Записи граждан РФ не уходят за границу. Вход через Max, Яндекс ID или VK ID подключается.
+- **Бот по правилам 152-ФЗ**: перед началом бот просит согласие кнопкой «Согласен, начать», команда /delete удаляет данные чата, демо-данные живут не дольше 7 дней.
+- **Российский стек и 152-ФЗ**: LLM GigaChat или YandexGPT, распознавание и озвучка Yandex SpeechKit, сервер и данные в России. Записи граждан РФ не уходят за границу.
+- **Вход и лимиты**: живой режим доступен после входа через Max, Яндекс ID или VK ID; у каждого пользователя дневной лимит запусков, а неудачный вызов не списывается. Без входа или после исчерпания лимита показывается демо-режим с пояснением.
 - **Выбор LLM** конфигом, без правок кода; можно подключить и свою локальную модель.
 - **Контроль расходов**: лимит запусков на посетителя или пользователя Telegram, дневной бюджет на всех, максимальная длина и размер аудио. Запрос сверх лимита отклоняется до платного вызова API.
 - **Работает без ключей**: в публичном демо заранее посчитанные примеры (созвон по проекту в видеофайле, голосовое из Telegram) и моки.

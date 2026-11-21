@@ -18,10 +18,16 @@
       f2: "Summary and action items with owner and due date as JSON, ready to push to a CRM, Notion, Jira or a Google Sheet.",
       f3: "One LLM interface: OpenAI, Anthropic (Claude) or a local model, switched by config, no code changes.",
       other_ed: "Русская версия",
+      login_stub: "Sign in to try live", login_soon: "Sign-in is coming soon",
+      n_acc_login: "Sign in to run it live: showing demo mode for now.",
+      n_acc_limit: "Your live limit for today is used up: showing demo mode.",
+      n_acc_down: "Sign-in service is unavailable: showing demo mode.",
+      n_acc_left: "Live mode: {n} runs left today.",
+      limits_acc: "Demo mode: no costs. Live mode after sign-in: a daily limit per user, audio up to {sec} s.",
       f4: "Voice reply (TTS). In a Telegram bot it comes back as a voice message.",
       f5: "Cost control: rate limit per user, daily budget, maximum audio length.",
       foot: "Demo by sedlab · samples are synthetic voices, no personal data.",
-      privacy: "Recordings are not stored: they are processed in memory and discarded right away. Please don’t upload recordings with personal data: the samples show everything.",
+      privacy: "Demo mode: test data, nothing is stored. Recordings are processed in memory and discarded right away; please don’t upload recordings with personal data.",
       mode_demo: "Demo mode", mode_live: "Live", mode_demo_t: "No API keys on this server: samples are pre-computed, everything else runs on mocks.",
       mode_live_t: "Real models with spend limits.",
       tag_live: "live", tag_demo: "demo",
@@ -56,10 +62,16 @@
       f2: "Саммари и задачи с ответственным и сроком в JSON, сразу в CRM, Notion, Jira или Google Таблицу.",
       f3: "Единый интерфейс LLM: GigaChat, YandexGPT или локальная модель, переключение конфигом, без правок кода. Данные остаются в России (152-ФЗ).",
       other_ed: "English version",
+      login_stub: "Войти и попробовать вживую", login_soon: "Вход скоро появится",
+      n_acc_login: "Войдите, чтобы запустить вживую: пока показан демо-режим.",
+      n_acc_limit: "Живой лимит на сегодня исчерпан: показываем демо-режим.",
+      n_acc_down: "Сервис входа недоступен: показываем демо-режим.",
+      n_acc_left: "Живой режим: осталось {n} запусков на сегодня.",
+      limits_acc: "Демо-режим: без расходов. Живой режим после входа: дневной лимит на пользователя, аудио до {sec} с.",
       f4: "Ответ голосом (TTS). В Telegram-боте приходит голосовым сообщением.",
       f5: "Контроль расходов: лимит на пользователя, дневной бюджет, максимальная длина аудио.",
       foot: "Демо sedlab · в примерах синтезированные голоса, без персональных данных.",
-      privacy: "Записи не сохраняются: обрабатываются в памяти и сразу удаляются. Пожалуйста, не загружайте записи с персональными данными: всё видно на примерах.",
+      privacy: "Записи не сохраняются: обрабатываются в памяти и сразу удаляются. Живой режим отправляет ваш запрос провайдеру: GigaChat (Россия), YandexGPT (Россия), Yandex SpeechKit (Россия). Не вводите чужие персональные данные.",
       mode_demo: "Демо-режим", mode_live: "Живой режим", mode_demo_t: "На сервере нет API-ключей: примеры посчитаны заранее, остальное работает на моках.",
       mode_live_t: "Настоящие модели с лимитами расходов.",
       tag_live: "live", tag_demo: "демо",
@@ -127,6 +139,7 @@
     const c = state.cfg, p = c.providers;
     const oe = $("#otherEd");
     oe.hidden = !c.other_url; oe.href = c.other_url || "#"; oe.textContent = t("other_ed");
+    renderAccount(c.accounts || {});
     const live = p.stt === "live" || Object.values(p.llm).includes("live");
     const b = $("#modeBadge");
     b.className = "badge " + (live ? "live" : "demo");
@@ -156,12 +169,31 @@
     if (state.current) $$(".sample").forEach((x) => x.classList.toggle("on", x.dataset.sample === state.current));
 
     const L = c.limits;
-    $("#limits").textContent = live
-      ? t("limits_live", { sec: L.max_audio_sec, mb: L.max_upload_mb, n: L.ip_per_hour, left: L.daily_left })
-      : t("limits_demo", { sec: L.max_audio_sec, n: L.ip_per_hour });
+    $("#limits").textContent = (c.accounts && c.accounts.enabled)
+      ? t("limits_acc", { sec: L.max_audio_sec })
+      : live
+        ? t("limits_live", { sec: L.max_audio_sec, mb: L.max_upload_mb, n: L.ip_per_hour, left: L.daily_left })
+        : t("limits_demo", { sec: L.max_audio_sec, n: L.ip_per_hour });
     $("#dropHint").textContent = t("drop_hint", { mb: L.max_upload_mb });
     $("#tgLine").hidden = !c.telegram;
     $("#tgLine").textContent = t("tg_line");
+  }
+
+  /* ---------- sign-in (RU edition): auth's widget.js, or a stub button until auth is live ---------- */
+  function renderAccount(a) {
+    const box = $("#sl-account");
+    box.hidden = !a.enabled;
+    if (!a.enabled) return;
+    if (a.widget && a.auth_url) {
+      if (!document.getElementById("sl-widget")) {
+        const sc = document.createElement("script");
+        sc.id = "sl-widget"; sc.src = a.auth_url + "/widget.js"; sc.defer = true;
+        sc.dataset.demo = "voice"; sc.dataset.resource = "gigachat"; sc.dataset.providers = "max,yandex,vk";
+        document.head.appendChild(sc);
+      }
+      return;
+    }
+    box.innerHTML = `<button type="button" class="badge login" disabled title="${esc(t("login_soon"))}">${esc(t("login_stub"))}</button>`;
   }
 
   /* ---------- tabs ---------- */
@@ -313,6 +345,7 @@
     $("#replyAudio").src = r.reply.audio || "";
 
     const ns = (r.notices || []).map((n) => t("n_" + n)).filter((x) => !x.startsWith("n_"));
+    if (r.account && r.account.user_left != null) ns.push(t("n_acc_left", { n: r.account.user_left }));
     $("#notice").hidden = !ns.length;
     $("#notice").textContent = ns.join(" ");
     if (!instant) { await sleep(200); setStep("all"); }

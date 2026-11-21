@@ -5,9 +5,12 @@ Text messages → summary and tasks. Same pipeline and limits as the web demo. A
 """
 from __future__ import annotations
 
+import hashlib
 import html
 import logging
+import os
 import threading
+import time
 from typing import Any
 
 from sedlab_ai import ModuleError
@@ -22,6 +25,16 @@ from .settings import Settings
 log = logging.getLogger("voice.tg")
 MEDIA_KINDS = ("voice", "audio", "video_note", "document")
 DEFAULT_NAMES = {"voice": "voice.ogg", "audio": "audio.mp3", "video_note": "video.mp4", "document": "file.bin"}
+
+CONSENT_DATA = "consent:bot-v1"
+CONSENT_TTL = 7 * 24 * 3600  # legal: demo data lives at most 7 days
+CONSENT_TEXT = ("Это демо. Вводите тестовые данные. Нажимая «Согласен, начать», вы даёте "
+                '<a href="https://sedlab.dev/consent/bot">согласие на обработку персональных данных</a>: '
+                "имя и username в мессенджере и то, что вы введёте, хранятся на сервере в России до 7 дней. "
+                "Удалить в любой момент: /delete.")
+CONSENT_BUTTON = "Согласен, начать"
+DELETED_TEXT = "Готово, данные этого чата удалены."
+INTL_NOTE = "Demo: use test data only. Nothing is stored after the session."
 
 TEXT = {
     "start": {
@@ -79,6 +92,34 @@ def user_lang(u: Update) -> str:
     return "ru" if code.startswith(("ru", "uk", "be", "kk")) else "en"
 
 
+class Consents:
+    """RU edition (legal bot-v1): consent per chat, in memory only, as a salted hash, expiring after 7 days."""
+
+    def __init__(self, clock=time.time) -> None:
+        self._salt = os.urandom(16)
+        self._m: dict[str, float] = {}
+        self._clock = clock
+        self._lock = threading.Lock()
+
+    def _k(self, chat_id: int) -> str:
+        return hashlib.sha256(self._salt + str(chat_id).encode()).hexdigest()[:20]
+
+    def give(self, chat_id: int) -> None:
+        with self._lock:
+            self._m[self._k(chat_id)] = self._clock()
+
+    def has(self, chat_id: int) -> bool:
+        now = self._clock()
+        with self._lock:
+            for k in [k for k, t in self._m.items() if now - t > CONSENT_TTL]:
+                del self._m[k]
+            return self._k(chat_id) in self._m
+
+    def delete(self, chat_id: int) -> None:
+        with self._lock:
+            self._m.pop(self._k(chat_id), None)
+
+
 class VoiceBot:
     def __init__(self, s: Settings, prov: Providers, limits: Limits, bot: Bot | None = None) -> None:
         self.s, self.prov, self.limits = s, prov, limits
@@ -87,6 +128,7 @@ class VoiceBot:
         self.max_bytes = s.max_upload_mb * 1024 * 1024
         self._stop = threading.Event()
         self.offset = 0
+        self.consents = Consents() if s.edition == "ru" else None
 
     # --- lifecycle -------------------------------------------------------------------------------------------
     def start(self) -> None:
@@ -121,11 +163,31 @@ class VoiceBot:
     def _send(self, chat_id: int, text: str) -> None:
         self.bot.send_message(chat_id, text, parse_mode="HTML")
 
+    def ask_consent(self, chat: int) -> None:
+        self.bot.send_message(chat, CONSENT_TEXT, parse_mode="HTML",
+                              reply_markup={"inline_keyboard": [[{"text": CONSENT_BUTTON, "callback_data": CONSENT_DATA}]]})
+
     def handle(self, u: Update) -> None:
         chat, lang = u.chat_id, self.s.lang  # the edition decides the language
         f = u.file
+        if self.consents is not None:  # RU: nothing is processed or kept before the consent button
+            if u.kind == "callback_query":
+                if u.data == CONSENT_DATA:
+                    self.consents.give(chat)
+                    self.bot.answer_callback_query(u.callback_query_id)
+                    self._send(chat, t("start", lang))
+                return
+            if u.kind == "command" and u.command == "delete":
+                self.consents.delete(chat)
+                self._send(chat, DELETED_TEXT)
+                return
+            if not self.consents.has(chat):
+                self.ask_consent(chat)
+                return
+        if u.kind == "callback_query":
+            return
         if u.kind == "command":
-            self._send(chat, t("start", lang))
+            self._send(chat, t("start", lang) + ("" if self.consents is not None else "\n\n" + INTL_NOTE))
             return
         if f and (f.kind not in MEDIA_KINDS or
                   (f.kind == "document" and not f.mime_type.startswith(("audio/", "video/")))):

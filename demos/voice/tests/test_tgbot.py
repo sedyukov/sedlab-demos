@@ -13,7 +13,7 @@ from voice_demo.tgbot import VoiceBot, format_result
 from test_app import FakeLLM, FakeSpeech
 
 
-def make_bot(live=True, env_extra=None):
+def make_bot(live=True, env_extra=None, consent=True):
     env = {"EDITION": "ru", **({"AI_GIGACHAT_AUTH_KEY": "g", "AI_YANDEX_API_KEY": "y"} if live else {})}
     env.update(env_extra or {})
     s = Settings.from_env({**env, "VOICE_TELEGRAM_TOKEN": "123:abc", "VOICE_MAX_AUDIO_SEC": "60",
@@ -22,7 +22,10 @@ def make_bot(live=True, env_extra=None):
     sp, llm = FakeSpeech(), FakeLLM()
     prov.client = lambda name: Client(llm, sp, sp)  # type: ignore[method-assign]
     api = MockAPI()
-    return VoiceBot(s, prov, Limits(10, 100), bot=Bot(api, token="123:abc")), api
+    vb = VoiceBot(s, prov, Limits(10, 100), bot=Bot(api, token="123:abc"))
+    if consent and vb.consents is not None:
+        vb.consents.give(42)
+    return vb, api
 
 
 def push(api, uid, **msg):
@@ -94,3 +97,51 @@ def test_speechkit_asks_for_supported_format():
     t = sent_texts(api)
     assert "mp3/ogg" in t[0] and "mp3/ogg" in t[1] and "Live summary." in t[2]
     assert [c.params["file_id"] for c in api.calls("getFile")] == ["V"]
+
+
+def push_callback(api, uid, data):
+    api.push_update(json.dumps({"update_id": uid, "callback_query": {
+        "id": f"cq{uid}", "data": data, "from": {"id": 7}, "message": {"message_id": 1, "chat": {"id": 42}, "date": 0}}}))
+
+
+def test_ru_bot_asks_consent_before_anything():
+    from voice_demo.tgbot import CONSENT_BUTTON, CONSENT_DATA
+    vb, api = make_bot(consent=False)
+    api.put_file("F", b"OggS-voice")
+    push(api, 1, voice={"file_id": "F", "duration": 3})
+    vb.poll_once()
+    first = api.calls("sendMessage")[0].params
+    assert "тестовые данные" in first["text"] and "/delete" in first["text"] and "—" not in first["text"]
+    assert first["reply_markup"]["inline_keyboard"][0][0] == {"text": CONSENT_BUTTON, "callback_data": CONSENT_DATA}
+    assert not api.calls("getFile")  # nothing downloaded or processed before consent
+    push_callback(api, 2, CONSENT_DATA)
+    vb.poll_once()
+    assert api.calls("answerCallbackQuery") and vb.consents.has(42)
+    push(api, 3, voice={"file_id": "F", "duration": 3})
+    vb.poll_once()
+    assert "Live summary." in sent_texts(api)[-1]
+
+
+def test_ru_bot_delete_forgets_consent():
+    vb, api = make_bot()
+    push(api, 1, text="/delete")
+    vb.poll_once()
+    assert sent_texts(api)[-1] == "Готово, данные этого чата удалены." and not vb.consents.has(42)
+
+
+def test_consent_expires_after_7_days_and_is_hashed():
+    from voice_demo.tgbot import Consents
+    now = [1000.0]
+    c = Consents(clock=lambda: now[0])
+    c.give(123456789)
+    assert c.has(123456789) and all("123456789" not in k for k in c._m)
+    now[0] += 7 * 24 * 3600 + 1
+    assert not c.has(123456789) and not c._m
+
+
+def test_intl_bot_has_no_consent_step_and_shows_test_data_note():
+    vb, api = make_bot(env_extra={"EDITION": "intl"}, live=False)
+    assert vb.consents is None
+    push(api, 1, text="/start")
+    vb.poll_once()
+    assert "Demo: use test data only. Nothing is stored after the session." in sent_texts(api)[0]
