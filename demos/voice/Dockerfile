@@ -1,14 +1,27 @@
 # Build context = repo root of sedlab-demos with the private modules checked out at ./modules-src (see CI workflow).
+# Multi-stage: module sources exist only in the builder stage (never pushed). The final image gets just the
+# installed packages in /opt/venv — no module source trees, tests, contract fixtures or build files in any layer.
+
+FROM python:3.12-slim AS builder
+ENV PIP_NO_CACHE_DIR=1 PIP_DISABLE_PIP_VERSION_CHECK=1
+WORKDIR /src
+COPY modules-src/modules/ai/python ai
+COPY modules-src/modules/telegram-core/python telegram-core
+COPY demos/voice/pyproject.toml demo/pyproject.toml
+COPY demos/voice/app demo/app
+RUN pip wheel --no-deps -w /wheels ./ai ./telegram-core ./demo \
+ && python -m venv /opt/venv \
+ && /opt/venv/bin/pip install /wheels/*.whl \
+ && find /opt/venv -name '__pycache__' -prune -exec rm -rf {} + \
+ && find /opt/venv/lib -path '*site-packages/tests*' -prune -exec rm -rf {} + \
+ && rm -f /opt/venv/bin/pip* /opt/venv/bin/activate*
+
 FROM python:3.12-slim
-ENV PYTHONDONTWRITEBYTECODE=1 PYTHONUNBUFFERED=1 PIP_NO_CACHE_DIR=1 PIP_DISABLE_PIP_VERSION_CHECK=1 \
+ENV PYTHONDONTWRITEBYTECODE=1 PYTHONUNBUFFERED=1 PATH=/opt/venv/bin:$PATH \
     VOICE_SAMPLES_DIR=/app/samples VOICE_STATIC_DIR=/app/static \
     AI_GIGACHAT_CA_FILE=/app/certs/russian_trusted_root_ca.pem
 WORKDIR /app
-COPY modules-src/modules/ai/python /tmp/m/ai
-COPY modules-src/modules/telegram-core/python /tmp/m/telegram-core
-COPY demos/voice/pyproject.toml /tmp/demo/pyproject.toml
-COPY demos/voice/app /tmp/demo/app
-RUN pip install /tmp/m/ai /tmp/m/telegram-core /tmp/demo && rm -rf /tmp/m /tmp/demo
+COPY --from=builder /opt/venv /opt/venv
 COPY demos/voice/static /app/static
 COPY demos/voice/samples /app/samples
 COPY demos/voice/certs /app/certs
