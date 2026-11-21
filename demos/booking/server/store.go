@@ -45,6 +45,7 @@ CREATE TABLE IF NOT EXISTS users (
   id INTEGER PRIMARY KEY,          -- Telegram user id
   first_name TEXT NOT NULL DEFAULT '', username TEXT NOT NULL DEFAULT '',
   lang TEXT NOT NULL DEFAULT 'en',
+  platform TEXT NOT NULL DEFAULT 'telegram',  -- telegram | max
   created_at INTEGER NOT NULL
 );
 CREATE TABLE IF NOT EXISTS bookings (
@@ -328,10 +329,10 @@ func (s *Store) SaveMaster(m *Master) error {
 
 // ---- users ----
 
-func (s *Store) UpsertUser(id int64, firstName, username, lang string) error {
-	_, err := s.db.Exec(`INSERT INTO users(id,first_name,username,lang,created_at) VALUES(?,?,?,?,?)
-		ON CONFLICT(id) DO UPDATE SET first_name=excluded.first_name, username=excluded.username, lang=excluded.lang`,
-		id, firstName, username, lang, time.Now().Unix())
+func (s *Store) UpsertUser(id int64, firstName, username, lang, platform string) error {
+	_, err := s.db.Exec(`INSERT INTO users(id,first_name,username,lang,platform,created_at) VALUES(?,?,?,?,?,?)
+		ON CONFLICT(id) DO UPDATE SET first_name=excluded.first_name, username=excluded.username, lang=excluded.lang, platform=excluded.platform`,
+		id, firstName, username, lang, platform, time.Now().Unix())
 	return err
 }
 

@@ -25,6 +25,12 @@ func (a *App) tell(ctx context.Context, userID int64, kind, text string, btn *We
 	if err := a.store.AddMessage(m); err != nil {
 		a.log.Error("outbox", "err", err)
 	}
+	if a.platformOf(userID) == "max" { // notify has no Max channel yet → max-core directly
+		if err := a.max.SendText(ctx, userID, text, btn); err != nil {
+			a.log.Warn("max message not delivered", "kind", kind, "err", err)
+		}
+		return
+	}
 	if a.cfg.TelegramLive && isEmulatorUser(userID) {
 		return
 	}

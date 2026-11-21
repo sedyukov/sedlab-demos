@@ -16,6 +16,8 @@ import (
 	"time"
 	_ "time/tzdata"
 
+	mx "github.com/sedyukov/sedlab-modules/modules/max-core/go"
+	mxkit "github.com/sedyukov/sedlab-modules/modules/max-core/go/kit"
 	notify "github.com/sedyukov/sedlab-modules/modules/notify/go"
 	notifykit "github.com/sedyukov/sedlab-modules/modules/notify/go/kit"
 	pay "github.com/sedyukov/sedlab-modules/modules/payments/go"
@@ -51,6 +53,11 @@ func main() {
 	ctx, stop := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
 	defer stop()
 
+	if app.cfg.MaxLive && strings.HasPrefix(app.cfg.PublicURL, "https://") {
+		if err := app.max.SetWebhook(ctx, app.cfg.PublicURL+"/max/webhook"); err != nil {
+			log.Error("max subscription failed", "err", err)
+		}
+	}
 	if app.cfg.TelegramLive && strings.HasPrefix(app.cfg.PublicURL, "https://") && env("TELEGRAM_SET_WEBHOOK", "true") == "true" {
 		if err := app.msg.SetWebhook(ctx, app.cfg.PublicURL+"/tg/webhook"); err != nil {
 			log.Error("setWebhook failed", "err", err)
@@ -98,7 +105,14 @@ func NewAppFromEnv(log *slog.Logger) (*App, error) {
 			os.Setenv("PAYMENTS_MOCK_STATE_FILE", filepath.Join(dataDir, "payments-mock.json"))
 		}
 	}
+	if env("MAX_WEBHOOK_SECRET", "") == "" {
+		os.Setenv("MAX_WEBHOOK_SECRET", randHex(24))
+	}
 	bot, err := tg.FromEnv(tgkit.Env{Prefix: "TELEGRAM_"})
+	if err != nil {
+		return nil, err
+	}
+	mbot, err := mx.FromEnv(mxkit.Env{Prefix: "MAX_"})
 	if err != nil {
 		return nil, err
 	}
@@ -128,7 +142,9 @@ func NewAppFromEnv(log *slog.Logger) (*App, error) {
 		DepositPercent: int64(envInt("DEPOSIT_PERCENT", 30)), HoldMinutes: envInt("HOLD_MINUTES", 15), LeadMinutes: envInt("LEAD_MINUTES", 60),
 		AdminIDs: admins, Emulator: env("DEMO_EMULATOR", "true") == "true", DemoReset: env("DEMO_RESET", "false") == "true",
 		WebhookSecret: os.Getenv("TELEGRAM_WEBHOOK_SECRET"), PaymentsMock: p.Name() == "mock", TelegramLive: live,
+		MaxSecret: os.Getenv("MAX_WEBHOOK_SECRET"), MaxLive: env("MAX_PROVIDER", "mock") == "max",
 	}
+	maxm := newMaxMessenger(mbot, cfg.MaxLive, cfg.Emulator, cfg.MaxSecret, env("MAX_BOT_USERNAME", "bloom_salon_bot"))
 	// notify: NOTIFY_TELEGRAM_PROVIDER=telegram + NOTIFY_TELEGRAM_BOT_TOKEN for a live bot (default mock)
 	if live && env("NOTIFY_TELEGRAM_PROVIDER", "") == "" {
 		os.Setenv("NOTIFY_TELEGRAM_PROVIDER", "telegram")
@@ -138,13 +154,13 @@ func NewAppFromEnv(log *slog.Logger) (*App, error) {
 	if err != nil {
 		return nil, err
 	}
-	return NewApp(cfg, st, bot, p, nc, log)
+	return NewApp(cfg, st, bot, maxm, p, nc, log)
 }
 
 // NewApp wires the app (also used by tests).
-func NewApp(cfg Config, st *Store, bot *tg.Bot, p pay.Provider, n Notifier, log *slog.Logger) (*App, error) {
+func NewApp(cfg Config, st *Store, bot *tg.Bot, maxm *maxMessenger, p pay.Provider, n Notifier, log *slog.Logger) (*App, error) {
 	tgm := newTelegramMessenger(bot, cfg.TelegramLive, cfg.Emulator, cfg.WebhookSecret)
-	a := &App{cfg: cfg, store: st, msg: tgm, tgm: tgm, pay: p, notify: n, log: log, now: time.Now}
+	a := &App{cfg: cfg, store: st, msg: tgm, tgm: tgm, max: maxm, pay: p, notify: n, log: log, now: time.Now}
 	if a.notify == nil {
 		a.notify = notify.NewMockClient()
 	}

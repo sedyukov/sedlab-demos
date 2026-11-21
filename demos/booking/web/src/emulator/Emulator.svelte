@@ -6,6 +6,7 @@
   const store = (k, v) => { try { if (v === undefined) return localStorage.getItem(k); localStorage.setItem(k, v) } catch {} }
   let lang = $state(store('emu_lang') || (navigator.language?.startsWith('ru') ? 'ru' : 'en'))
   let persona = $state(store('emu_persona') || 'guest')
+  let platform = $state(store('emu_platform') || 'telegram') // telegram | max
   let name = $state(store('emu_name') || '')
   let guestId = Number(store('emu_guest')) || Math.floor(Math.random() * 1e11)
   store('emu_guest', String(guestId))
@@ -28,7 +29,7 @@
       remind: '⏩ Send me a reminder now', admin: 'Open the admin panel ↗', reset: 'Reset demo data', resetDone: 'Demo data restored',
       bot: 'Bloom Salon Bot', online: 'bot', placeholder: 'Message', open: 'Open', start: 'Start',
       built: 'Built with', more: 'Same code runs as a real Telegram bot: just add a BotFather token.', noRem: 'Book something first — the reminder is for your next visit.',
-      variants: 'Payments: Telegram Stars (international) · card via YooKassa (Russia, switch to RU)',
+      variants: 'Payments: Telegram Stars (international) · card via YooKassa (Russia, switch to RU). Max: card only.', messenger: 'Messenger',
     },
     ru: {
       h1: 'Бот записи в салон + Telegram Mini App', lead: 'Живое демо. Страница эмулирует Telegram — можно попробовать без аккаунта. Бэкенд боевой: подписанные данные запуска, вебхуки, песочница платежей.',
@@ -38,7 +39,7 @@
       remind: '⏩ Прислать напоминание сейчас', admin: 'Открыть админку ↗', reset: 'Сбросить демо-данные', resetDone: 'Демо-данные восстановлены',
       bot: 'Bloom Salon Bot', online: 'бот', placeholder: 'Сообщение', open: 'Открыть', start: 'Старт',
       built: 'Стек', more: 'Тот же код работает как настоящий Telegram-бот — нужен только токен от BotFather.', noRem: 'Сначала запишитесь — напоминание приходит о ближайшем визите.',
-      variants: 'Оплата: ЮKassa (РФ) и Telegram Stars (международный рынок, переключите на EN)',
+      variants: 'Оплата: ЮKassa (РФ) и Telegram Stars (международный рынок, переключите на EN). В Max — картой.', messenger: 'Мессенджер',
     },
   }
   const L = $derived(T[lang])
@@ -49,12 +50,12 @@
   }
 
   async function signIn() {
-    store('emu_lang', lang); store('emu_persona', persona); store('emu_name', name)
-    const r = await post('/demo/initdata', { persona, guest_id: guestId, name, lang })
+    store('emu_lang', lang); store('emu_persona', persona); store('emu_name', name); store('emu_platform', platform)
+    const r = await post('/demo/initdata', { persona, guest_id: guestId, name, lang, platform })
     initData = r.init_data
     const changed = userId !== r.user_id
     userId = r.user_id
-    const a = await post('/api/auth', { init_data: initData })
+    const a = await post('/api/auth', { init_data: initData, platform: r.platform })
     token = a.token
     await post('/api/lang', { lang }, true)
     if (changed) { messages = []; await loadChat(true) }
@@ -83,6 +84,7 @@
   function openApp(url) {
     const u = new URL(url, location.origin)
     if (u.origin !== location.origin) return
+    if (platform === 'max' && persona === 'guest') u.searchParams.set('platform', 'max')
     appUrl = u.pathname + u.search + '#tgWebAppData=' + encodeURIComponent(initData) + '&tgWebAppVersion=8.0&tgWebAppPlatform=unknown'
   }
   function openAdmin() { window.open('/admin/#tgWebAppData=' + encodeURIComponent(initData), '_blank', 'noopener') }
@@ -109,6 +111,8 @@
   onDestroy(() => { clearInterval(poll); window.removeEventListener('message', onMsg) })
 
   async function switchPersona(p) { persona = p; appUrl = ''; await signIn() }
+  async function switchPlatform(p) { platform = p; if (p === 'max' && lang === 'en') lang = 'ru'; appUrl = ''; await signIn() }
+  const onMax = $derived(platform === 'max' && persona === 'guest')
   async function switchLang(l) { lang = l; appUrl = ''; await signIn(); await send('/start') }
 </script>
 
@@ -128,6 +132,11 @@
         <button class:on={persona === 'owner'} onclick={() => switchPersona('owner')}>💼 {L.owner}</button>
       </div>
       {#if persona === 'guest'}
+        <div class="label sp">{L.messenger}</div>
+        <div class="seg">
+          <button class:on={platform === 'telegram'} onclick={() => switchPlatform('telegram')}>Telegram</button>
+          <button class:on={platform === 'max'} onclick={() => switchPlatform('max')}>Max</button>
+        </div>
         <input class="name" placeholder={L.name} bind:value={name} maxlength="32" onchange={signIn} />
       {/if}
     </div>
@@ -154,10 +163,10 @@
   </section>
 
   <section class="phone-wrap">
-    <div class="phone">
+    <div class="phone" class:max={onMax}>
       <div class="chat-head">
         <div class="bot-ava">✿</div>
-        <div><b>{L.bot}</b><div class="hint">{L.online}</div></div>
+        <div><b>{L.bot}</b><div class="hint">{L.online}{onMax ? ' · Max' : ''}</div></div>
       </div>
       <div class="chat" bind:this={chatEl}>
         {#each messages as m (m.id)}
@@ -176,7 +185,7 @@
       </div>
       {#if appUrl}
         <div class="miniapp">
-          <div class="ma-head"><button onclick={() => (appUrl = '')}>✕</button><b>Bloom Salon</b><span class="hint">mini app</span></div>
+          <div class="ma-head"><button onclick={() => (appUrl = '')}>✕</button><b>Bloom Salon</b><span class="hint">{onMax ? 'Max · ' : ''}mini app</span></div>
           <iframe src={appUrl} title="Mini App"></iframe>
         </div>
       {/if}
@@ -198,6 +207,11 @@
   .seg button, .lang button { border: 0; background: none; padding: 8px 14px; border-radius: 9px; font-weight: 600; color: var(--hint); }
   .lang button { padding: 5px 10px; font-size: 13px; }
   .seg button.on, .lang button.on { background: #6b4eff; color: #fff; }
+  .label.sp { margin-top: 12px; }
+  .phone.max .chat { background: #eef1f7; }
+  .phone.max .bot-ava { background: linear-gradient(135deg, #3a7bff, #8a4dff); }
+  .phone.max .inline-btn, .phone.max .chip, .phone.max .send { color: #3a6cf4; }
+  .phone.max .msg.me .bubble { background: #dbe6ff; }
   .name { display: block; margin-top: 10px; border: 1.5px solid #e4e2ee; border-radius: 10px; padding: 10px 12px; width: 260px; background: #fff; }
   ol { margin: 0 0 14px; padding-left: 20px; line-height: 1.8; }
   .row { display: flex; gap: 10px; flex-wrap: wrap; }

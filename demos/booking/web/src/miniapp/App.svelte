@@ -32,9 +32,10 @@
 
   const L = (k, v) => t(lang, k, v)
   const svc = $derived(services.find((s) => s.id === sel.service))
-  const methods = $derived(cfg.pay_methods.filter((m) => (lang === 'en' ? m === 'stars' : true)))
+  // Max has no Stars → card only; in Telegram: EN market → Stars, RU → card + Stars
+  const methods = $derived(cfg.pay_methods.filter((m) => (tg.platform === 'max' ? m === 'yookassa' : lang === 'en' ? m === 'stars' : true)))
   const mastersFor = $derived(svc ? masters.filter((m) => m.service_ids.includes(svc.id)) : [])
-  const price = (s) => (lang === 'ru' ? money('RUB', s.price_rub, lang) : money('XTR', s.price_stars, lang))
+  const price = (s) => (lang === 'ru' || tg.platform === 'max' ? money('RUB', s.price_rub, lang) : money('XTR', s.price_stars, lang))
   const depositOf = (s, m) => {
     const p = cfg.deposit_percent / 100
     return m === 'stars' ? Math.max(1, Math.ceil(s.price_stars * p)) : Math.max(100, Math.ceil((s.price_rub * p) / 100) * 100)
@@ -56,7 +57,7 @@
     window.addEventListener('message', onMessage)
     timer = setInterval(() => (nowTs = Math.floor(Date.now() / 1000)), 1000)
     try {
-      const auth = await api('POST', '/api/auth', { init_data: tg.initData() })
+      const auth = await api('POST', '/api/auth', { init_data: tg.initData(), platform: tg.platform })
       setToken(auth.token); user = auth.user; lang = auth.user.lang || 'en'
       form.name = auth.user.first_name || ''
       const [c, cat] = await Promise.all([api('GET', '/api/config'), api('GET', '/api/catalog')])

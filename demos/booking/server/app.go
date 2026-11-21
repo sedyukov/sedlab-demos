@@ -28,6 +28,8 @@ type Config struct {
 	Emulator       bool   // browser emulator: /demo/* endpoints + emulator-signed initData
 	DemoReset      bool   // daily reset of demo data
 	WebhookSecret  string // X-Telegram-Bot-Api-Secret-Token
+	MaxSecret      string // X-Max-Bot-Api-Secret
+	MaxLive        bool
 	PaymentsMock   bool
 	TelegramLive   bool
 }
@@ -35,8 +37,9 @@ type Config struct {
 type App struct {
 	cfg    Config
 	store  *Store
-	msg    Messenger
-	tgm    *telegramMessenger // same object as msg when platform = telegram (emulator helpers)
+	msg    Messenger          // Telegram (telegram-core)
+	tgm    *telegramMessenger // same object as msg (emulator helpers)
+	max    *maxMessenger      // Max (max-core)
 	pay    pay.Provider
 	notify Notifier
 	log    *slog.Logger
@@ -76,6 +79,7 @@ func (a *App) Routes() http.Handler {
 
 	// Provider webhooks
 	mux.HandleFunc("POST /tg/webhook", a.handleTelegramWebhook)
+	mux.HandleFunc("POST /max/webhook", a.handleMaxWebhook)
 	mux.HandleFunc("POST /payments/webhook", a.handlePaymentsWebhook)
 
 	// Browser emulator (sandbox only)
@@ -100,7 +104,7 @@ func (a *App) middleware(h http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("X-Content-Type-Options", "nosniff")
 		w.Header().Set("Referrer-Policy", "strict-origin-when-cross-origin")
-		if r.Method != http.MethodGet && !strings.HasPrefix(r.URL.Path, "/tg/") && !strings.HasPrefix(r.URL.Path, "/payments/") {
+		if r.Method != http.MethodGet && !strings.HasPrefix(r.URL.Path, "/tg/") && !strings.HasPrefix(r.URL.Path, "/max/") && !strings.HasPrefix(r.URL.Path, "/payments/") {
 			if !a.limiter.Allow(clientIP(r)) {
 				writeErr(w, 429, "rate_limited", "too many requests")
 				return
@@ -125,6 +129,9 @@ func sessionFrom(r *http.Request) Session { s, _ := r.Context().Value(ctxKey{}).
 func (a *App) authed(h http.HandlerFunc) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		uid, err := a.msg.VerifySession(r.Header.Get("Authorization"))
+		if err != nil {
+			uid, err = a.max.VerifySession(r.Header.Get("Authorization"))
+		}
 		if err != nil {
 			writeErr(w, 401, "unauthenticated", "session expired — reopen the app")
 			return
@@ -163,16 +170,18 @@ func (a *App) roleFor(uid int64, emulated bool) string {
 func (a *App) handleAuth(w http.ResponseWriter, r *http.Request) {
 	var in struct {
 		InitData string `json:"init_data"`
+		Platform string `json:"platform"` // telegram (default) | max
 	}
 	if !readJSON(w, r, &in) {
 		return
 	}
-	u, emulated, err := a.msg.AuthWebApp(in.InitData)
+	m := a.messenger(in.Platform)
+	u, emulated, err := m.AuthWebApp(in.InitData)
 	if err != nil {
 		writeErr(w, 401, "unauthenticated", "invalid initData")
 		return
 	}
-	if err := a.store.UpsertUser(u.ID, u.FirstName, u.Username, a.userLangOr(u.ID, u.Lang)); err != nil {
+	if err := a.store.UpsertUser(u.ID, u.FirstName, u.Username, a.userLangOr(u.ID, u.Lang), m.Platform()); err != nil {
 		a.fail(w, err)
 		return
 	}
@@ -180,15 +189,37 @@ func (a *App) handleAuth(w http.ResponseWriter, r *http.Request) {
 		writeErr(w, 401, "unauthenticated", "invalid user id")
 		return
 	}
-	tok, exp, err := a.msg.IssueSession(u, 12*time.Hour)
+	tok, exp, err := m.IssueSession(u, 12*time.Hour)
 	if err != nil {
 		a.fail(w, err)
 		return
 	}
 	writeJSON(w, 200, map[string]any{
-		"token": tok, "expires_at": exp, "role": a.roleFor(u.ID, emulated), "emulated": emulated,
+		"token": tok, "expires_at": exp, "role": a.roleFor(u.ID, emulated), "emulated": emulated, "platform": m.Platform(),
 		"user": map[string]any{"id": u.ID, "first_name": u.FirstName, "username": u.Username, "lang": a.store.UserLang(u.ID)},
 	})
+}
+
+func (a *App) messenger(platform string) Messenger {
+	if platform == "max" {
+		return a.max
+	}
+	return a.msg
+}
+
+// platformOf: emulator users by id range, real users by the platform they signed in from.
+func (a *App) platformOf(uid int64) string {
+	if isEmulatorUser(uid) {
+		if uid >= EmulatorUserBase+MaxEmulatorOffset {
+			return "max"
+		}
+		return "telegram"
+	}
+	var p string
+	if a.store.db.QueryRow(`SELECT platform FROM users WHERE id=?`, uid).Scan(&p) == nil && p != "" {
+		return p
+	}
+	return "telegram"
 }
 
 // keep a language the user picked explicitly in the app; otherwise take Telegram's

@@ -4,15 +4,14 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
-	"fmt"
 	"strings"
 	"time"
 
 	tg "github.com/sedyukov/sedlab-modules/modules/telegram-core/go"
 )
 
-// Messenger is the platform seam: Telegram today, Max (VK) later via the planned max-core module
-// with the same shape. Booking logic only talks to this interface.
+// Messenger is the platform seam: Telegram (telegram-core) and Max (max-core, same interface).
+// Booking logic only talks to this interface.
 type Messenger interface {
 	Platform() string
 	// AuthWebApp validates Mini App launch data and returns the user (emulated=true if it was signed
@@ -23,11 +22,23 @@ type Messenger interface {
 	StarsInvoiceLink(ctx context.Context, in StarsInvoice, emulated bool) (string, error)
 	AnswerPreCheckout(ctx context.Context, queryID string, ok bool, errMsg string) error
 	RefundStars(ctx context.Context, userID int64, chargeID string) error
-	ParseUpdate(ctx context.Context, headers map[string]string, body []byte) (*tg.Update, error)
+	ParseUpdate(ctx context.Context, headers map[string]string, body []byte) (*Update, error)
 	SetWebhook(ctx context.Context, url string) error
 	// Sessions for the Mini App API after launch-data validation.
 	IssueSession(u *WebUser, ttl time.Duration) (token string, exp int64, err error)
 	VerifySession(token string) (userID int64, err error)
+	// EmulatorInitData signs launch data for the browser emulator with the module's sandbox token.
+	EmulatorInitData(u WebUser, authDate int64) (string, error)
+}
+
+// Update is a platform-neutral incoming update (telegram-core and max-core already share the field names).
+type Update struct {
+	Kind               string // message | command | callback_query | pre_checkout_query | successful_payment | other
+	ChatID, UserID     int64
+	Text, Command      string
+	PreCheckoutQueryID string
+	Payment            *tg.Payment // Telegram Stars only
+	Duplicate          bool
 }
 
 var ErrUnsupported = errors.New("not supported on this platform")
@@ -92,8 +103,8 @@ func (m *telegramMessenger) AuthWebApp(initData string) (*WebUser, bool, error) 
 }
 
 // EmulatorInitData signs initData for the in-browser emulator (telegram-core BuildInitData, sandbox token).
-func (m *telegramMessenger) EmulatorInitData(u tg.WebAppUser, authDate int64) (string, error) {
-	user := map[string]any{"id": u.ID, "first_name": u.FirstName, "username": u.Username, "language_code": u.LanguageCode}
+func (m *telegramMessenger) EmulatorInitData(u WebUser, authDate int64) (string, error) {
+	user := map[string]any{"id": u.ID, "first_name": u.FirstName, "username": u.Username, "language_code": u.Lang}
 	r, err := m.emu.BuildInitData(tg.BuildInitDataInput{User: user, AuthDate: authDate})
 	if err != nil {
 		return "", err
@@ -136,8 +147,13 @@ func (m *telegramMessenger) RefundStars(ctx context.Context, userID int64, charg
 	return err
 }
 
-func (m *telegramMessenger) ParseUpdate(ctx context.Context, headers map[string]string, body []byte) (*tg.Update, error) {
-	return m.bot.ParseUpdate(ctx, tg.ParseUpdateInput{Headers: headers, Body: string(body)})
+func (m *telegramMessenger) ParseUpdate(ctx context.Context, headers map[string]string, body []byte) (*Update, error) {
+	u, err := m.bot.ParseUpdate(ctx, tg.ParseUpdateInput{Headers: headers, Body: string(body)})
+	if err != nil {
+		return nil, err
+	}
+	return &Update{Kind: u.Kind, ChatID: u.ChatID, UserID: u.UserID, Text: u.Text, Command: u.Command,
+		PreCheckoutQueryID: u.PreCheckoutQueryID, Payment: u.Payment, Duplicate: u.Duplicate}, nil
 }
 
 func (m *telegramMessenger) IssueSession(u *WebUser, ttl time.Duration) (string, int64, error) {
@@ -167,40 +183,15 @@ func (m *telegramMessenger) SetWebhook(ctx context.Context, url string) error {
 	return err
 }
 
-// ---- Max (VK) — placeholder until the max-core module exists ----
-
-// maxMessenger documents the seam: Max Mini Apps also pass signed launch params and the bot API can send
-// messages with web-app buttons. No Stars on Max — card payments go through the payments module.
-type maxMessenger struct{}
-
-func (maxMessenger) Platform() string { return "max" }
-func (maxMessenger) AuthWebApp(string) (*WebUser, bool, error) {
-	return nil, false, fmt.Errorf("max: %w (waiting for max-core)", ErrUnsupported)
-}
-func (maxMessenger) SendText(context.Context, int64, string, *WebAppButton) error {
-	return fmt.Errorf("max: %w", ErrUnsupported)
-}
-func (maxMessenger) StarsInvoiceLink(context.Context, StarsInvoice, bool) (string, error) {
-	return "", ErrUnsupported
-}
-func (maxMessenger) AnswerPreCheckout(context.Context, string, bool, string) error {
-	return ErrUnsupported
-}
-func (maxMessenger) RefundStars(context.Context, int64, string) error { return ErrUnsupported }
-func (maxMessenger) ParseUpdate(context.Context, map[string]string, []byte) (*tg.Update, error) {
-	return nil, ErrUnsupported
-}
-func (maxMessenger) SetWebhook(context.Context, string) error { return ErrUnsupported }
-func (maxMessenger) IssueSession(*WebUser, time.Duration) (string, int64, error) {
-	return "", 0, ErrUnsupported
-}
-func (maxMessenger) VerifySession(string) (int64, error) { return 0, ErrUnsupported }
-
 // ---- helpers ----
 
-// Emulator users get ids ≥ EmulatorUserBase (above any real Telegram id, still JS-safe), so they never
+// Emulator users get ids ≥ EmulatorUserBase (above any real Telegram/Max id, still JS-safe), so they never
 // collide with real users and are recognisable without extra claims in the session token.
-const EmulatorUserBase int64 = 4_000_000_000_000_000
+// Telegram guests: base+1e6…; Max guests: base+MaxEmulatorOffset….
+const (
+	EmulatorUserBase  int64 = 4_000_000_000_000_000
+	MaxEmulatorOffset int64 = 2_000_000_000_000
+)
 
 func isEmulatorUser(id int64) bool { return id >= EmulatorUserBase }
 

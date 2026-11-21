@@ -31,7 +31,7 @@ func (a *App) handlePay(w http.ResponseWriter, r *http.Request) {
 	if !readJSON(w, r, &in) {
 		return
 	}
-	if !slices.Contains(a.cfg.PayMethods, in.Method) {
+	if !slices.Contains(a.cfg.PayMethods, in.Method) || (in.Method == "stars" && a.platformOf(b.UserID) != "telegram") {
 		writeErr(w, 400, "invalid_argument", "payment method is not enabled")
 		return
 	}
@@ -228,20 +228,41 @@ func (a *App) handleTelegramWebhook(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, 200, map[string]any{"ok": true})
 }
 
+// POST /max/webhook — max-core checks X-Max-Bot-Api-Secret and dedupes deliveries.
+func (a *App) handleMaxWebhook(w http.ResponseWriter, r *http.Request) {
+	body, err := io.ReadAll(io.LimitReader(r.Body, 256<<10))
+	if err != nil {
+		writeErr(w, 400, "invalid_argument", "read body")
+		return
+	}
+	if err := a.processUpdateOn(r.Context(), a.max, headersMap(r.Header), body); err != nil {
+		a.log.Warn("max update rejected", "err", err)
+		writeErr(w, 400, "rejected", "rejected")
+		return
+	}
+	writeJSON(w, 200, map[string]any{"ok": true})
+}
+
 func (a *App) processUpdate(ctx context.Context, headers map[string]string, body []byte) error {
-	u, err := a.msg.ParseUpdate(ctx, headers, body)
+	return a.processUpdateOn(ctx, a.msg, headers, body)
+}
+
+func (a *App) processUpdateOn(ctx context.Context, m Messenger, headers map[string]string, body []byte) error {
+	u, err := m.ParseUpdate(ctx, headers, body)
 	if err != nil {
 		return err
 	}
 	if u.Duplicate {
 		return nil
 	}
+	if u.UserID != 0 {
+		a.store.db.Exec(`INSERT OR IGNORE INTO users(id,lang,platform,created_at) VALUES(?,?,?,?)`, u.UserID, "en", m.Platform(), a.now().Unix())
+	}
 	lang := a.store.UserLang(u.UserID)
 	switch u.Kind {
 	case "command":
 		switch u.Command {
 		case "start":
-			a.store.db.Exec(`INSERT OR IGNORE INTO users(id,lang,created_at) VALUES(?,?,?)`, u.UserID, lang, a.now().Unix())
 			a.tell(ctx, u.ChatID, "welcome", T(lang, "welcome", a.firstName(u.UserID)), &WebAppButton{Text: T(lang, "open"), URL: a.cfg.PublicURL + "/app/"}, "")
 		case "admin":
 			if a.roleFor(u.UserID, isEmulatorUser(u.UserID)) == "owner" {

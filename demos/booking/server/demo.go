@@ -17,18 +17,21 @@ import (
 // POST /demo/initdata {persona: guest|owner, guest_id, name, lang} → {init_data} signed by telegram-core.
 func (a *App) handleDemoInitData(w http.ResponseWriter, r *http.Request) {
 	var in struct {
-		Persona string `json:"persona"`
-		GuestID int64  `json:"guest_id"`
-		Name    string `json:"name"`
-		Lang    string `json:"lang"`
+		Persona  string `json:"persona"`
+		Platform string `json:"platform"` // telegram | max
+		GuestID  int64  `json:"guest_id"`
+		Name     string `json:"name"`
+		Lang     string `json:"lang"`
 	}
 	if !readJSON(w, r, &in) {
 		return
 	}
-	u := tg.WebAppUser{LanguageCode: normLang(in.Lang)}
+	u := WebUser{Lang: normLang(in.Lang)}
+	m := a.messenger(in.Platform)
 	if in.Persona == "owner" {
+		m = a.msg // the owner persona lives in Telegram
 		u.ID, u.FirstName, u.Username = DemoOwnerID, "Salon owner", "salon_owner"
-		if u.LanguageCode == "ru" {
+		if u.Lang == "ru" {
 			u.FirstName = "Владелец салона"
 		}
 	} else {
@@ -36,18 +39,21 @@ func (a *App) handleDemoInitData(w http.ResponseWriter, r *http.Request) {
 			in.GuestID = time.Now().UnixNano()
 		}
 		u.ID = EmulatorUserBase + 1_000_000 + in.GuestID%1_000_000_000_000
+		if m.Platform() == "max" {
+			u.ID = EmulatorUserBase + MaxEmulatorOffset + in.GuestID%1_000_000_000_000
+		}
 		u.FirstName = truncate(strings.TrimSpace(in.Name), 32)
 		if u.FirstName == "" {
-			u.FirstName = map[string]string{"ru": "Гость", "en": "Guest"}[u.LanguageCode]
+			u.FirstName = map[string]string{"ru": "Гость", "en": "Guest"}[u.Lang]
 		}
 		u.Username = "demo_guest"
 	}
-	initData, err := a.tgm.EmulatorInitData(u, a.now().Unix())
+	initData, err := m.EmulatorInitData(u, a.now().Unix())
 	if err != nil {
 		a.fail(w, err)
 		return
 	}
-	writeJSON(w, 200, map[string]any{"init_data": initData, "user_id": u.ID})
+	writeJSON(w, 200, map[string]any{"init_data": initData, "user_id": u.ID, "platform": m.Platform()})
 }
 
 // GET /demo/chat?user=&after= → bot messages for an emulator user (the chat pane next to the Mini App).
@@ -82,7 +88,8 @@ func (a *App) handleDemoSend(w http.ResponseWriter, r *http.Request) {
 		writeErr(w, 400, "invalid_argument", "bad message")
 		return
 	}
-	a.store.UpsertUser(in.User, truncate(strings.TrimSpace(in.FirstName), 32), "demo_guest", a.userLangOr(in.User, normLang(in.Lang)))
+	platform := a.platformOf(in.User)
+	a.store.UpsertUser(in.User, truncate(strings.TrimSpace(in.FirstName), 32), "demo_guest", a.userLangOr(in.User, normLang(in.Lang)), platform)
 	a.store.AddMessage(&Message{ChatID: in.User, Text: in.Text, Kind: "user"})
 	a.mu.Lock()
 	a.updSeq++
@@ -96,8 +103,15 @@ func (a *App) handleDemoSend(w http.ResponseWriter, r *http.Request) {
 			"chat": map[string]any{"id": in.User, "type": "private"},
 		},
 	})
-	hdr := map[string]string{"X-Telegram-Bot-Api-Secret-Token": a.cfg.WebhookSecret}
-	if err := a.processUpdate(r.Context(), hdr, []byte(body)); err != nil {
+	var err error
+	if platform == "max" { // Max webhook shape + secret header, handled by max-core
+		mb := maxEmulatorUpdate(in.User, fmt.Sprintf("mid.emu.%d", upd), in.Text, a.now().Unix())
+		err = a.processUpdateOn(r.Context(), a.max, map[string]string{"X-Max-Bot-Api-Secret": a.cfg.MaxSecret}, mb)
+	} else {
+		hdr := map[string]string{"X-Telegram-Bot-Api-Secret-Token": a.cfg.WebhookSecret}
+		err = a.processUpdate(r.Context(), hdr, []byte(body))
+	}
+	if err != nil {
 		a.fail(w, err)
 		return
 	}

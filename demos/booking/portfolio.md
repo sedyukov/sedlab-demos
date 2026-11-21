@@ -19,8 +19,8 @@ Telegram Stars. Пока он платит, время закреплено за
 мастерам, записи и выручку по предоплатам, редактирует услуги, цены и график мастеров.
 
 Интерфейс на русском и английском. Подпись данных мини-аппа проверяется, вебхуки идемпотентны. Сервис занимает около
-10 МБ памяти и работает на самом дешёвом VPS. Логика записи не привязана к мессенджеру, поэтому версия для Max делается
-на той же основе.
+10 МБ памяти и работает на самом дешёвом VPS. Есть версия для Max: тот же бот и мини-апп, оплата
+в Max картой.
 
 Стек: Go, SQLite, Svelte, Telegram Bot API / Mini Apps / Stars, ЮKassa, Docker.
 Срок такого проекта: 7–10 дней.
@@ -43,7 +43,7 @@ schedule by master, bookings and deposit revenue, and lets the owner edit servic
 
 English and Russian UI. Mini App launch data is signature-checked and webhooks are idempotent. The service uses about
 10 MB of RAM and runs on the cheapest VPS. Stars invoices, pre-checkout checks and refunds are built in, which is also what
-an existing bot needs to move its payments to Stars.
+an existing bot needs to move its payments to Stars. A version for the Max messenger runs on the same code.
 
 Stack: Go, SQLite, Svelte, Telegram Bot API / Mini Apps / Stars, YooKassa / Stripe, Docker.
 Typical timeline: 7–10 days.

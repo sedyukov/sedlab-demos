@@ -3,6 +3,7 @@ module github.com/sedyukov/sedlab-demos/demos/booking/server
 go 1.26.0
 
 require (
+	github.com/sedyukov/sedlab-modules/modules/max-core/go v0.0.0
 	github.com/sedyukov/sedlab-modules/modules/notify/go v0.0.0
 	github.com/sedyukov/sedlab-modules/modules/payments/go v0.0.0
 	github.com/sedyukov/sedlab-modules/modules/telegram-core/go v0.0.0
@@ -23,6 +24,7 @@ require (
 
 // Private modules: CI/Docker check them out into <repo>/modules-src (see .github/workflows/build-booking.yml).
 replace (
+	github.com/sedyukov/sedlab-modules/modules/max-core/go => ../../../modules-src/modules/max-core/go
 	github.com/sedyukov/sedlab-modules/modules/notify/go => ../../../modules-src/modules/notify/go
 	github.com/sedyukov/sedlab-modules/modules/payments/go => ../../../modules-src/modules/payments/go
 	github.com/sedyukov/sedlab-modules/modules/telegram-core/go => ../../../modules-src/modules/telegram-core/go

@@ -13,6 +13,7 @@ import (
 	"testing"
 	"time"
 
+	mx "github.com/sedyukov/sedlab-modules/modules/max-core/go"
 	notify "github.com/sedyukov/sedlab-modules/modules/notify/go"
 	pay "github.com/sedyukov/sedlab-modules/modules/payments/go"
 	tg "github.com/sedyukov/sedlab-modules/modules/telegram-core/go"
@@ -48,6 +49,8 @@ func newHarness(t *testing.T) *harness {
 	a := &App{cfg: cfg, store: st, pay: p, log: log, now: func() time.Time { return h.now }}
 	tgm := newTelegramMessenger(bot, false, true, secret)
 	a.msg, a.tgm, a.notify = tgm, tgm, notify.NewMockClient()
+	a.cfg.MaxSecret = "test-max-secret"
+	a.max = newMaxMessenger(mx.NewBot(mx.NewMockAPI(), mx.Config{Token: mx.MockToken, WebhookSecret: a.cfg.MaxSecret}), false, true, a.cfg.MaxSecret, "bloom_salon_bot")
 	h.notify = a.notify.(*notify.Client)
 	a.limiter = newIPLimiter(10000, a.now)
 	if err := a.ResetDemo(); err != nil {
@@ -307,5 +310,50 @@ func TestTelegramWebhook(t *testing.T) {
 	msgs := h.chat(4000000000001234)
 	if len(msgs) != 1 || msgs[0]["button"] == "" {
 		t.Fatalf("start reply: %v", msgs)
+	}
+}
+
+func TestMaxFlow(t *testing.T) {
+	h := newHarness(t)
+	code, r := h.do("POST", "/demo/initdata", "", map[string]any{"platform": "max", "guest_id": 77, "name": "Олег", "lang": "ru"})
+	if code != 200 || r["platform"] != "max" {
+		t.Fatalf("max initdata %d %v", code, r)
+	}
+	uid := int64(r["user_id"].(float64))
+	// Telegram must not accept Max launch data (different sandbox tokens)
+	if code, _ := h.do("POST", "/api/auth", "", map[string]any{"init_data": r["init_data"]}); code != 401 {
+		t.Fatalf("telegram accepted max initData: %d", code)
+	}
+	code, a := h.do("POST", "/api/auth", "", map[string]any{"init_data": r["init_data"], "platform": "max"})
+	if code != 200 || a["platform"] != "max" {
+		t.Fatalf("max auth %d %v", code, a)
+	}
+	tok := a["token"].(string)
+	// /start typed in the emulator goes through max-core's webhook parsing
+	if code, _ := h.do("POST", "/demo/send", "", map[string]any{"user": uid, "first_name": "Олег", "lang": "ru", "text": "/start"}); code != 200 {
+		t.Fatalf("max send %d", code)
+	}
+	if msgs := h.chat(uid); len(msgs) != 2 || !strings.Contains(msgs[1]["text"].(string), "Олег") {
+		t.Fatalf("max welcome: %v", msgs)
+	}
+	b := h.book(tok, "2026-11-24")
+	id := int64(b["id"].(float64))
+	if code, _ := h.do("POST", fmt.Sprintf("/api/bookings/%d/pay", id), tok, map[string]any{"method": "stars"}); code != 400 {
+		t.Fatalf("stars allowed on max: %d", code)
+	}
+	_, p := h.do("POST", fmt.Sprintf("/api/bookings/%d/pay", id), tok, map[string]any{"method": "yookassa"})
+	pid := p["confirmation_url"].(string)[strings.LastIndex(p["confirmation_url"].(string), "/")+1:]
+	h.do("POST", "/demo/checkout/"+pid, "", map[string]any{"outcome": "succeeded"})
+	_, got := h.do("GET", fmt.Sprintf("/api/bookings/%d", id), tok, nil)
+	if got["status"] != "confirmed" {
+		t.Fatalf("max booking: %v", got)
+	}
+	// confirmation went to Max via max-core (open_app button), not to the Telegram notify channel
+	calls := h.app.max.emu.API.(*mx.MockAPI).Calls("POST /messages")
+	if len(calls) == 0 {
+		t.Fatal("no max-core sendMessage")
+	}
+	if d, _ := h.notify.ListDeliveries("telegram"); len(d) != 1 { // owner alert only (owner persona is in Telegram)
+		t.Fatalf("telegram deliveries: %d", len(d))
 	}
 }

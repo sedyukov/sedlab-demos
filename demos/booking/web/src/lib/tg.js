@@ -11,10 +11,15 @@ const hashData = hashParam('tgWebAppData')
 if (hashData) { try { sessionStorage.setItem('tgWebAppData', hashData) } catch {} }
 
 export const isTelegram = !!(W && W.initData && W.platform && W.platform !== 'unknown')
-export const isEmulator = !isTelegram
+// Max client exposes its bridge as window.WebApp (same initData format, see max-core).
+const MW = typeof window !== 'undefined' && !isTelegram ? window.WebApp : undefined
+export const isMax = !!(MW && MW.initData)
+export const isEmulator = !isTelegram && !isMax
+export const platform = isMax || new URLSearchParams(location.search).get('platform') === 'max' ? 'max' : 'telegram'
 
 export function initData() {
   if (isTelegram) return W.initData
+  if (isMax) return MW.initData
   if (hashData) return hashData
   try { return sessionStorage.getItem('tgWebAppData') || '' } catch { return '' }
 }

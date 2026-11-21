@@ -31,8 +31,9 @@ runs the schedule, masters, services and bookings from an admin panel that also 
 - **RU and EN** in the bot, the Mini App and the admin panel.
 - **Security**: Mini App `initData` HMAC check → short-lived session token; webhook secret header; idempotent webhooks
   (repeated Telegram updates and payment events are ignored); rate limits; the amount is re-checked at pre-checkout.
-- **Max (VK messenger)**: the bot talks to the messenger through one interface, so a Max version reuses all booking
-  logic. Max has no Stars, so cards there go through YooKassa.
+- **Max (VK messenger) version**: the same bot and Mini App on Max via `max-core`. The bot talks to the messenger
+  through one interface, so all booking logic is reused. Max has no Stars, so payment there is by card (YooKassa), and
+  the Mini App opens from an `open_app` button. Switch **Telegram / Max** in the demo.
 
 ### Try the demo
 The page emulates the Telegram client: a bot chat on the left of the phone, the Mini App opens on top. The server signs
@@ -46,8 +47,7 @@ booking alerts and open the admin panel. Switch the language to RU to see the ca
 | ![chat](media/01-emulator-chat-en.png) | ![slots](media/02-miniapp-slots-en.png) |
 | ![stars](media/03-stars-payment-en.png) | ![booked](media/04-booked-en.png) |
 | ![card, RU](media/05-confirm-card-ru.png) | ![admin](media/06-admin-schedule-en.png) |
-
-Video: [media/demo.mp4](media/demo.mp4) (~35 s).
+| ![Max, RU](media/07-max-confirm-ru.png) | Video: [media/demo.mp4](media/demo.mp4) (~50 s) |
 
 ### Stack
 Go 1.26 (net/http, one static binary) · SQLite (pure Go, WAL) · Svelte 5 + Vite (Mini App, admin, emulator — built into
@@ -59,7 +59,7 @@ Under the hood it is a thin layer over my reusable modules. Each has the same in
   session tokens, Stars invoices / invoice links / refunds, plus a Stars payment simulator for tests.
 - **payments**: one interface for YooKassa, Stripe and other RU providers: payments, verified webhooks, refunds, idempotency keys.
 - **notify**: notifications to Telegram, email or a webhook, with idempotency keys and rate limits.
-- **max-core**: the same interface for the Max messenger.
+- **max-core**: the same interface for the Max messenger (launch data, sessions, webhooks, keyboards with `open_app`).
 
 ### Price and timeline (ballpark)
 | Scope | Timeline | Price |
@@ -67,7 +67,7 @@ Under the hood it is a thin layer over my reusable modules. Each has the same in
 | Move an existing bot's payments to Telegram Stars (invoices, refunds, revenue report) | 2–4 days | from $350 |
 | Booking bot without a Mini App (buttons in chat) + reminders | 3–5 days | from $400 |
 | This demo's scope: Mini App, deposit (Stars and/or cards), reminders, admin panel, RU/EN | 7–10 days | $800–1,500 |
-| + Max version, Google Calendar / CRM sync, several branches | +3–7 days | quote |
+| + Max version (same code base), Google Calendar / CRM sync, several branches | +2–7 days | quote |
 
 ### Run locally
 ```bash
@@ -108,8 +108,9 @@ holds the thin demo layer only.
 - **Безопасность**: подпись `initData` проверяется по HMAC, после неё выдаётся короткий сессионный токен; секрет вебхука;
   идемпотентные вебхуки (повторы апдейтов Telegram и платёжных событий игнорируются); лимиты запросов; сумма заново
   проверяется в pre-checkout.
-- **Max (VK)**: бот общается с мессенджером через один интерфейс, поэтому версия для Max берёт всю логику записи как
-  есть. Платежей в Max нет, оплата там через ЮKassa.
+- **Версия для Max (VK)**: тот же бот и мини-апп в Max через модуль `max-core`. Бот общается с мессенджером через один
+  интерфейс, поэтому вся логика записи переиспользуется. Stars в Max нет, оплата там картой (ЮKassa), мини-апп
+  открывается кнопкой `open_app`. В демо есть переключатель **Telegram / Max**.
 
 ### Как попробовать демо
 Страница эмулирует Telegram: справа телефон с чатом бота, мини-апп открывается поверх. Сервер подписывает данные запуска и
@@ -134,7 +135,8 @@ GitHub Actions.
 | Бот записи без мини-аппа (кнопки в чате) + напоминания | 3–5 дней | от 10 000 ₽ |
 | Объём этого демо: мини-апп, предоплата (ЮKassa и/или Stars), напоминания, админка, RU/EN | 7–10 дней | 25 000–60 000 ₽ |
 | Перевод оплаты существующего бота на Telegram Stars | 2–4 дня | от 15 000 ₽ |
-| + версия для Max, синхронизация с Google Календарём или CRM (amoCRM, Битрикс24), несколько филиалов | +3–7 дней | по оценке |
+| + версия для Max (на той же кодовой базе) | +2–3 дня | от 10 000 ₽ |
+| + синхронизация с Google Календарём или CRM (amoCRM, Битрикс24), несколько филиалов | +3–7 дней | по оценке |
 
 ### Запуск локально
 См. раздел [Run locally](#run-locally): по умолчанию всё на mock, ключи не нужны. Модули приватные и передаются вместе с
