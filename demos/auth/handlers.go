@@ -14,7 +14,7 @@ import (
 
 func (a *App) jwks(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Cache-Control", "public, max-age=3600")
-	writeJSON(w, 200, map[string]any{"keys": []map[string]string{{"kty": "OKP", "crv": "Ed25519", "alg": "EdDSA", "use": "sig", "kid": a.signer.Kid(), "x": a.signer.PublicKey()}}})
+	writeJSON(w, 200, a.signer.JWKS())
 }
 
 // ---- login page -------------------------------------------------------------------------------------------
