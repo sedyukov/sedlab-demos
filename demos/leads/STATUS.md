@@ -1,7 +1,10 @@
-# STATUS: S5 «Заявка → CRM» (app: leads), 2026-11-21
+# STATUS: S5 «Заявка → CRM» (app: leads), 2026-11-22
 
-**Демо:** RU-версия https://leads.demo.sedlab.dev (пока объединённая страница на freelance-1, до переезда на RU-хост),
-EN-версия https://leads-en.demo.sedlab.dev (EDITION=intl, freelance-1).
+**RU-версия (основная):** https://leads.demo.sedlab.dev
+- на RU-хосте freelance-ru: `leads-ru`, тег `sha-430c692`, accounts http, проверено изнутри и e2e через туннель (amoCRM и Битрикс24); ждёт A-записи;
+- до переключения DNS тот же адрес отдаёт RU-редакцию с freelance-1 (`compose/leads`, EDITION=ru, песочница без ПД), e2e на проде зелёный.
+
+**EN-версия:** https://leads-en.demo.sedlab.dev (`sha-5089977`). По решению владельца не обновляется и не проверяется.
 
 ## Сделано
 - **Юр. пакет v2 (legal 2a131ec):** уведомления RU-редакции (Telegram, Max) без введённого посетителем имени, вместо него
@@ -54,6 +57,9 @@ EN-версия https://leads-en.demo.sedlab.dev (EDITION=intl, freelance-1).
   и 2 GIF (RU и EN). Тексты без длинного тире.
 
 ## Осталось
+- **DNS (владелец):** A-запись `leads.demo.sedlab.dev → 5.35.4.25` (DNS only). Затем `infra/check-demos.sh leads-ru --host freelance-ru`,
+  `infra/deploy.sh rm leads` на freelance-1 и удалить `infra/compose/leads`.
+- В лимитах auth нужен ресурс `bitrix24` (сейчас в DefaultLimits есть только `amocrm`), иначе живой Битрикс24 будет отклонён.
 - Переезд RU: `infra/deploy.sh leads-ru --host freelance-ru --tag sha-<7>`, затем A-запись `leads.demo → IP freelance-ru` в Cloudflare,
   `check-demos.sh leads-ru --host freelance-ru`, потом `deploy.sh rm leads` на freelance-1 и удалить `infra/compose/leads`.
 - Таблица RU (sheets-storage 6280924) готова к включению: `RU_SHEETS_PROVIDER=yandex_disk_table`, `RU_SHEETS_YADISK_TOKEN` (секрет), `RU_SHEETS_YADISK_ROOT=app:/`, `RU_SHEETS_SHEET_ID=app:/leads/leads.xlsx` (то же с `RU_B24_`); заголовок «Lead ID…» приложение пишет само в пустой файл. Тест `TestYandexDiskTableLiveByEnv`. По умолчанию mock.
