@@ -306,7 +306,7 @@ func (a *App) process(s *Session, lead *Lead) error {
 		}
 		r, err := st.Sheets.AppendRows(ctx, sheets.AppendRowsInput{SheetID: st.SheetID, Tab: st.SheetTab, IdempotencyKey: "row-" + lead.SubmissionID,
 			Rows: [][]any{{lead.ID, a.now().UTC().Format("2006-01-02 15:04"), lead.Name, lead.Email, lead.Phone, lead.Company,
-				lead.Plan, formatMoney(lead.Amount), deal.ID, "New", "-"}}})
+				planName(lead), formatMoney(lead.Amount), deal.ID, tr(lead.Lang, "New", "Новая"), "-"}}})
 		if err != nil {
 			return "", nil, err
 		}
@@ -574,9 +574,9 @@ func (a *App) onPayment(s *Session, lead *Lead, ev *payments.WebhookEvent) {
 	var stage, status, sheetStatus string
 	switch ev.Type {
 	case payments.EventPaymentSucceeded:
-		stage, status, sheetStatus = "won", "paid", "Won"
+		stage, status, sheetStatus = "won", "paid", tr(lead.Lang, "Won", "Успешно")
 	case payments.EventPaymentCanceled, payments.EventPaymentFailed:
-		stage, status, sheetStatus = "lost", "canceled", "Lost"
+		stage, status, sheetStatus = "lost", "canceled", tr(lead.Lang, "Lost", "Закрыто")
 	default:
 		return
 	}
@@ -604,7 +604,7 @@ func (a *App) onPayment(s *Session, lead *Lead, ev *payments.WebhookEvent) {
 		return tr(lead.Lang, "Note added: ", "Примечание добавлено: ") + n.ID, map[string]any{"note": n}, nil
 	})
 	_ = a.step(ctx, s, lead, "sheets.update_row", "sheets", func(ctx context.Context) (string, map[string]any, error) {
-		found, err := st.Sheets.FindRows(ctx, sheets.FindRowsInput{SheetID: st.SheetID, Tab: st.SheetTab, Column: "Lead ID", Value: lead.ID})
+		found, err := st.Sheets.FindRows(ctx, sheets.FindRowsInput{SheetID: st.SheetID, Tab: st.SheetTab, Column: fmt.Sprint(st.Header[0]), Value: lead.ID})
 		if err != nil {
 			return "", nil, err
 		}
@@ -612,7 +612,7 @@ func (a *App) onPayment(s *Session, lead *Lead, ev *payments.WebhookEvent) {
 			return "", nil, fmt.Errorf("row for %s not found", lead.ID)
 		}
 		row := found.Rows[0]
-		vals := make([]any, len(SheetHeader))
+		vals := make([]any, len(st.Header))
 		for i := range vals {
 			if i < len(row.Values) {
 				vals[i] = row.Values[i]
@@ -760,4 +760,11 @@ func (a *App) notifyName(lead *Lead) string {
 		return lead.Alias
 	}
 	return lead.Name
+}
+
+func planName(lead *Lead) string {
+	if lead.Lang == "ru" {
+		return planRU(lead.Plan)
+	}
+	return lead.Plan
 }

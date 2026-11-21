@@ -200,8 +200,8 @@
     li.dataset.lead = ev.lead_id || '';
     var time = ev.ts.slice(11, 19);
     var meta = [];
-    if (ev.attempt > 1 || ev.status === 'retry') meta.push('attempt ' + ev.attempt);
-    if (ev.duration_ms) meta.push(ev.duration_ms + ' ms');
+    if (ev.attempt > 1 || ev.status === 'retry') meta.push((S.lang === 'ru' ? 'попытка ' : 'attempt ') + ev.attempt);
+    if (ev.duration_ms) meta.push(ev.duration_ms + (S.lang === 'ru' ? ' мс' : ' ms'));
     li.innerHTML = '<time>' + time + '</time><span class="badge b-' + esc(ev.status) + '">' + esc(t('badge')[ev.status] || ev.status) + '</span>' +
       '<div class="ev-main"><div class="ev-step">' + (ev.lead_id ? '<span class="lid">' + esc(ev.lead_id) + '</span>' : '') + esc(undot(ev.step)) +
       (ev.provider ? '<span class="prov">· ' + esc(ev.provider) + '</span>' : '') + '</div>' +
@@ -298,7 +298,7 @@
     var p = profile(), el = $('#tab-sheet');
     if (!p) return;
     var rows = (S.state && S.state.sheet) || [];
-    var html = sys(p.sheets + (S.cfg.edition === 'ru' ? ' · leads.xlsx' : ' · Leads'), eff('sheets'));
+    var html = sys(p.sheets + (S.cfg.edition === 'ru' ? ' · leads.xlsx · Заявки' : ' · Leads'), eff('sheets'));
     if (!rows.length) { el.innerHTML = html + '<p class="empty">' + t('noRows') + '</p>'; return; }
     var cols = Math.max.apply(null, rows.map(function (r) { return r.length; }));
     html += '<div class="sheet-wrap"><table class="sheet"><thead><tr><th class="rn"></th>';
@@ -307,7 +307,7 @@
     rows.forEach(function (r, i) {
       html += '<tr class="' + (i === 0 ? 'hdr' : '') + (i === rows.length - 1 && i > 0 ? ' flash' : '') + '"><td class="rn">' + (i + 1) + '</td>';
       for (var c = 0; c < cols; c++) {
-        var v = r[c] || '', cls = v === 'Won' ? 'won' : v === 'Lost' ? 'lost' : '';
+        var v = r[c] || '', cls = (v === 'Won' || v === 'Успешно') ? 'won' : (v === 'Lost' || v === 'Закрыто') ? 'lost' : '';
         html += '<td class="' + cls + '" title="' + esc(v) + '">' + esc(v) + '</td>';
       }
       html += '</tr>';

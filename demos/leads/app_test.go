@@ -592,6 +592,11 @@ func TestRUEditionLogIsRussian(t *testing.T) {
 	h.post("/api/leads/"+lead.ID+"/pay", map[string]any{"session": s})
 	h.waitFor(s, lead.ID, func(l *Lead) bool { return l.DealStage == "Won" })
 	h.waitEvent(s, "pipeline", "ok", 2)
+	h.waitEvent(s, "sheets.update_row", "ok", 1)
+	rows := sheetRows(t, h, s, "ru")
+	if len(rows) != 2 || rows[0][0] != "Заявка" || rows[1][6] != "Бизнес" || rows[1][9] != "Успешно" {
+		t.Fatalf("ru sheet: %v", rows)
+	}
 	for _, e := range h.app.Hub.Events(s) {
 		for _, en := range []string{"Form submitted", "Contact created", "created, stage", "Row appended", "Sent to", "Payment", "Webhook", "Lead processed", "sandbox"} {
 			if strings.Contains(e.Message, en) || strings.Contains(e.Provider, en) {

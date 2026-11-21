@@ -61,6 +61,7 @@ type Stack struct {
 	payMock  *payments.Mock
 	SheetID  string
 	SheetTab string
+	Header   []any // row 1 in the profile's language; column 0 is the lookup key
 	hdrMu    sync.Mutex
 	hdrOK    bool // header verified/written (retried on failure, unlike sync.Once)
 }
@@ -116,7 +117,7 @@ func LoadProfiles(getenv func(string) (string, bool), edition string) (map[strin
 	}
 	for _, p := range ps {
 		p.shared = &Stack{}
-		p.sheetTab = "Leads"
+		p.sheetTab = tr(p.Lang, "Leads", "Заявки")
 		p.sheetID = "demo-sheet"
 		if getenv == nil {
 			getenv = os.LookupEnv
@@ -186,8 +187,9 @@ func LoadProfiles(getenv func(string) (string, bool), edition string) (map[strin
 func (p *Profile) NewStack(checkoutURL string, forceMock bool) *Stack {
 	s := &Stack{CRM: p.shared.CRM, Pay: p.shared.Pay, Sheets: p.shared.Sheets, Notify: p.shared.Notify, SheetID: p.sheetID, SheetTab: p.sheetTab}
 	if forceMock {
-		s = &Stack{SheetID: "demo-sheet", SheetTab: "Leads"}
+		s = &Stack{SheetID: "demo-sheet", SheetTab: tr(p.Lang, "Leads", "Заявки")}
 	}
+	s.Header = sheetHeader(p.Lang)
 	if s.CRM == nil {
 		s.crmMock = crm.NewMock()
 		s.CRM = s.crmMock
@@ -205,8 +207,17 @@ func (p *Profile) NewStack(checkoutURL string, forceMock bool) *Stack {
 	return s
 }
 
-// SheetHeader is row 1 of the leads sheet.
+// SheetHeader is row 1 of the leads sheet (English); sheetHeader picks the profile's language.
 var SheetHeader = []any{"Lead ID", "Date (UTC)", "Name", "Email", "Phone", "Company", "Plan", "Amount", "CRM deal", "Status", "Payment"}
+
+var sheetHeaderRU = []any{"Заявка", "Дата (UTC)", "Имя", "Email", "Телефон", "Компания", "Тариф", "Сумма", "Сделка в CRM", "Статус", "Оплата"}
+
+func sheetHeader(lang string) []any {
+	if lang == "ru" {
+		return sheetHeaderRU
+	}
+	return SheetHeader
+}
 
 // ensureHeader writes the header row if the sheet/file has none yet (mock, Google Sheets, Yandex Disk table):
 // the payment step finds the lead's row by the "Lead ID" column. Checked once per stack.
@@ -223,7 +234,7 @@ func (s *Stack) ensureHeader(ctx context.Context) error {
 	case err != nil && sheetskit.CodeOf(err) != sheetskit.NotFound:
 		return err
 	default:
-		if _, err := s.Sheets.AppendRows(ctx, sheets.AppendRowsInput{SheetID: s.SheetID, Tab: s.SheetTab, Rows: [][]any{SheetHeader}}); err != nil {
+		if _, err := s.Sheets.AppendRows(ctx, sheets.AppendRowsInput{SheetID: s.SheetID, Tab: s.SheetTab, Rows: [][]any{s.Header}}); err != nil {
 			return err
 		}
 	}
