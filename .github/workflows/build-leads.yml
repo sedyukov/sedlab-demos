@@ -55,6 +55,11 @@ jobs:
           registry: ghcr.io
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
+      - name: GHCR visibility guard (before push)
+        uses: ./.github/actions/ghcr-private-guard
+        with:
+          image: ghcr.io/${{ github.repository_owner }}/leads
+          mode: probe
       - id: meta
         uses: docker/metadata-action@v5
         with:
@@ -72,3 +77,8 @@ jobs:
           labels: ${{ steps.meta.outputs.labels }}
           provenance: false   # no attestation with paths/sources
           # NO cache-to: type=gha — public repo, layer cache would leak private module code
+      - name: GHCR visibility guard (after push)
+        uses: ./.github/actions/ghcr-private-guard
+        with:
+          image: ghcr.io/${{ github.repository_owner }}/leads
+          mode: check

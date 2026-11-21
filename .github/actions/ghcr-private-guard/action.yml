@@ -1,0 +1,49 @@
+# Fails the job if a GHCR container package is publicly readable.
+#
+# Why: a package first pushed from a workflow of this PUBLIC repo (GITHUB_TOKEN + the
+# org.opencontainers.image.source label added by docker/metadata-action) is linked to the repo and
+# INHERITS ITS VISIBILITY = public. Our images contain private module code, so they must be private.
+#
+# mode: probe — push a tiny placeholder image (no code) to <image>:visibility-probe, then check.
+#                Run it BEFORE the real build: a brand-new package is created by the placeholder, so the
+#                job fails before any private code is pushed. Owner then sets the package to Private once:
+#                https://github.com/users/<owner>/packages/container/<name>/settings → Danger Zone → Change visibility.
+#       check — only check (run AFTER the real push as a second line of defence).
+# Requires: docker login to ghcr.io done earlier in the job.
+name: ghcr-private-guard
+description: Fail if a GHCR package is anonymously readable
+inputs:
+  image:
+    description: "ghcr.io/<owner>/<name> (no tag)"
+    required: true
+  mode:
+    description: "probe | check"
+    default: check
+runs:
+  using: composite
+  steps:
+    - name: push placeholder (probe)
+      if: inputs.mode == 'probe'
+      shell: bash
+      env:
+        IMAGE: ${{ inputs.image }}
+        SOURCE: ${{ github.server_url }}/${{ github.repository }}
+      run: |
+        d="$(mktemp -d)"
+        echo "visibility probe, contains no code" > "$d/PROBE"
+        printf 'FROM scratch\nCOPY PROBE /PROBE\nLABEL org.opencontainers.image.source=%s\n' "$SOURCE" > "$d/Dockerfile"
+        docker build -q -t "$IMAGE:visibility-probe" "$d" >/dev/null
+        docker push -q "$IMAGE:visibility-probe" >/dev/null
+    - name: anonymous access check
+      shell: bash
+      env:
+        IMAGE: ${{ inputs.image }}
+      run: |
+        repo="${IMAGE#ghcr.io/}"
+        token="$(curl -fsS "https://ghcr.io/token?scope=repository:${repo}:pull" | jq -r '.token // empty' || true)"
+        code="$(curl -s -o /dev/null -w '%{http_code}' -H "Authorization: Bearer ${token}" "https://ghcr.io/v2/${repo}/tags/list")"
+        if [ "$code" = "200" ]; then
+          echo "::error::${IMAGE} is PUBLIC (anonymous tags/list = 200). It must be private: images contain private module code. Set Visibility=Private in the package settings, then re-run."
+          exit 1
+        fi
+        echo "ok: ${IMAGE} is not anonymously readable (HTTP ${code})"

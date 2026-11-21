@@ -15,6 +15,15 @@ This repository is **public**. Its CI also tests **private** code from `sedyukov
    `setup-python` without `cache`.
 5. **Images:** images that contain private module code are pushed to GHCR only as **private** packages.
    Deploys are not done from CI — they run from the owner's machine (`infra/deploy.sh`).
+   ⚠️ A package first pushed from a workflow of this public repo is linked to it and **inherits public visibility**
+   (GITHUB_TOKEN + the `org.opencontainers.image.source` label). Therefore every image build workflow MUST:
+   - run `./.github/actions/ghcr-private-guard` with `mode: probe` **before** the real build-push — it pushes a
+     placeholder image without code to `<image>:visibility-probe` and fails the job if the package is anonymously
+     readable (a brand-new package fails here, before any private code is pushed → owner sets it to Private once
+     in the package settings and re-runs);
+   - run it again with `mode: check` **after** the push.
+   - Prefer multi-stage Dockerfiles that copy only installed/compiled artifacts into the final image — never
+     `COPY` module sources into a layer of the final image (a later `rm` does not remove them from that layer).
 6. **Permissions:** `permissions: contents: read` by default; widen per job only when needed.
 7. **Secrets** never in the repo. A gitleaks scan runs on every push (`secret-scan.yml`).
 

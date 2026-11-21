@@ -55,6 +55,11 @@ jobs:
           registry: ghcr.io
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
+      - name: GHCR visibility guard (before push)
+        uses: ./.github/actions/ghcr-private-guard
+        with:
+          image: ghcr.io/${{ github.repository_owner }}/voice
+          mode: probe
       - id: meta
         uses: docker/metadata-action@v5
         with:
@@ -72,4 +77,9 @@ jobs:
           labels: ${{ steps.meta.outputs.labels }}
           provenance: false
           # no cache-to: type=gha — the layer cache would leak private module code (public repo)
+      - name: GHCR visibility guard (after push)
+        uses: ./.github/actions/ghcr-private-guard
+        with:
+          image: ghcr.io/${{ github.repository_owner }}/voice
+          mode: check
 # After the build: ~/freelance/infra/deploy.sh voice --tag sha-<7 chars>
