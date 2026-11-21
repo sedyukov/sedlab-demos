@@ -236,7 +236,7 @@ func (a *App) authUser(ctx context.Context, token string) (*User, *Session) {
 	if err != nil {
 		return nil, nil
 	}
-	if u.TermsVersion == "" { // created but consent never recorded (crash between steps): not an account yet
+	if u.ConsentVersion == "" { // created but PD consent never recorded (crash between steps): not an account yet
 		return nil, nil
 	}
 	a.store.Touch(ctx, u, a.now())
@@ -307,7 +307,7 @@ func (a *App) openPending(s string) (*pending, error) {
 func (a *App) finishLogin(ctx context.Context, p pending) (token, pend string, err error) {
 	uid, err := a.store.FindIdentity(ctx, p.Prov, p.UID)
 	if err == nil {
-		if u, gerr := a.store.GetUser(ctx, uid); gerr == nil && u.TermsVersion == "" {
+		if u, gerr := a.store.GetUser(ctx, uid); gerr == nil && u.ConsentVersion == "" {
 			err = errNotFound // identity without recorded consent → consent screen again
 		}
 	}

@@ -81,14 +81,9 @@ func NewStore(db *sql.DB, dialect string) *Store {
 func (s *Store) Migrate(ctx context.Context) error { return store.Migrate(ctx, s.db, "sqlite") }
 
 // FindIdentity: is there already an account for this provider subject? (no row is created)
-// TODO(accounts module): replace the direct read with a Store method when s2 adds it.
 func (s *Store) FindIdentity(ctx context.Context, provider, uid string) (string, error) {
-	var id string
-	err := s.db.QueryRowContext(ctx, `SELECT user_id FROM identities WHERE provider = ? AND provider_uid = ?`, provider, uid).Scan(&id)
-	if errors.Is(err, sql.ErrNoRows) {
-		return "", errNotFound
-	}
-	return id, err
+	id, err := s.st.FindIdentity(ctx, provider, uid)
+	return id, mapErr(err)
 }
 
 // UpsertUser: c == nil → refresh the profile of an existing account; otherwise create the account with consents
@@ -106,8 +101,7 @@ func (s *Store) UpsertUser(ctx context.Context, p Profile, c *Consent, firstDemo
 		return nil, false, err
 	}
 	if c != nil {
-		// TODO(accounts module): store the PD consent version (c.Demo) separately from Terms — asked s2.
-		if err := s.st.RecordConsents(ctx, u.ID, store.Consents{Terms: c.Terms, Contact: c.Contact, Demo: firstDemo}, now); err != nil {
+		if err := s.st.RecordConsents(ctx, u.ID, store.Consents{PD: c.Demo, Terms: c.Terms, Contact: c.Contact, FromDemo: firstDemo}, now); err != nil {
 			return nil, false, err
 		}
 		if created {
@@ -236,13 +230,14 @@ func (s *Store) Consume(ctx context.Context, userID, demo, resource string, unit
 	return toDecision(r, lim, now), nil
 }
 
-// Refund: only the demo that consumed may refund (the module refunds by id; the demo check is ours).
+// Refund: only the demo that consumed may refund (checked by the module).
 func (s *Store) Refund(ctx context.Context, cid, demo string, now int64) error {
-	var d string
-	if err := s.db.QueryRowContext(ctx, `SELECT demo FROM consumptions WHERE id = ?`, cid).Scan(&d); err != nil || d != demo {
-		return errNotFound
+	err := s.st.Refund(ctx, cid, demo, now)
+	var ke *akit.Error
+	if errors.As(err, &ke) && ke.Code == akit.PermissionDenied {
+		return errNotFound // another demo's consumption: don't reveal it exists
 	}
-	return mapErr(s.st.Refund(ctx, cid, now))
+	return mapErr(err)
 }
 
 // ---- leads ------------------------------------------------------------------------------------------------

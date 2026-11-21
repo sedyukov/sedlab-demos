@@ -402,7 +402,7 @@ func TestConsentRequiresBothBoxesAndCancelStoresNothing(t *testing.T) {
 	r.Body.Close()
 	id, _ := app.store.FindIdentity(context.Background(), "max", "51")
 	u, _ := app.store.GetUser(context.Background(), id)
-	if u.TermsVersion != "terms-v1" || u.TermsAt == 0 || !u.ContactOK || u.ContactConsentAt == 0 {
+	if u.ConsentVersion != "demo-v1" || u.ConsentAt == 0 || u.TermsVersion != "terms-v1" || u.TermsAt == 0 || !u.ContactOK || u.ContactConsentAt == 0 {
 		t.Fatalf("consents not stored: %+v", u)
 	}
 	r, _ = c.PostForm(srv.URL+"/account/contact", url.Values{}) // withdraw
@@ -436,5 +436,21 @@ func TestLegalPagesFilledFromEnvOnly(t *testing.T) {
 	}
 	if !strings.Contains(string(b), "{{OPERATOR_INN}}") {
 		t.Fatal("unset placeholder must stay visible")
+	}
+}
+
+func TestRefundOnlyByOwningDemo(t *testing.T) {
+	_, srv := newTestApp(t, map[string]string{"AUTH_SVC_BOOKING": "booking-service-key-0123456789abcd"})
+	tok := devSignup(t, srv, client(), "60")
+	_, d := internalCall(t, srv, svcKey, "consume", map[string]any{"token": tok, "resource": "openai", "idempotency_key": "z1"})
+	cid, _ := d["consumption_id"].(string)
+	if cid == "" {
+		t.Fatalf("consume: %v", d)
+	}
+	if code, _ := internalCall(t, srv, "booking-service-key-0123456789abcd", "refund", map[string]any{"consumption_id": cid}); code != 404 {
+		t.Fatalf("other demo refunded: %d", code)
+	}
+	if code, _ := internalCall(t, srv, svcKey, "refund", map[string]any{"consumption_id": cid}); code != 200 {
+		t.Fatalf("own refund: %d", code)
 	}
 }
