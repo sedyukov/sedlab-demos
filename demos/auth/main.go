@@ -103,7 +103,7 @@ func openDB(dataDir string) (*sql.DB, error) {
 	if err := os.MkdirAll(dataDir, 0o700); err != nil {
 		return nil, err
 	}
-	dsn := "file:" + filepath.Join(dataDir, "auth.db") + "?_pragma=journal_mode(WAL)&_pragma=busy_timeout(5000)&_pragma=foreign_keys(1)&_pragma=synchronous(NORMAL)"
+	dsn := "file:" + filepath.Join(dataDir, "auth.db") + "?_pragma=journal_mode(WAL)&_pragma=busy_timeout(5000)&_pragma=foreign_keys(1)&_pragma=synchronous(NORMAL)&_txlock=immediate"
 	db, err := sql.Open("sqlite", dsn)
 	if err != nil {
 		return nil, err
@@ -134,7 +134,7 @@ func main() {
 			db, err := openDB(env("DATA_DIR", "./data"))
 			if err == nil {
 				_ = os.Remove(os.Args[2])
-				_, err = db.Exec(`VACUUM INTO ?`, os.Args[2])
+				err = NewStore(db, "sqlite").Snapshot(context.Background(), os.Args[2])
 			}
 			if err != nil {
 				fmt.Fprintln(os.Stderr, "backup:", err)

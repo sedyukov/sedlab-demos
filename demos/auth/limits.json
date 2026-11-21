@@ -1,114 +1,89 @@
 {
-  "_doc": "Units: run (one live call) or audio_sec. per_user_day / per_day_global / monthly: -1 = unlimited, 0 = disabled. Paid monthly budgets are placeholders until the owner sets real budgets per key.",
   "resources": {
     "openai": {
       "kind": "paid",
       "unit": "run",
       "per_user_day": 3,
       "per_day_global": 30,
-      "monthly": 300,
-      "label_ru": "OpenAI (США)",
-      "label_en": "OpenAI (USA)"
+      "monthly_budget": 300
     },
     "anthropic": {
       "kind": "paid",
       "unit": "run",
       "per_user_day": 3,
       "per_day_global": 30,
-      "monthly": 300,
-      "label_ru": "Anthropic (США)",
-      "label_en": "Anthropic (USA)"
+      "monthly_budget": 300
     },
     "gigachat": {
       "kind": "paid",
       "unit": "run",
       "per_user_day": 3,
       "per_day_global": 30,
-      "monthly": 300,
-      "label_ru": "GigaChat (Россия)",
-      "label_en": "GigaChat (Russia)"
+      "monthly_budget": 300
     },
     "yandex-llm": {
       "kind": "paid",
       "unit": "run",
       "per_user_day": 3,
       "per_day_global": 30,
-      "monthly": 300,
-      "label_ru": "YandexGPT (Россия)",
-      "label_en": "YandexGPT (Russia)"
+      "monthly_budget": 300
     },
     "yandex-stt": {
       "kind": "paid",
       "unit": "audio_sec",
       "per_user_day": 180,
       "per_day_global": 1800,
-      "monthly": 18000,
-      "max_per_call": 60,
-      "label_ru": "Yandex SpeechKit (Россия)",
-      "label_en": "Yandex SpeechKit (Russia)"
+      "monthly_budget": 18000,
+      "max_units": 60
     },
     "yandex-tts": {
       "kind": "paid",
       "unit": "run",
       "per_user_day": 3,
       "per_day_global": 30,
-      "monthly": 300,
-      "label_ru": "Yandex SpeechKit TTS (Россия)",
-      "label_en": "Yandex SpeechKit TTS (Russia)"
+      "monthly_budget": 300
     },
     "yookassa-test": {
       "kind": "free",
       "unit": "run",
       "per_user_day": 50,
-      "per_day_global": -1,
-      "monthly": -1,
-      "label_ru": "ЮKassa, тест (Россия)",
-      "label_en": "YooKassa test (Russia)"
+      "per_day_global": 0,
+      "monthly_budget": 0
     },
     "stripe-test": {
       "kind": "free",
       "unit": "run",
       "per_user_day": 50,
-      "per_day_global": -1,
-      "monthly": -1,
-      "label_ru": "Stripe, тест (США)",
-      "label_en": "Stripe test (USA)"
+      "per_day_global": 0,
+      "monthly_budget": 0
     },
     "amocrm": {
       "kind": "free",
       "unit": "run",
       "per_user_day": 50,
       "per_day_global": 2000,
-      "monthly": -1,
-      "label_ru": "amoCRM (Россия)",
-      "label_en": "amoCRM (Russia)"
+      "monthly_budget": 0
     },
     "hubspot-dev": {
       "kind": "free",
       "unit": "run",
       "per_user_day": 50,
       "per_day_global": 2000,
-      "monthly": -1,
-      "label_ru": "HubSpot, dev (США)",
-      "label_en": "HubSpot dev (USA)"
+      "monthly_budget": 0
     },
     "telegram": {
       "kind": "free",
       "unit": "run",
       "per_user_day": 50,
-      "per_day_global": -1,
-      "monthly": -1,
-      "label_ru": "Telegram (ОАЭ)",
-      "label_en": "Telegram (UAE)"
+      "per_day_global": 0,
+      "monthly_budget": 0
     },
     "max": {
       "kind": "free",
       "unit": "run",
       "per_user_day": 50,
-      "per_day_global": -1,
-      "monthly": -1,
-      "label_ru": "Max (Россия)",
-      "label_en": "Max (Russia)"
+      "per_day_global": 0,
+      "monthly_budget": 0
     }
   },
   "demos": {

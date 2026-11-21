@@ -58,7 +58,7 @@ func (a *App) internal(w http.ResponseWriter, r *http.Request) {
 			moduleErr(w, 400, "invalid_argument", "consumption_id required")
 			return
 		}
-		if err := a.store.Refund(r.Context(), in.ConsumptionID, demo); errors.Is(err, errNotFound) {
+		if err := a.store.Refund(r.Context(), in.ConsumptionID, demo, a.now()); errors.Is(err, errNotFound) {
 			moduleErr(w, 404, "not_found", "no such consumption")
 			return
 		} else if err != nil {
@@ -100,20 +100,20 @@ func (a *App) internal(w http.ResponseWriter, r *http.Request) {
 	if in.Units <= 0 {
 		in.Units = 1
 	}
-	if res.MaxPerCall > 0 && in.Units > res.MaxPerCall {
-		moduleErr(w, 400, "invalid_argument", "units over max_per_call "+strconv.FormatInt(res.MaxPerCall, 10))
+	if res.MaxUnits > 0 && in.Units > res.MaxUnits {
+		moduleErr(w, 400, "invalid_argument", "units over max_units "+strconv.FormatInt(res.MaxUnits, 10))
 		return
 	}
 	var d *Decision
 	var err error
 	if op == "check" {
-		d, err = a.store.Check(r.Context(), u.ID, demo, in.Resource, in.Units, res.Limit(), a.now())
+		d, err = a.store.Check(r.Context(), u.ID, demo, in.Resource, in.Units, res, a.now())
 	} else {
 		if in.IdempotencyKey == "" || len(in.IdempotencyKey) > 128 {
 			moduleErr(w, 400, "invalid_argument", "idempotency_key required (≤128)")
 			return
 		}
-		d, err = a.store.Consume(r.Context(), u.ID, demo, in.Resource, in.Units, in.IdempotencyKey, res.Limit(), a.now())
+		d, err = a.store.Consume(r.Context(), u.ID, demo, in.Resource, in.Units, in.IdempotencyKey, res, a.now())
 		if err == nil && d.Allowed {
 			_ = a.store.RecordVisit(r.Context(), u.ID, demo, a.now())
 		}
@@ -177,9 +177,8 @@ func (a *App) isAdmin(r *http.Request, userID, prov string) bool {
 	if err != nil {
 		return false
 	}
-	ids, _ := data["identities"].([]map[string]any)
-	for _, i := range ids {
-		if a.cfg.Admins[i["provider"].(string)+":"+i["provider_uid"].(string)] {
+	for _, i := range data.Identities {
+		if a.cfg.Admins[i.Provider+":"+i.ProviderUID] {
 			return true
 		}
 	}

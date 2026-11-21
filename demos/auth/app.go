@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"crypto/hmac"
+	"crypto/rand"
 	"crypto/sha256"
 	"embed"
 	"encoding/json"
@@ -228,14 +229,17 @@ func (a *App) authUser(ctx context.Context, token string) (*User, *Session) {
 		return nil, nil
 	}
 	s, err := a.store.GetSession(ctx, c.Sid)
-	if err != nil || s.RevokedAt != 0 || s.UserID != c.Sub || s.ExpiresAt < a.now() {
+	if err != nil || !s.Active(a.now()) || s.UserID != c.Sub {
 		return nil, nil
 	}
 	u, err := a.store.GetUser(ctx, c.Sub)
 	if err != nil {
 		return nil, nil
 	}
-	a.store.Touch(ctx, u.ID, a.now())
+	if u.TermsVersion == "" { // created but consent never recorded (crash between steps): not an account yet
+		return nil, nil
+	}
+	a.store.Touch(ctx, u, a.now())
 	return u, s
 }
 
@@ -302,6 +306,11 @@ func (a *App) openPending(s string) (*pending, error) {
 // finishLogin: known identity → session now; new one → consent first. Returns token ("" if consent needed) and pending.
 func (a *App) finishLogin(ctx context.Context, p pending) (token, pend string, err error) {
 	uid, err := a.store.FindIdentity(ctx, p.Prov, p.UID)
+	if err == nil {
+		if u, gerr := a.store.GetUser(ctx, uid); gerr == nil && u.TermsVersion == "" {
+			err = errNotFound // identity without recorded consent → consent screen again
+		}
+	}
 	if errors.Is(err, errNotFound) {
 		return "", a.sealPending(p), nil
 	}
@@ -317,7 +326,7 @@ func (a *App) finishLogin(ctx context.Context, p pending) (token, pend string, e
 
 func (a *App) issue(ctx context.Context, userID, prov string) (string, error) {
 	now := a.now()
-	sid, err := a.store.CreateSession(ctx, userID, prov, now, now+sessionTTL)
+	sid, err := a.store.CreateSession(ctx, userID, prov, sessionTTL, now)
 	if err != nil {
 		return "", err
 	}
@@ -408,4 +417,10 @@ func (a *App) Background(ctx context.Context) {
 		case <-t.C:
 		}
 	}
+}
+
+func randToken(n int) string {
+	b := make([]byte, n)
+	_, _ = rand.Read(b)
+	return b64.EncodeToString(b)
 }

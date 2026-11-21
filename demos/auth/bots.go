@@ -11,6 +11,7 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/sedyukov/sedlab-modules/modules/accounts/go/store"
 	maxcore "github.com/sedyukov/sedlab-modules/modules/max-core/go"
 	notify "github.com/sedyukov/sedlab-modules/modules/notify/go"
 )
@@ -90,7 +91,7 @@ func (a *App) maxWebhook(w http.ResponseWriter, r *http.Request) {
 		if uid == 0 {
 			uid = u.UserID
 		}
-		ok, err := a.store.ConfirmNonce(ctx, strings.TrimPrefix(u.Data, "login:"), "max", strconv.FormatInt(uid, 10), from.display(), from.Username, a.now())
+		ok, err := a.store.ConfirmNonce(ctx, strings.TrimPrefix(u.Data, "login:"), store.Subject{Provider: "max", ProviderUID: strconv.FormatInt(uid, 10), DisplayName: from.display(), Username: from.Username}, a.now())
 		text := "Готово — вернитесь в браузер. / Done — return to your browser."
 		if err != nil || !ok {
 			text = "Ссылка устарела — начните вход заново. / Link expired — start again."

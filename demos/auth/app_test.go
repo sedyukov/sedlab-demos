@@ -131,78 +131,8 @@ func TestTokenRoundTripAndTamper(t *testing.T) {
 
 func mustB64(s string) []byte { b, _ := b64.DecodeString(s); return b }
 
-func TestStoreLimitsConsumeRefundIdempotency(t *testing.T) {
-	app, _ := newTestApp(t, nil)
-	ctx := context.Background()
-	st := app.store
-	u, created, err := st.UpsertUser(ctx, Profile{Provider: "max", ProviderUID: "1", DisplayName: "A"}, &Consent{Demo: "demo-v1", Terms: "terms-v1"}, "voice", 1_700_000_000)
-	if err != nil || !created {
-		t.Fatal(err, created)
-	}
-	l := Limit{PerUserDay: 3, PerDayGlobal: 4, Monthly: 5}
-	now := int64(1_700_000_000)
-	var last *Decision
-	for i := 0; i < 3; i++ {
-		d, err := st.Consume(ctx, u.ID, "voice", "openai", 1, fmt.Sprintf("k%d", i), l, now)
-		if err != nil || !d.Allowed {
-			t.Fatalf("consume %d: %v %+v", i, err, d)
-		}
-		last = d
-	}
-	if last.UserLeft != 0 {
-		t.Fatalf("user_left after 3: %d", last.UserLeft)
-	}
-	d, _ := st.Consume(ctx, u.ID, "voice", "openai", 1, "k3", l, now)
-	if d.Allowed || d.Reason != "user_daily" {
-		t.Fatalf("4th: %+v", d)
-	}
-	again, _ := st.Consume(ctx, u.ID, "voice", "openai", 1, "k0", l, now)
-	if !again.Allowed || again.ConsumptionID == "" {
-		t.Fatalf("idempotent replay: %+v", again)
-	}
-	if err := st.Refund(ctx, again.ConsumptionID, "voice"); err != nil {
-		t.Fatal(err)
-	}
-	_ = st.Refund(ctx, again.ConsumptionID, "voice") // second refund: no-op
-	d, _ = st.Consume(ctx, u.ID, "voice", "openai", 1, "k4", l, now)
-	if !d.Allowed {
-		t.Fatalf("after refund: %+v", d)
-	}
-	// second user: 1 run fits the global daily cap (4), the next one doesn't
-	u2, _, _ := st.UpsertUser(ctx, Profile{Provider: "max", ProviderUID: "2"}, &Consent{Demo: "demo-v1", Terms: "terms-v1"}, "", now)
-	if d, _ = st.Consume(ctx, u2.ID, "voice", "openai", 1, "x1", l, now); !d.Allowed {
-		t.Fatalf("u2 first: %+v", d)
-	}
-	d, _ = st.Consume(ctx, u2.ID, "voice", "openai", 1, "x1b", l, now)
-	if d.Allowed || d.Reason != "global_daily" {
-		t.Fatalf("global daily: %+v", d)
-	}
-	// next day: daily resets, monthly (5) is reached after 1 more
-	tomorrow := now + 86400
-	d, _ = st.Consume(ctx, u2.ID, "voice", "openai", 1, "x2", l, tomorrow)
-	if !d.Allowed {
-		t.Fatalf("next day: %+v", d)
-	}
-	d, _ = st.Consume(ctx, u2.ID, "voice", "openai", 1, "x3", l, tomorrow)
-	if d.Allowed || d.Reason != "budget_month" {
-		if monthOf(tomorrow) == monthOf(now) {
-			t.Fatalf("monthly: %+v", d)
-		}
-	}
-	// deleting a user keeps global counters
-	if err := st.DeleteUser(ctx, u.ID); err != nil {
-		t.Fatal(err)
-	}
-	if _, err := st.GetUser(ctx, u.ID); err != errNotFound {
-		t.Fatal("user not deleted")
-	}
-	if n, _ := st.used(ctx, st.db, `SELECT used FROM usage_global WHERE resource = ? AND period = ?`, "openai", monthOf(now)); n == 0 {
-		t.Fatal("global counter lost on delete")
-	}
-	if _, err := st.LeadByUser(ctx, u.ID); err != errNotFound {
-		t.Fatal("lead not deleted")
-	}
-}
+// Store contract (limits, idempotency, refund, rollover, concurrency, delete keeps global counters) is the
+// module's storetest — see store_module_test.go.
 
 func TestMigrateIdempotent(t *testing.T) {
 	app, _ := newTestApp(t, nil)
@@ -472,7 +402,7 @@ func TestConsentRequiresBothBoxesAndCancelStoresNothing(t *testing.T) {
 	r.Body.Close()
 	id, _ := app.store.FindIdentity(context.Background(), "max", "51")
 	u, _ := app.store.GetUser(context.Background(), id)
-	if u.ConsentVer != "demo-v1" || u.TermsVer != "terms-v1" || !u.ContactOK || u.ContactAt == 0 {
+	if u.TermsVersion != "terms-v1" || u.TermsAt == 0 || !u.ContactOK || u.ContactConsentAt == 0 {
 		t.Fatalf("consents not stored: %+v", u)
 	}
 	r, _ = c.PostForm(srv.URL+"/account/contact", url.Values{}) // withdraw

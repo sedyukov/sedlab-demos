@@ -81,7 +81,7 @@ func (a *App) loginStart(w http.ResponseWriter, r *http.Request) {
 	base := a.cfg.MaxBotLink + "?start="
 	bind := randToken(18)
 	a.setCookie(w, cookieLogin, bind, nonceTTL, false)
-	n, err := a.store.CreateNonce(r.Context(), in.Provider, browserHash(bind), a.now()+nonceTTL)
+	n, err := a.store.CreateNonce(r.Context(), in.Provider, browserHash(bind), nonceTTL, a.now())
 	if err != nil {
 		moduleErr(w, 500, "unavailable", "storage")
 		return
@@ -106,7 +106,7 @@ func (a *App) loginPoll(w http.ResponseWriter, r *http.Request) {
 	}
 	a.setCookie(w, cookieLogin, "", -1, false)
 	ret, demo := a.retCookie(r)
-	tok, pend, err := a.finishLogin(r.Context(), pending{Prov: x.Provider, UID: x.ProviderUID, Name: x.DisplayName, User: x.Username, Lang: langOf(r), Ret: ret, Demo: demo})
+	tok, pend, err := a.finishLogin(r.Context(), pending{Prov: x.Subject.Provider, UID: x.Subject.ProviderUID, Name: x.Subject.DisplayName, User: x.Subject.Username, Lang: langOf(r), Ret: ret, Demo: demo})
 	if err != nil {
 		moduleErr(w, 500, "unavailable", "login failed")
 		return
@@ -176,16 +176,10 @@ func (a *App) consentPage(w http.ResponseWriter, r *http.Request) {
 }
 
 func (a *App) createFromPending(r *http.Request, p *pending, contact bool) (string, error) {
-	c := &Consent{Demo: a.cfg.ConsentVer, Terms: a.cfg.TermsVer}
-	if contact && contactChannel(p.Prov) != "" {
-		c.Contact = a.cfg.ContactVer
-	}
-	u, created, err := a.store.UpsertUser(r.Context(), Profile{Provider: p.Prov, ProviderUID: p.UID, DisplayName: p.Name, Username: p.User, Lang: p.Lang}, c, p.Demo, a.now())
+	c := &Consent{Demo: a.cfg.ConsentVer, Terms: a.cfg.TermsVer, Contact: contact && contactChannel(p.Prov) != ""}
+	u, _, err := a.store.UpsertUser(r.Context(), Profile{Provider: p.Prov, ProviderUID: p.UID, DisplayName: p.Name, Username: p.User, Lang: p.Lang}, c, p.Demo, a.now())
 	if err != nil {
 		return "", err
-	}
-	if created && p.Demo != "" {
-		_ = a.store.RecordVisit(r.Context(), u.ID, p.Demo, a.now())
 	}
 	return a.issue(r.Context(), u.ID, p.Prov)
 }
@@ -251,7 +245,7 @@ func (a *App) consentAPI(w http.ResponseWriter, r *http.Request) {
 
 func (a *App) logout(w http.ResponseWriter, r *http.Request) {
 	if _, s := a.authUser(r.Context(), tokenFromRequest(r)); s != nil {
-		_ = a.store.RevokeSession(r.Context(), s.Sid, a.now())
+		_ = a.store.RevokeSession(r.Context(), s.SID, a.now())
 	}
 	a.setCookie(w, cookieAuth, "", -1, true)
 	http.Redirect(w, r, a.safeReturn(r.FormValue("return")), http.StatusSeeOther)
@@ -373,19 +367,20 @@ func (a *App) apiMeLimits(w http.ResponseWriter, r *http.Request) {
 func (a *App) remaining(r *http.Request, userID, demo string) []map[string]any {
 	var out []map[string]any
 	for _, res := range a.limits.DemoResources(demo) {
-		rc := a.limits.Resources[res]
-		d, err := a.store.Check(r.Context(), userID, demo, res, 1, rc.Limit(), a.now())
+		rc, ok := a.limits.For(demo, res)
+		if !ok {
+			continue
+		}
+		d, err := a.store.Check(r.Context(), userID, demo, res, 1, rc, a.now())
 		if err != nil {
 			continue
 		}
-		label := rc.LabelRU
-		if langOf(r) == "en" && rc.LabelEN != "" {
-			label = rc.LabelEN
+		label := providerLabel2(res, langOf(r))
+		left := d.UserLeft
+		if rc.PerUserDay <= 0 {
+			left = -1
 		}
-		if label == "" {
-			label = res
-		}
-		out = append(out, map[string]any{"resource": res, "label": label, "kind": rc.Kind, "unit": rc.Unit, "user_left": d.UserLeft, "user_limit": d.UserLimit,
+		out = append(out, map[string]any{"resource": res, "label": label, "kind": rc.Kind, "unit": rc.Unit, "user_left": left, "user_limit": d.UserLimit,
 			"resets_at": d.ResetsAt, "live_available": d.Allowed, "reason": d.Reason})
 	}
 	return out
