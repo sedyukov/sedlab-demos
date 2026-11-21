@@ -28,7 +28,8 @@ def token(c, user="u1"):
 
 
 def process(c, headers=None, seconds=2):
-    return c.post("/api/process", files={"file": ("a.wav", wav(seconds), "audio/wav")}, headers=headers or {})
+    return c.post("/api/process", files={"file": ("a.wav", wav(seconds), "audio/wav")}, data={"consent": "voice-v1"},
+                  headers=headers or {})
 
 
 def test_config_exposes_accounts_only_in_ru():
@@ -112,7 +113,7 @@ def test_bad_accounts_config_fails_closed_not_crashes():
     c = make({**RU_KEYS, "ACCOUNTS_PROVIDER": "http"}, edition="ru")  # no service key, no demo
     assert c.app.state.accounts.config_error == "config"
     c.app.state.providers.client = lambda name: Client(FakeLLM(), FakeSpeech(), FakeSpeech())
-    j = c.post("/api/process", files={"file": ("a.wav", wav(1), "audio/wav")}).json()
+    j = c.post("/api/process", files={"file": ("a.wav", wav(1), "audio/wav")}, data={"consent": "voice-v1"}).json()
     assert j["mode"]["llm"] == "mock"
 
 

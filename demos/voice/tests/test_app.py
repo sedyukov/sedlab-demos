@@ -166,7 +166,7 @@ def test_upload_demo_mode_uses_mock_and_browser_voice():
 def test_upload_demo_mode_with_browser_transcript_ru():
     text = "Обсудили релиз.\n- Подготовить отчёт @Анна 2026-12-01"
     j = make(edition="ru").post("/api/process", files={"file": ("a.webm", b"xx", "audio/webm")},
-                                data={"browser_transcript": text}).json()
+                                data={"browser_transcript": text, "consent": "voice-v1"}).json()
     assert j["transcript"]["provider"] == "browser" and j["lang"] == "ru"
     assert j["summary"] == "Обсудили релиз."
     assert j["tasks"] == [{"title": "Подготовить отчёт", "owner": "Анна", "due": "2026-12-01"}]
@@ -175,7 +175,7 @@ def test_upload_demo_mode_with_browser_transcript_ru():
 
 
 def test_upload_limits_any_mode():
-    c = make(max_upload_mb=1)
+    c = make(edition="intl", max_upload_mb=1)
     assert c.post("/api/process", files={"file": ("a.wav", b"\0" * (1024 * 1024 + 10), "audio/wav")}).status_code == 413
     assert c.post("/api/process", files={"file": ("a.wav", b"", "audio/wav")}).status_code == 400
     assert c.post("/api/process", data={}).status_code == 400
@@ -312,3 +312,26 @@ def test_gigachat_live_only_with_pii_masking(monkeypatch):
     assert c.llm.name == "gigachat" and c.pii_masking_enabled()
     monkeypatch.setattr(pv, "GIGACHAT_LIVE_ALLOWED", False)  # emergency stop still works
     assert not Providers({"AI_GIGACHAT_AUTH_KEY": "g"}, "ru").llm_live("gigachat")
+
+
+# ---------- legal ui-texts §4б: own recordings in RU need the voice-v1 consent ----------
+
+def test_ru_own_recording_requires_consent():
+    c = make(edition="ru")
+    r = c.post("/api/process", files={"file": ("a.wav", wav(1), "audio/wav")})
+    assert r.status_code == 400 and r.json()["error"] == "consent_required"
+    r = c.post("/api/process", files={"file": ("a.wav", wav(1), "audio/wav")}, data={"consent": "voice-v0"})
+    assert r.status_code == 400
+    assert c.post("/api/process", files={"file": ("a.wav", wav(1), "audio/wav")},
+                  data={"consent": "voice-v1"}).status_code == 200
+    assert c.post("/api/process", data={"sample": "planning-ru"}).status_code == 200  # samples need no consent
+
+
+def test_intl_needs_no_consent():
+    assert make(edition="intl").post("/api/process", files={"file": ("a.wav", wav(1), "audio/wav")}).status_code == 200
+
+
+def test_ru_page_has_consent_box_with_legal_links():
+    html = make(edition="ru").get("/").text
+    assert 'id="consentCb"' in html and "https://sedlab.dev/consent/voice" in html and "https://sedlab.dev/terms#3a" in html
+    assert "Демо не для персональных данных: загружайте тестовую запись." in html and "—" not in html

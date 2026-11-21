@@ -66,7 +66,7 @@ API usage is billed separately at the provider's price. Typical cost: about $0.0
 ```bash
 pip install -e ../../path/to/modules/ai/python -e ../../path/to/modules/telegram-core/python -e '.[test]'
 EDITION=intl uvicorn voice_demo.main:app --port 8080    # or EDITION=ru; demo mode, no keys needed
-pytest -q                                                # 55 tests: both editions, demo and live mode with fakes, accounts limits, Telegram bot
+pytest -q                                                # 60 tests: both editions, demo and live mode with fakes, accounts limits, Telegram bot
 ```
 Config: see [.env.example](.env.example). `EDITION` picks the language, providers and samples. In the intl edition live mode
 also needs `VOICE_LIVE=1`; then `AI_OPENAI_API_KEY` turns on STT/TTS and each LLM goes live once its key is set.
@@ -92,6 +92,7 @@ The `ai` and `telegram-core` modules are private and come with client projects. 
 - **Ответ голосом (TTS)**: короткое резюме. В Telegram приходит голосовым сообщением.
 - **Бот по правилам 152-ФЗ**: перед началом бот просит согласие кнопкой «Согласен, начать», команда /delete удаляет данные чата, демо-данные живут не дольше 7 дней.
 - **Российский стек и 152-ФЗ**: LLM GigaChat или YandexGPT, распознавание и озвучка Yandex SpeechKit, сервер и данные в России. Записи граждан РФ не уходят за границу.
+- **Своя запись только с согласием**: над загрузкой оговорка и чекбокс согласия; по умолчанию предлагаются готовые примеры. Аудио удаляется сразу после расшифровки, запросы к Яндексу не журналируются, перед GigaChat имена и телефоны маскируются.
 - **Вход и лимиты**: живой режим доступен после входа через Max, Яндекс ID или VK ID; у каждого пользователя дневной лимит запусков, а неудачный вызов не списывается. Без входа или после исчерпания лимита показывается демо-режим с пояснением.
 - **Выбор LLM** конфигом, без правок кода; можно подключить и свою локальную модель.
 - **Контроль расходов**: лимит запусков на посетителя или пользователя Telegram, дневной бюджет на всех, максимальная длина и размер аудио. Запрос сверх лимита отклоняется до платного вызова API.

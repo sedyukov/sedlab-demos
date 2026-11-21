@@ -7,6 +7,7 @@ from __future__ import annotations
 
 import json
 import logging
+import re
 from contextlib import asynccontextmanager
 from pathlib import Path
 from typing import Any
@@ -30,6 +31,8 @@ log = logging.getLogger("voice")
 STATUS = {Code.INVALID_ARGUMENT: 400, Code.RATE_LIMITED: 429, Code.NOT_IMPLEMENTED: 501,
           Code.UNAUTHENTICATED: 502, Code.CONFIG: 500}
 
+
+CONSENT_VERSION = "voice-v1"  # legal: /consent/voice + terms 3a; sent by the page with every own recording (RU)
 
 RU_META = [
     ('<html lang="en">', '<html lang="ru">'),
@@ -171,7 +174,8 @@ def create_app(settings: Settings | None = None) -> FastAPI:
 
     @app.post("/api/process")
     async def process(req: Request, file: UploadFile | None = File(None), sample: str = Form(""),
-                      llm: str = Form(""), lang: str = Form(""), browser_transcript: str = Form("")):
+                      llm: str = Form(""), lang: str = Form(""), browser_transcript: str = Form(""),
+                      consent: str = Form("")):
         llm = check_llm(llm)
         lang = lang or s.lang
         if sample:
@@ -183,6 +187,8 @@ def create_app(settings: Settings | None = None) -> FastAPI:
             path = s.samples_dir / sample / "stt.ogg"  # OGG/Opus copy: accepted by SpeechKit and OpenAI alike
             data, filename, duration = path.read_bytes(), path.name, float(r["duration_sec"])
         elif file is not None:
+            if s.edition == "ru" and consent != CONSENT_VERSION:  # legal ui-texts §4б: own recordings need consent
+                raise ApiError(400, "consent_required", "Отметьте согласие над загрузкой, чтобы обработать свою запись.")
             data = await file.read(max_bytes + 1)
             if len(data) > max_bytes:
                 raise ApiError(413, "too_large", f"Max upload is {s.max_upload_mb} MB.")
@@ -284,6 +290,8 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     if s.edition == "ru":  # crawlers and link previews see the edition's language without JS
         for a, b in RU_META:
             page = page.replace(a, b)
+    else:  # RU-only blocks (consent above upload) are not part of the intl page
+        page = re.sub(r"\s*<!--ru-only-->.*?<!--/ru-only-->", "", page, flags=re.S)
 
     @app.get("/")
     def index():

@@ -140,6 +140,7 @@
     const oe = $("#otherEd");
     oe.hidden = !c.other_url; oe.href = c.other_url || "#"; oe.textContent = t("other_ed");
     renderAccount(c.accounts || {});
+    syncConsent();
     const live = p.stt === "live" || Object.values(p.llm).includes("live");
     const b = $("#modeBadge");
     b.className = "badge " + (live ? "live" : "demo");
@@ -197,9 +198,28 @@
   }
 
   /* ---------- tabs ---------- */
+  // RU edition (legal ui-texts §4б): own recordings only after the consent checkbox; samples need none
+  const CONSENT_VERSION = "voice-v1";
+  const needConsent = () => !!(state.cfg && state.cfg.edition === "ru");
+  const consentOk = () => !needConsent() || !!($("#consentCb") && $("#consentCb").checked);
+  function consentProviders() {
+    const llm = (state.cfg && state.cfg.providers && state.cfg.providers.llm) || {};
+    return llm.gigachat === "live" ? "Яндекс.Облако / GigaChat (РФ)" : "Яндекс.Облако (РФ)";
+  }
+  function syncConsent() {
+    const p = $("#consentBox p");
+    if (p) p.textContent = p.textContent.replace(/Расшифровка: .*?\(РФ\)/, "Расшифровка: " + consentProviders());
+    const tab = ($("[data-tab].on") || {}).dataset ? $("[data-tab].on").dataset.tab : "samples";
+    if ($("#consentBox")) $("#consentBox").hidden = !needConsent() || tab === "samples";
+    const lock = !consentOk();
+    $("#drop").classList.toggle("locked", lock); $("#fileIn").disabled = lock;
+    $("#micBtn").disabled = lock && !rec.active;
+  }
+  if ($("#consentCb")) $("#consentCb").addEventListener("change", syncConsent);
   $$("[data-tab]").forEach((b) => b.addEventListener("click", () => {
     $$("[data-tab]").forEach((x) => x.classList.toggle("on", x === b));
     $$("[data-pane]").forEach((p) => { p.hidden = p.dataset.pane !== b.dataset.tab; });
+    syncConsent();
   }));
 
   /* ---------- steps ---------- */
@@ -301,6 +321,7 @@
       const fd = new FormData();
       fd.append("file", body, fname); fd.append("llm", state.llm); fd.append("lang", state.lang);
       if (extra && extra.browserTranscript) fd.append("browser_transcript", extra.browserTranscript);
+      if (needConsent()) fd.append("consent", consentOk() ? CONSENT_VERSION : "");
       const r = await api("/api/process", { method: "POST", body: fd });
       await render(r);
       loadConfig().catch(() => {});
@@ -333,7 +354,8 @@
 
     await step("summary");
     $("#summary").innerHTML = `<span class="reveal">${esc(r.summary)}</span>`;
-    const llmChip = r.llm ? `${LLM_NAMES[state.llm] || ""} → ${r.llm.provider}${r.llm.model ? " · " + r.llm.model : ""}` : t("p_sample");
+    const real = r.llm && LLM_NAMES[r.llm.provider];
+    const llmChip = !r.llm ? t("p_sample") : real ? `LLM: ${real}${r.llm.model ? " · " + r.llm.model : ""}` : `LLM: ${t("p_mock")}`;
     $("#llmMeta").innerHTML = chip(llmChip);
 
     await step("tasks");
@@ -437,6 +459,7 @@
   ["dragleave", "drop"].forEach((ev) => drop.addEventListener(ev, (e) => { e.preventDefault(); drop.classList.remove("over"); }));
   drop.addEventListener("drop", (e) => { const f = e.dataTransfer.files[0]; if (f) pickFile(f); });
   function pickFile(f) {
+    if (!consentOk()) return;
     const L = state.cfg.limits;
     if (f.size > L.max_upload_mb * 1024 * 1024) { fail(new Error(t("drop_hint", { mb: L.max_upload_mb }))); $("#results").hidden = false; return; }
     runBlob(f, f.name);
@@ -446,6 +469,7 @@
   const rec = { active: false, chunks: [], mr: null, stream: null, t0: 0, timer: 0, raf: 0, sr: null, text: "" };
   $("#micBtn").addEventListener("click", () => (rec.active ? stopRec() : startRec()));
   async function startRec() {
+    if (!consentOk()) return;
     try {
       rec.stream = await navigator.mediaDevices.getUserMedia({ audio: { echoCancellation: true, noiseSuppression: true } });
     } catch (e) { $("#results").hidden = false; fail(new Error(t("e_mic", { m: e.message || e.name }))); return; }
