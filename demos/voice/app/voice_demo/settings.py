@@ -28,12 +28,29 @@ class Settings:
     samples_dir: Path = DEFAULT_SAMPLES
     static_dir: Path = DEFAULT_STATIC
     telegram_token: str = ""          # optional live bot (long polling)
+    edition: str = "intl"             # EDITION=ru|intl: language, providers, samples, link to the other edition
+    live_allowed: bool = False        # VOICE_LIVE: ru → on by default (Russian stack), intl → off for now
+    other_url: str = ""               # link to the other edition (default from DEMO_DOMAIN)
     environ: Mapping[str, str] = field(default_factory=lambda: dict(os.environ))
+
+    @property
+    def lang(self) -> str:
+        return "ru" if self.edition == "ru" else "en"
 
     @classmethod
     def from_env(cls, env: Mapping[str, str] | None = None) -> "Settings":
         env = dict(os.environ if env is None else env)
+        edition = (env.get("EDITION") or "intl").strip().lower()
+        if edition not in ("ru", "intl"):
+            raise ValueError("EDITION must be ru or intl")
+        live = (env.get("VOICE_LIVE") or "").strip().lower() or ("1" if edition == "ru" else "0")
+        live = live in ("1", "true", "yes", "on")
+        domain = (env.get("DEMO_DOMAIN") or "demo.sedlab.dev").strip()
+        other = env.get("VOICE_OTHER_URL") or (f"https://voice-en.{domain}" if edition == "ru" else f"https://voice.{domain}")
         return cls(
+            edition=edition,
+            live_allowed=live,
+            other_url=other,
             max_audio_sec=_int(env, "VOICE_MAX_AUDIO_SEC", 180),
             max_upload_mb=_int(env, "VOICE_MAX_UPLOAD_MB", 10),
             ip_per_hour=_int(env, "VOICE_IP_PER_HOUR", 6),

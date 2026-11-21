@@ -1,6 +1,6 @@
 # Portfolio text: Voice AI Assistant
 
-No links or contacts here, as marketplace rules require. Attach the screenshots from `media/` and the video `media/demo.mp4`.
+No links or contacts here, as marketplace rules require. RU text: attach `media/ru-*.png` and `media/demo-ru.mp4`; EN text: `media/en-*.png` and `media/demo-en.mp4`.
 
 ## RU
 
@@ -14,15 +14,14 @@ No links or contacts here, as marketplace rules require. Attach the screenshots 
 - задачи в формате «кто / что / срок» (JSON, можно сразу выгрузить в CRM или таблицу);
 - короткий ответ голосом. В Telegram он приходит голосовым сообщением.
 
-LLM переключается конфигом: OpenAI, Claude, GigaChat, YandexGPT или локальная модель. Расходы под контролем: лимит на
-пользователя, дневной бюджет, ограничение длины аудио. Без ключей работает в демо-режиме, поэтому заказчик может посмотреть
-результат ещё до оплаты API.
-Для работы по 152-ФЗ конвейер собирается целиком на российском стеке: GigaChat или YandexGPT, Yandex SpeechKit, хостинг в РФ.
+Работает на российском стеке: GigaChat или YandexGPT, распознавание и озвучка Yandex SpeechKit, сервер и данные в РФ (152-ФЗ).
+LLM переключается конфигом, можно подключить и локальную модель. Расходы под контролем: лимит на пользователя, дневной
+бюджет, ограничение длины аудио. Без ключей работает в демо-режиме, поэтому заказчик может посмотреть результат ещё до оплаты API.
 
-Стек: Python, FastAPI, Telegram Bot API, OpenAI Whisper и TTS, Anthropic, GigaChat, YandexGPT, Docker.
+Стек: Python, FastAPI, Telegram Bot API, GigaChat, YandexGPT, Yandex SpeechKit, Docker.
 Срок похожего проекта: 5–10 дней.
 
-**Теги:** Telegram-бот, AI, ChatGPT, GigaChat, YandexGPT, распознавание речи, Whisper, саммари, автоматизация, Python
+**Теги:** Telegram-бот, AI, GigaChat, YandexGPT, SpeechKit, распознавание речи, саммари, 152-ФЗ, автоматизация, Python
 
 ## EN
 
@@ -36,11 +35,11 @@ Output:
 - action items as who / what / due date (JSON, ready for a CRM, Notion or a spreadsheet);
 - a short spoken reply, delivered as a voice message in Telegram.
 
-You can switch the LLM in config: OpenAI, Claude, GigaChat, YandexGPT or a local model. Spend stays under control with
+You can switch the LLM in config: OpenAI, Claude or a self-hosted model. Spend stays under control with
 per-user rate limits, a daily budget and a maximum audio length. Without keys it runs in demo mode, so the client sees
 results before paying for any API.
 
-Stack: Python, FastAPI, Telegram Bot API, OpenAI Whisper & TTS, Anthropic, GigaChat, YandexGPT, Docker.
+Stack: Python, FastAPI, Telegram Bot API, OpenAI Whisper & TTS, Anthropic, Docker.
 A similar project takes 5–10 days.
 
 **Tags:** Telegram bot, AI assistant, OpenAI, Claude, speech-to-text, Whisper, meeting notes, summarization, automation, Python

@@ -14,9 +14,10 @@
       edit: "Edit text", done_edit: "Done", reanalyze: "Re-analyze", copy_md: "Copy as Markdown", copied: "Copied ✓",
       th_what: "What", th_who: "Who", th_due: "Due", play_reply: "Play the reply", stop: "Stop",
       about_h: "What’s inside",
-      f1: "Speech-to-text for voice notes, calls and video files (Whisper / gpt-4o-transcribe), timestamps per segment.",
+      f1: "Speech-to-text for voice notes, calls and video files (OpenAI Whisper / gpt-4o-transcribe), timestamps per segment.",
       f2: "Summary and action items with owner and due date as JSON, ready to push to a CRM, Notion, Jira or a Google Sheet.",
-      f3: "One LLM interface: OpenAI, Anthropic, GigaChat, YandexGPT (or a local model), switched by config, no code changes.",
+      f3: "One LLM interface: OpenAI, Anthropic (Claude) or a local model, switched by config, no code changes.",
+      other_ed: "Русская версия",
       f4: "Voice reply (TTS). In a Telegram bot it comes back as a voice message.",
       f5: "Cost control: rate limit per user, daily budget, maximum audio length.",
       foot: "Demo by sedlab · samples are synthetic voices, no personal data.",
@@ -51,9 +52,10 @@
       edit: "Править текст", done_edit: "Готово", reanalyze: "Пересчитать", copy_md: "Скопировать в Markdown", copied: "Скопировано ✓",
       th_what: "Что", th_who: "Кто", th_due: "Срок", play_reply: "Прослушать ответ", stop: "Стоп",
       about_h: "Что внутри",
-      f1: "Распознавание голосовых, созвонов и видеофайлов (Whisper / gpt-4o-transcribe), таймкоды по фразам.",
+      f1: "Распознавание голосовых, созвонов и видеофайлов (Yandex SpeechKit), таймкоды по фразам.",
       f2: "Саммари и задачи с ответственным и сроком в JSON, сразу в CRM, Notion, Jira или Google Таблицу.",
-      f3: "Единый интерфейс LLM: OpenAI, Anthropic, GigaChat, YandexGPT (или локальная модель), переключение конфигом, без правок кода.",
+      f3: "Единый интерфейс LLM: GigaChat, YandexGPT или локальная модель, переключение конфигом, без правок кода. Данные остаются в России (152-ФЗ).",
+      other_ed: "English version",
       f4: "Ответ голосом (TTS). В Telegram-боте приходит голосовым сообщением.",
       f5: "Контроль расходов: лимит на пользователя, дневной бюджет, максимальная длина аудио.",
       foot: "Демо sedlab · в примерах синтезированные голоса, без персональных данных.",
@@ -85,7 +87,7 @@
   };
   const params = new URLSearchParams(location.search);
   const state = {
-    lang: params.get("lang") || store.get("voice.lang") || ((navigator.language || "en").startsWith("ru") ? "ru" : "en"),
+    lang: document.documentElement.lang === "ru" ? "ru" : "en",  // fixed by the edition (server sets <html lang>)
     llm: store.get("voice.llm") || "",
     cfg: null, result: null, mediaUrl: null, busy: false,
   };
@@ -105,20 +107,17 @@
   function applyLang() {
     document.documentElement.lang = state.lang;
     $$("[data-i18n]").forEach((el) => { el.textContent = t(el.dataset.i18n); });
-    $$("[data-lang]").forEach((b) => b.classList.toggle("on", b.dataset.lang === state.lang));
     document.title = t("brand");
     if (state.cfg) { renderConfig(); }
     if (state.result) { render(state.result, { instant: true }); }
     if (rec.active) $("#micLabel").textContent = t("rec_stop");
   }
-  $$("[data-lang]").forEach((b) => b.addEventListener("click", () => {
-    state.lang = b.dataset.lang; store.set("voice.lang", state.lang); applyLang();
-  }));
 
   /* ---------- config ---------- */
   async function loadConfig() {
     const r = await fetch("/api/config");
     state.cfg = await r.json();
+    if (state.cfg.lang && state.cfg.lang !== state.lang) { state.lang = state.cfg.lang; applyLang(); }
     const llm = state.cfg.providers.llm;
     if (!llm[state.llm] || (llm[state.llm] !== "live" && Object.values(llm).includes("live"))) state.llm = state.cfg.default_llm || Object.keys(llm)[0];
     renderConfig();
@@ -126,6 +125,8 @@
 
   function renderConfig() {
     const c = state.cfg, p = c.providers;
+    const oe = $("#otherEd");
+    oe.hidden = !c.other_url; oe.href = c.other_url || "#"; oe.textContent = t("other_ed");
     const live = p.stt === "live" || Object.values(p.llm).includes("live");
     const b = $("#modeBadge");
     b.className = "badge " + (live ? "live" : "demo");

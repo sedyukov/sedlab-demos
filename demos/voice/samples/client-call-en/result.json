@@ -1,0 +1,70 @@
+{
+  "id": "client-call-en",
+  "order": 3,
+  "lang": "en",
+  "kind": "meeting",
+  "title": {
+    "en": "Client call, video file (EN, 2 voices)",
+    "ru": "Созвон с клиентом, видеофайл (EN, 2 голоса)"
+  },
+  "file": "input.mp4",
+  "duration_sec": 34.7,
+  "transcript": {
+    "text": "Hi Raj, it's Sarah. Let's go over the CRM integration for the online store. Where are we with the lead form? The form is live on staging. New leads already land in HubSpot, but phone numbers are not normalized yet. I'll fix that by November twenty-sixth. Good. I'll prepare the email templates for abandoned carts by November twenty-eighth. We also need a weekly report in Google Sheets. I can set up the Sheets export, let's say by December second. Great. Then we go live on December fourth. Thanks, Raj.",
+    "language": "en",
+    "segments": [
+      {
+        "start": 0.0,
+        "end": 7.26,
+        "text": "Hi Raj, it's Sarah. Let's go over the CRM integration for the online store. Where are we with the lead form?"
+      },
+      {
+        "start": 7.71,
+        "end": 17.09,
+        "text": "The form is live on staging. New leads already land in HubSpot, but phone numbers are not normalized yet. I'll fix that by November twenty-sixth."
+      },
+      {
+        "start": 17.54,
+        "end": 25.46,
+        "text": "Good. I'll prepare the email templates for abandoned carts by November twenty-eighth. We also need a weekly report in Google Sheets."
+      },
+      {
+        "start": 25.91,
+        "end": 29.82,
+        "text": "I can set up the Sheets export, let's say by December second."
+      },
+      {
+        "start": 30.27,
+        "end": 34.68,
+        "text": "Great. Then we go live on December fourth. Thanks, Raj."
+      }
+    ]
+  },
+  "summary": "Online store CRM integration call: the lead form is live on staging and leads reach HubSpot, but phone numbers still need normalizing. Abandoned-cart email templates and a weekly Google Sheets report come next; go-live is set for December 4.",
+  "tasks": [
+    {
+      "title": "Normalize phone numbers in HubSpot leads",
+      "owner": "Raj",
+      "due": "2026-11-26"
+    },
+    {
+      "title": "Prepare email templates for abandoned carts",
+      "owner": "Sarah",
+      "due": "2026-11-28"
+    },
+    {
+      "title": "Set up the weekly Google Sheets report export",
+      "owner": "Raj",
+      "due": "2026-12-02"
+    },
+    {
+      "title": "Go live with the CRM integration",
+      "owner": null,
+      "due": "2026-12-04"
+    }
+  ],
+  "reply": {
+    "text": "Here's the recap. The lead form works on staging and leads reach HubSpot. Raj normalizes phone numbers by November 26 and sets up the Sheets report by December 2, Sarah prepares the cart emails by November 28, and we go live on December 4.",
+    "audio": "reply.mp3"
+  }
+}

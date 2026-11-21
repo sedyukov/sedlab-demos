@@ -14,7 +14,7 @@ from test_app import FakeLLM, FakeSpeech
 
 
 def make_bot(live=True, env_extra=None):
-    env = {"AI_OPENAI_API_KEY": "k"} if live else {}
+    env = {"EDITION": "ru", **({"AI_GIGACHAT_AUTH_KEY": "g", "AI_YANDEX_API_KEY": "y"} if live else {})}
     env.update(env_extra or {})
     s = Settings.from_env({**env, "VOICE_TELEGRAM_TOKEN": "123:abc", "VOICE_MAX_AUDIO_SEC": "60",
                            "VOICE_MAX_UPLOAD_MB": "1"})

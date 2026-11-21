@@ -114,7 +114,7 @@ class VoiceBot:
                 self.handle(u)
             except Exception as e:
                 log.warning("handle error: %s", getattr(e, "code", type(e).__name__))
-                self._send(u.chat_id, t("error", user_lang(u)))
+                self._send(u.chat_id, t("error", self.s.lang))
         return len(updates)
 
     # --- handling --------------------------------------------------------------------------------------------
@@ -122,7 +122,7 @@ class VoiceBot:
         self.bot.send_message(chat_id, text, parse_mode="HTML")
 
     def handle(self, u: Update) -> None:
-        chat, lang = u.chat_id, user_lang(u)
+        chat, lang = u.chat_id, self.s.lang  # the edition decides the language
         f = u.file
         if u.kind == "command":
             self._send(chat, t("start", lang))

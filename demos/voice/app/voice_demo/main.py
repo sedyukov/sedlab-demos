@@ -12,7 +12,7 @@ from pathlib import Path
 from typing import Any
 
 from fastapi import FastAPI, File, Form, Request, UploadFile
-from fastapi.responses import FileResponse, JSONResponse
+from fastapi.responses import HTMLResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field
 
@@ -20,13 +20,27 @@ from sedlab_ai import Code, ModuleError
 
 from . import pipeline
 from .limits import Limits, wav_duration
-from .providers import LLMS, Providers, default_llm
+from .providers import Providers, default_llm
 from .settings import Settings
 
 log = logging.getLogger("voice")
 
 STATUS = {Code.INVALID_ARGUMENT: 400, Code.RATE_LIMITED: 429, Code.NOT_IMPLEMENTED: 501,
           Code.UNAUTHENTICATED: 502, Code.CONFIG: 500}
+
+
+RU_META = [
+    ('<html lang="en">', '<html lang="ru">'),
+    ('hreflang="ru"', 'hreflang="en"'),
+    ("<title>Voice AI Assistant</title>", "<title>Голосовой AI-ассистент</title>"),
+    ('content="Demo: transcribe voice messages and calls, get a summary, action items (who / what / when) and a spoken '
+     'reply. Switch LLM: OpenAI, Anthropic or a local model."',
+     'content="Демо: расшифровка голосовых и созвонов, саммари, задачи (кто / что / срок) и ответ голосом. '
+     'GigaChat, YandexGPT, Yandex SpeechKit."'),
+    ('content="Voice AI Assistant: demo"', 'content="Голосовой AI-ассистент: демо"'),
+    ('content="Voice messages and calls → transcript → summary → action items → voice reply."',
+     'content="Голосовые и созвоны → расшифровка → саммари → задачи → ответ голосом."'),
+]
 
 
 class ApiError(Exception):
@@ -36,7 +50,7 @@ class ApiError(Exception):
 
 class AnalyzeIn(BaseModel):
     text: str = Field(min_length=1, max_length=20000)
-    llm: str = "gigachat"
+    llm: str = ""
     lang: str = ""
 
 
@@ -51,9 +65,9 @@ def load_samples(d: Path) -> dict[str, dict[str, Any]]:
 
 def create_app(settings: Settings | None = None) -> FastAPI:
     s = settings or Settings.from_env()
-    prov = Providers(s.environ)
+    prov = Providers(s.environ, s.edition, s.live_allowed)
     limits = Limits(s.ip_per_hour, s.daily_live)
-    samples = load_samples(s.samples_dir)
+    samples = {k: r for k, r in load_samples(s.samples_dir).items() if r["lang"] == s.lang}
     max_bytes = s.max_upload_mb * 1024 * 1024
 
     @asynccontextmanager
@@ -96,8 +110,9 @@ def create_app(settings: Settings | None = None) -> FastAPI:
             raise ApiError(429, "limit_daily", "The daily live budget is used up. Try the samples or come back tomorrow.")
 
     def check_llm(name: str) -> str:
-        if name not in LLMS:
-            raise ApiError(400, "invalid_argument", f"llm must be one of {', '.join(LLMS)}")
+        name = name or default_llm(prov)
+        if name not in prov.llms:
+            raise ApiError(400, "invalid_argument", f"llm must be one of {', '.join(prov.llms)}")
         return name
 
     @app.get("/health")
@@ -107,6 +122,9 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     @app.get("/api/config")
     def config():
         return {
+            "edition": s.edition,
+            "lang": s.lang,
+            "other_url": s.other_url,
             "providers": prov.status(),
             "default_llm": default_llm(prov),
             "limits": {"max_audio_sec": s.max_audio_sec, "max_upload_mb": s.max_upload_mb,
@@ -135,8 +153,9 @@ def create_app(settings: Settings | None = None) -> FastAPI:
 
     @app.post("/api/process")
     async def process(req: Request, file: UploadFile | None = File(None), sample: str = Form(""),
-                      llm: str = Form("gigachat"), lang: str = Form(""), browser_transcript: str = Form("")):
+                      llm: str = Form(""), lang: str = Form(""), browser_transcript: str = Form("")):
         llm = check_llm(llm)
+        lang = lang or s.lang
         if sample:
             r = samples.get(sample)
             if not r:
@@ -197,7 +216,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         llm = check_llm(body.llm)
         if prov.llm_live(llm):
             spend(req)
-        lang = pipeline.guess_lang(body.text, body.lang or "en")
+        lang = pipeline.guess_lang(body.text, body.lang or s.lang)
         result = pipeline.analyze(prov.client(llm), body.text, lang, live_llm=prov.llm_live(llm))
         notices = [] if prov.llm_live(llm) else ["llm_mock"]
         return {**result, "lang": lang, "mode": {"llm": "live" if prov.llm_live(llm) else "mock"}, "notices": notices}
@@ -212,9 +231,14 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     app.mount("/samples", StaticFiles(directory=s.samples_dir), name="samples")
     app.mount("/static", StaticFiles(directory=s.static_dir), name="static")
 
+    page = (s.static_dir / "index.html").read_text()
+    if s.edition == "ru":  # crawlers and link previews see the edition's language without JS
+        for a, b in RU_META:
+            page = page.replace(a, b)
+
     @app.get("/")
     def index():
-        return FileResponse(s.static_dir / "index.html", headers={"Cache-Control": "no-cache"})
+        return HTMLResponse(page, headers={"Cache-Control": "no-cache"})
 
     return app
 

@@ -1,0 +1,40 @@
+{
+  "id": "voice-note-en",
+  "order": 4,
+  "lang": "en",
+  "kind": "voice",
+  "title": {
+    "en": "Telegram voice message (EN)",
+    "ru": "Голосовое из Telegram (EN)"
+  },
+  "file": "input.ogg",
+  "duration_sec": 18.8,
+  "transcript": {
+    "text": "Hi, it's Mark from Brightline Dental. We'd like a Telegram bot that books cleanings, sends reminders the day before and takes a deposit through Stripe. Our budget is around two thousand dollars, and we'd love to launch before December fifteenth. Could you send me an estimate by November twenty-seventh? Thanks!",
+    "language": "en",
+    "segments": [
+      {
+        "start": 0.0,
+        "end": 18.81,
+        "text": "Hi, it's Mark from Brightline Dental. We'd like a Telegram bot that books cleanings, sends reminders the day before and takes a deposit through Stripe. Our budget is around two thousand dollars, and we'd love to launch before December fifteenth. Could you send me an estimate by November twenty-seventh? Thanks!"
+      }
+    ]
+  },
+  "summary": "A dental clinic wants a Telegram bot for booking cleanings, day-before reminders and Stripe deposits. The budget is around $2,000 and the launch is planned before December 15; they ask for an estimate by November 27.",
+  "tasks": [
+    {
+      "title": "Send an estimate for the booking bot",
+      "owner": null,
+      "due": "2026-11-27"
+    },
+    {
+      "title": "Launch the booking bot: bookings, reminders, Stripe deposits",
+      "owner": null,
+      "due": "2026-12-15"
+    }
+  ],
+  "reply": {
+    "text": "Hi Mark, thanks for the voice note. A Telegram bot for bookings, reminders and Stripe deposits, live before December 15. I'll send the estimate by November 27.",
+    "audio": "reply.mp3"
+  }
+}

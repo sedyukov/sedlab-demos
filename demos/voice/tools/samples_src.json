@@ -6,22 +6,62 @@
       "lang": "en",
       "kind": "meeting",
       "container": "mp3",
-      "title": {"en": "Team stand-up (EN, 3 voices)", "ru": "Стендап команды (EN, 3 голоса)"},
+      "title": {
+        "en": "Team stand-up (EN, 3 voices)",
+        "ru": "Стендап команды (EN, 3 голоса)"
+      },
       "lines": [
-        {"voice": "Samantha", "text": "Good morning everyone, this is Emma. Quick sync on the mobile app release. Liam, where are we with the payment screen?"},
-        {"voice": "Daniel", "text": "Morning. The payment screen is done, but the Stripe webhook still fails on refunds. I will fix the refund webhook by November twenty-fifth."},
-        {"voice": "Samantha", "text": "Great. Olivia, how is the onboarding copy?"},
-        {"voice": "Karen", "text": "The English copy is ready. I still need the Spanish translation. I'll send it to the agency today and get it back by November twenty-seventh."},
-        {"voice": "Samantha", "text": "Perfect. I'll update the release notes and book the App Store review for December first. Any blockers?"},
-        {"voice": "Daniel", "text": "One thing: we need test cards for the staging account. Emma, can you request them from finance?"},
-        {"voice": "Samantha", "text": "Sure, I'll do it this afternoon. Thanks everyone, that's it for today."}
+        {
+          "voice": "Samantha",
+          "text": "Good morning everyone, this is Emma. Quick sync on the mobile app release. Liam, where are we with the payment screen?"
+        },
+        {
+          "voice": "Daniel",
+          "text": "Morning. The payment screen is done, but the Stripe webhook still fails on refunds. I will fix the refund webhook by November twenty-fifth."
+        },
+        {
+          "voice": "Samantha",
+          "text": "Great. Olivia, how is the onboarding copy?"
+        },
+        {
+          "voice": "Karen",
+          "text": "The English copy is ready. I still need the Spanish translation. I'll send it to the agency today and get it back by November twenty-seventh."
+        },
+        {
+          "voice": "Samantha",
+          "text": "Perfect. I'll update the release notes and book the App Store review for December first. Any blockers?"
+        },
+        {
+          "voice": "Daniel",
+          "text": "One thing: we need test cards for the staging account. Emma, can you request them from finance?"
+        },
+        {
+          "voice": "Samantha",
+          "text": "Sure, I'll do it this afternoon. Thanks everyone, that's it for today."
+        }
       ],
       "summary": "Mobile app release sync: the payment screen is done, but the Stripe refund webhook still fails. The onboarding copy is ready in English, the Spanish translation is pending. Release notes and the App Store review are planned for December 1; staging test cards must be requested from finance.",
       "tasks": [
-        {"title": "Fix the Stripe refund webhook", "owner": "Liam", "due": "2026-11-25"},
-        {"title": "Get the Spanish onboarding copy back from the agency", "owner": "Olivia", "due": "2026-11-27"},
-        {"title": "Update the release notes and book the App Store review", "owner": "Emma", "due": "2026-12-01"},
-        {"title": "Request staging test cards from finance", "owner": "Emma", "due": null}
+        {
+          "title": "Fix the Stripe refund webhook",
+          "owner": "Liam",
+          "due": "2026-11-25"
+        },
+        {
+          "title": "Get the Spanish onboarding copy back from the agency",
+          "owner": "Olivia",
+          "due": "2026-11-27"
+        },
+        {
+          "title": "Update the release notes and book the App Store review",
+          "owner": "Emma",
+          "due": "2026-12-01"
+        },
+        {
+          "title": "Request staging test cards from finance",
+          "owner": "Emma",
+          "due": null
+        }
       ],
       "reply": "Here's the recap. The payment screen is done; refunds still need a fix. Four action items: Liam fixes the refund webhook by November 25, Olivia brings back the Spanish copy by November 27, Emma updates the release notes and books the App Store review for December 1, and Emma also requests staging test cards from finance.",
       "reply_voice": "Samantha"
@@ -31,20 +71,56 @@
       "lang": "ru",
       "kind": "meeting",
       "container": "mp4",
-      "title": {"en": "Project call, video file (RU, 2 voices)", "ru": "Созвон по проекту, видеофайл (RU, 2 голоса)"},
+      "title": {
+        "en": "Project call, video file (RU, 2 voices)",
+        "ru": "Созвон по проекту, видеофайл (RU, 2 голоса)"
+      },
       "lines": [
-        {"voice": "Milena", "text": "Коллеги, добрый день. Это Ольга. Обсуждаем запуск бота записи для сети кофеен. Сергей, что с интеграцией с кассой?"},
-        {"voice": "Milena", "pitch": 0.78, "text": "Интеграция готова на тестовом стенде. Осталось проверить возвраты. Сделаю до двадцать седьмого ноября."},
-        {"voice": "Milena", "text": "Хорошо. Дизайн мини-аппа согласован, но нужны финальные тексты кнопок. Я подготовлю их до двадцать пятого ноября."},
-        {"voice": "Milena", "pitch": 0.78, "text": "Ещё нужно подключить уведомления админу в телеграм. Предлагаю, чтобы этим занялась Марина, она уже делала похожее."},
-        {"voice": "Milena", "text": "Договорились. Марине поручим уведомления, срок первое декабря. Пилот в одной кофейне запускаем четвёртого декабря. Всем спасибо."}
+        {
+          "voice": "Milena",
+          "text": "Коллеги, добрый день. Это Ольга. Обсуждаем запуск бота записи для сети кофеен. Сергей, что с интеграцией с кассой?"
+        },
+        {
+          "voice": "Milena",
+          "pitch": 0.78,
+          "text": "Интеграция готова на тестовом стенде. Осталось проверить возвраты. Сделаю до двадцать седьмого ноября."
+        },
+        {
+          "voice": "Milena",
+          "text": "Хорошо. Дизайн мини-аппа согласован, но нужны финальные тексты кнопок. Я подготовлю их до двадцать пятого ноября."
+        },
+        {
+          "voice": "Milena",
+          "pitch": 0.78,
+          "text": "Ещё нужно подключить уведомления админу в телеграм. Предлагаю, чтобы этим занялась Марина, она уже делала похожее."
+        },
+        {
+          "voice": "Milena",
+          "text": "Договорились. Марине поручим уведомления, срок первое декабря. Пилот в одной кофейне запускаем четвёртого декабря. Всем спасибо."
+        }
       ],
       "summary": "Созвон по запуску бота записи для сети кофеен: интеграция с кассой готова на тестовом стенде, осталось проверить возвраты. Дизайн мини-аппа согласован, нужны финальные тексты кнопок. Уведомления админу поручены Марине, пилот в одной кофейне запускается 4 декабря.",
       "tasks": [
-        {"title": "Проверить возвраты в интеграции с кассой", "owner": "Сергей", "due": "2026-11-27"},
-        {"title": "Подготовить финальные тексты кнопок мини-аппа", "owner": "Ольга", "due": "2026-11-25"},
-        {"title": "Подключить уведомления админу в Telegram", "owner": "Марина", "due": "2026-12-01"},
-        {"title": "Запустить пилот в одной кофейне", "owner": null, "due": "2026-12-04"}
+        {
+          "title": "Проверить возвраты в интеграции с кассой",
+          "owner": "Сергей",
+          "due": "2026-11-27"
+        },
+        {
+          "title": "Подготовить финальные тексты кнопок мини-аппа",
+          "owner": "Ольга",
+          "due": "2026-11-25"
+        },
+        {
+          "title": "Подключить уведомления админу в Telegram",
+          "owner": "Марина",
+          "due": "2026-12-01"
+        },
+        {
+          "title": "Запустить пилот в одной кофейне",
+          "owner": null,
+          "due": "2026-12-04"
+        }
       ],
       "reply": "Итоги созвона. Интеграция с кассой готова, осталось проверить возвраты. Четыре задачи: Сергей проверяет возвраты до двадцать седьмого ноября, Ольга готовит тексты кнопок до двадцать пятого, Марина подключает уведомления админу до первого декабря, а четвёртого декабря запускаем пилот.",
       "reply_voice": "Milena"
@@ -54,17 +130,120 @@
       "lang": "ru",
       "kind": "voice",
       "container": "ogg",
-      "title": {"en": "Telegram voice message (RU)", "ru": "Голосовое из Telegram (RU)"},
+      "title": {
+        "en": "Telegram voice message (RU)",
+        "ru": "Голосовое из Telegram (RU)"
+      },
       "lines": [
-        {"voice": "Milena", "pitch": 0.82, "text": "Привет! Это Антон из студии ремонта. Нам нужен бот, который принимает голосовые от клиентов, расшифровывает их и создаёт заявку в CRM. Бюджет около ста тысяч рублей, хотим запустить до пятнадцатого декабря. Пришли, пожалуйста, оценку сроков и стоимости до двадцать седьмого ноября."}
+        {
+          "voice": "Milena",
+          "pitch": 0.82,
+          "text": "Привет! Это Антон из студии ремонта. Нам нужен бот, который принимает голосовые от клиентов, расшифровывает их и создаёт заявку в CRM. Бюджет около ста тысяч рублей, хотим запустить до пятнадцатого декабря. Пришли, пожалуйста, оценку сроков и стоимости до двадцать седьмого ноября."
+        }
       ],
       "summary": "Студия ремонта хочет бота, который расшифровывает голосовые клиентов и создаёт заявки в CRM. Бюджет около 100 000 ₽, запуск до 15 декабря; оценку сроков и стоимости просят до 27 ноября.",
       "tasks": [
-        {"title": "Прислать оценку сроков и стоимости бота", "owner": null, "due": "2026-11-27"},
-        {"title": "Запустить бота: голосовые клиентов → расшифровка → заявка в CRM", "owner": null, "due": "2026-12-15"}
+        {
+          "title": "Прислать оценку сроков и стоимости бота",
+          "owner": null,
+          "due": "2026-11-27"
+        },
+        {
+          "title": "Запустить бота: голосовые клиентов → расшифровка → заявка в CRM",
+          "owner": null,
+          "due": "2026-12-15"
+        }
       ],
       "reply": "Антон, привет! Голосовое получил. Бот принимает голосовые клиентов, расшифровывает и создаёт заявку в CRM, запуск до пятнадцатого декабря. Оценку сроков и стоимости пришлю до двадцать седьмого ноября.",
       "reply_voice": "Milena"
+    },
+    {
+      "id": "client-call-en",
+      "lang": "en",
+      "kind": "meeting",
+      "container": "mp4",
+      "title": {
+        "en": "Client call, video file (EN, 2 voices)",
+        "ru": "Созвон с клиентом, видеофайл (EN, 2 голоса)"
+      },
+      "lines": [
+        {
+          "voice": "Moira",
+          "text": "Hi Raj, it's Sarah. Let's go over the CRM integration for the online store. Where are we with the lead form?"
+        },
+        {
+          "voice": "Rishi",
+          "text": "The form is live on staging. New leads already land in HubSpot, but phone numbers are not normalized yet. I'll fix that by November twenty-sixth."
+        },
+        {
+          "voice": "Moira",
+          "text": "Good. I'll prepare the email templates for abandoned carts by November twenty-eighth. We also need a weekly report in Google Sheets."
+        },
+        {
+          "voice": "Rishi",
+          "text": "I can set up the Sheets export, let's say by December second."
+        },
+        {
+          "voice": "Moira",
+          "text": "Great. Then we go live on December fourth. Thanks, Raj."
+        }
+      ],
+      "summary": "Online store CRM integration call: the lead form is live on staging and leads reach HubSpot, but phone numbers still need normalizing. Abandoned-cart email templates and a weekly Google Sheets report come next; go-live is set for December 4.",
+      "tasks": [
+        {
+          "title": "Normalize phone numbers in HubSpot leads",
+          "owner": "Raj",
+          "due": "2026-11-26"
+        },
+        {
+          "title": "Prepare email templates for abandoned carts",
+          "owner": "Sarah",
+          "due": "2026-11-28"
+        },
+        {
+          "title": "Set up the weekly Google Sheets report export",
+          "owner": "Raj",
+          "due": "2026-12-02"
+        },
+        {
+          "title": "Go live with the CRM integration",
+          "owner": null,
+          "due": "2026-12-04"
+        }
+      ],
+      "reply": "Here's the recap. The lead form works on staging and leads reach HubSpot. Raj normalizes phone numbers by November 26 and sets up the Sheets report by December 2, Sarah prepares the cart emails by November 28, and we go live on December 4.",
+      "reply_voice": "Samantha"
+    },
+    {
+      "id": "voice-note-en",
+      "lang": "en",
+      "kind": "voice",
+      "container": "ogg",
+      "title": {
+        "en": "Telegram voice message (EN)",
+        "ru": "Голосовое из Telegram (EN)"
+      },
+      "lines": [
+        {
+          "voice": "Daniel",
+          "text": "Hi, it's Mark from Brightline Dental. We'd like a Telegram bot that books cleanings, sends reminders the day before and takes a deposit through Stripe. Our budget is around two thousand dollars, and we'd love to launch before December fifteenth. Could you send me an estimate by November twenty-seventh? Thanks!"
+        }
+      ],
+      "summary": "A dental clinic wants a Telegram bot for booking cleanings, day-before reminders and Stripe deposits. The budget is around $2,000 and the launch is planned before December 15; they ask for an estimate by November 27.",
+      "tasks": [
+        {
+          "title": "Send an estimate for the booking bot",
+          "owner": null,
+          "due": "2026-11-27"
+        },
+        {
+          "title": "Launch the booking bot: bookings, reminders, Stripe deposits",
+          "owner": null,
+          "due": "2026-12-15"
+        }
+      ],
+      "reply": "Hi Mark, thanks for the voice note. A Telegram bot for bookings, reminders and Stripe deposits, live before December 15. I'll send the estimate by November 27.",
+      "reply_voice": "Samantha"
     }
   ]
 }

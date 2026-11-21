@@ -1,16 +1,21 @@
 from __future__ import annotations
 
 import struct
+from pathlib import Path
 
 import pytest
 from fastapi.testclient import TestClient
 
-from sedlab_ai import Audio, ChatInput, ChatResult, Client, Segment, Transcript, Usage, silence_wav
+from sedlab_ai import Audio, ChatInput, ChatResult, Client, Segment, Task, Transcript, Usage, silence_wav
 from voice_demo.limits import Limits, wav_duration
 from voice_demo.main import create_app
 from voice_demo.pipeline import guess_lang, template_reply
+from voice_demo.providers import Providers, default_llm
 from voice_demo.settings import Settings
-from sedlab_ai import Task
+
+SAMPLES = Path(__file__).resolve().parent.parent / "samples"
+RU_SAMPLES = ["planning-ru", "voice-note-ru"]
+EN_SAMPLES = ["standup-en", "client-call-en", "voice-note-en"]
 
 
 def wav(seconds: float, rate: int = 16000) -> bytes:
@@ -19,92 +24,12 @@ def wav(seconds: float, rate: int = 16000) -> bytes:
             + b"data" + struct.pack("<I", 2 * n) + b"\0\0" * n)
 
 
-def make(env: dict[str, str] | None = None, **kw) -> TestClient:
-    s = Settings.from_env({"VOICE_TRUST_PROXY": "1", **(env or {})})
+def make(env: dict[str, str] | None = None, edition: str = "ru", **kw) -> TestClient:
+    s = Settings.from_env({"VOICE_TRUST_PROXY": "1", "EDITION": edition, **(env or {})})
     for k, v in kw.items():
         setattr(s, k, v)
     return TestClient(create_app(s))
 
-
-# ---------- demo mode (no keys) ----------
-
-def test_health_and_index():
-    c = make()
-    assert c.get("/health").json() == {"ok": True}
-    r = c.get("/")
-    assert r.status_code == 200 and "Voice AI Assistant" in r.text
-
-
-def test_config_demo_mode():
-    j = make().get("/api/config").json()
-    assert j["providers"] == {"llm": {"openai": "demo", "anthropic": "demo", "gigachat": "demo", "yandexgpt": "demo"},
-                              "stt": "demo", "tts": "demo", "speech": "mock"}
-    assert [s["id"] for s in j["samples"]] == ["standup-en", "planning-ru", "voice-note-ru"]
-    assert j["telegram"] is False
-
-
-@pytest.mark.parametrize("sid", ["standup-en", "planning-ru", "voice-note-ru"])
-def test_samples_are_complete_and_served(sid):
-    c = make()
-    r = c.get(f"/api/samples/{sid}").json()
-    assert r["transcript"]["segments"] and r["summary"] and r["tasks"] and r["reply"]["text"]
-    assert all(t["title"] for t in r["tasks"])
-    assert c.get(r["file"]).status_code == 200
-    assert c.get(r["reply"]["audio"]).status_code == 200
-    # process with a sample id in demo mode replays the same pre-computed result
-    p = c.post("/api/process", data={"sample": sid, "llm": "anthropic"}).json()
-    assert p["summary"] == r["summary"] and p["notices"] == ["sample"]
-
-
-def test_unknown_sample_and_bad_llm():
-    c = make()
-    assert c.get("/api/samples/nope").status_code == 404
-    assert c.post("/api/process", data={"sample": "nope"}).status_code == 404
-    assert c.post("/api/analyze", json={"text": "hi", "llm": "gpt5"}).status_code == 400
-
-
-def test_upload_demo_mode_uses_mock_and_browser_voice():
-    c = make()
-    r = c.post("/api/process", files={"file": ("a.wav", wav(2), "audio/wav")}, data={"llm": "openai", "lang": "en"})
-    j = r.json()
-    assert r.status_code == 200
-    assert j["transcript"]["provider"] == "mock" and j["duration_sec"] == pytest.approx(2.0)
-    assert j["reply"]["audio"] is None and j["mode"]["tts"] == "browser"
-    assert "stt_mock" in j["notices"] and "llm_mock" in j["notices"]
-
-
-def test_upload_demo_mode_with_browser_transcript():
-    c = make()
-    text = "Обсудили релиз.\n- Подготовить отчёт @Анна 2026-12-01"
-    j = c.post("/api/process", files={"file": ("a.webm", b"xx", "audio/webm")},
-               data={"llm": "gigachat", "lang": "en", "browser_transcript": text}).json()
-    assert j["transcript"]["provider"] == "browser" and j["lang"] == "ru"
-    assert j["summary"] == "Обсудили релиз."
-    assert j["tasks"] == [{"title": "Подготовить отчёт", "owner": "Анна", "due": "2026-12-01"}]
-    assert "llm_mock" in j["notices"] and "stt_browser" in j["notices"]
-    assert j["reply"]["text"].startswith("Коротко:")
-
-
-def test_upload_limits_any_mode():
-    c = make(max_upload_mb=1)
-    assert c.post("/api/process", files={"file": ("a.wav", b"\0" * (1024 * 1024 + 10), "audio/wav")}).status_code == 413
-    assert c.post("/api/process", files={"file": ("a.wav", b"", "audio/wav")}).status_code == 400
-    assert c.post("/api/process", data={"llm": "openai"}).status_code == 400
-
-
-def test_analyze_and_speak_demo():
-    c = make()
-    j = c.post("/api/analyze", json={"text": "Release sync.\n- Ship it @Liam 2026-11-30", "llm": "openai"}).json()
-    assert j["summary"] == "Release sync." and j["tasks"][0]["owner"] == "Liam" and j["mode"]["llm"] == "mock"
-    assert c.post("/api/speak", json={"text": "hi"}).status_code == 409
-
-
-def test_index_has_no_inline_secrets():
-    html = make().get("/").text
-    assert "sk-" not in html and "API_KEY" not in html
-
-
-# ---------- live mode (fake providers behind the same Client) ----------
 
 class FakeLLM:
     name = "fake"
@@ -126,6 +51,7 @@ class FakeLLM:
 
 class FakeSpeech:
     name = "fake"
+    last_filename = ""
 
     def transcribe(self, req):
         self.last_filename = req.filename
@@ -136,35 +62,155 @@ class FakeSpeech:
         return Audio(bytes=silence_wav(10), mime="audio/mpeg", provider="fake")
 
 
-@pytest.fixture
-def live():
-    env = {"AI_OPENAI_API_KEY": "test-key", "VOICE_IP_PER_HOUR": "2", "VOICE_DAILY_LIVE": "3",
-           "VOICE_MAX_AUDIO_SEC": "5"}
-    c = make(env)
+# ---------- editions ----------
+
+def test_edition_settings_and_defaults():
+    assert Settings.from_env({}).edition == "intl"
+    ru = Settings.from_env({"EDITION": "ru", "DEMO_DOMAIN": "demo.example"})
+    assert ru.lang == "ru" and ru.live_allowed and ru.other_url == "https://voice-en.demo.example"
+    en = Settings.from_env({"EDITION": "intl", "DEMO_DOMAIN": "demo.example"})
+    assert en.lang == "en" and not en.live_allowed and en.other_url == "https://voice.demo.example"
+    assert Settings.from_env({"EDITION": "intl", "VOICE_LIVE": "1"}).live_allowed
+    assert Settings.from_env({"EDITION": "ru", "VOICE_LIVE": ""}).live_allowed          # empty = edition default
+    assert not Settings.from_env({"EDITION": "ru", "VOICE_LIVE": "0"}).live_allowed
+    with pytest.raises(ValueError):
+        Settings.from_env({"EDITION": "de"})
+
+
+def test_config_ru_edition():
+    j = make(edition="ru").get("/api/config").json()
+    assert j["edition"] == "ru" and j["lang"] == "ru" and j["other_url"].startswith("https://voice-en.")
+    assert j["providers"] == {"llm": {"gigachat": "demo", "yandexgpt": "demo"}, "stt": "demo", "tts": "demo",
+                              "speech": "mock"}
+    assert j["default_llm"] == "gigachat"
+    assert [s["id"] for s in j["samples"]] == RU_SAMPLES
+    assert j["telegram"] is False
+
+
+def test_config_intl_edition():
+    j = make(edition="intl").get("/api/config").json()
+    assert j["edition"] == "intl" and j["lang"] == "en" and j["other_url"].startswith("https://voice.")
+    assert j["providers"]["llm"] == {"openai": "demo", "anthropic": "demo"} and j["default_llm"] == "openai"
+    assert [s["id"] for s in j["samples"]] == EN_SAMPLES
+
+
+def test_index_language_per_edition():
+    ru = make(edition="ru").get("/").text
+    en = make(edition="intl").get("/").text
+    assert '<html lang="ru">' in ru and "<title>Голосовой AI-ассистент</title>" in ru and "GigaChat" in ru
+    assert '<html lang="en">' in en and "<title>Voice AI Assistant</title>" in en
+    assert "GigaChat" not in en and "YandexGPT" not in en
+    assert "sk-" not in en and "API_KEY" not in en
+
+
+def test_foreign_keys_ignored_in_ru_and_russian_in_intl():
+    env = {"AI_OPENAI_API_KEY": "k", "AI_ANTHROPIC_API_KEY": "a", "AI_GIGACHAT_AUTH_KEY": "g",
+           "AI_YANDEX_API_KEY": "y", "AI_YANDEX_FOLDER_ID": "f", "VOICE_LIVE": "1"}
+    ru = make(env, edition="ru").get("/api/config").json()["providers"]
+    assert ru == {"llm": {"gigachat": "live", "yandexgpt": "live"}, "stt": "live", "tts": "live",
+                  "speech": "yandex_speechkit"}
+    en = make(env, edition="intl").get("/api/config").json()["providers"]
+    assert en == {"llm": {"openai": "live", "anthropic": "live"}, "stt": "live", "tts": "live", "speech": "openai"}
+
+
+def test_intl_live_is_forced_off_by_default():
+    j = make({"AI_OPENAI_API_KEY": "k", "AI_ANTHROPIC_API_KEY": "a"}, edition="intl").get("/api/config").json()
+    assert j["providers"] == {"llm": {"openai": "demo", "anthropic": "demo"}, "stt": "demo", "tts": "demo",
+                              "speech": "mock"}
+
+
+def test_llm_outside_edition_is_rejected():
+    assert make(edition="ru").post("/api/analyze", json={"text": "hi", "llm": "openai"}).status_code == 400
+    assert make(edition="intl").post("/api/analyze", json={"text": "hi", "llm": "gigachat"}).status_code == 400
+    assert make(edition="ru").post("/api/analyze", json={"text": "hi", "llm": "gpt5"}).status_code == 400
+
+
+# ---------- demo mode (no keys) ----------
+
+@pytest.mark.parametrize("edition", ["ru", "intl"])
+def test_health(edition):
+    assert make(edition=edition).get("/health").json() == {"ok": True}
+
+
+@pytest.mark.parametrize("edition,sid", [("ru", x) for x in RU_SAMPLES] + [("intl", x) for x in EN_SAMPLES])
+def test_samples_are_complete_and_served(edition, sid):
+    c = make(edition=edition)
+    r = c.get(f"/api/samples/{sid}").json()
+    assert r["transcript"]["segments"] and r["summary"] and r["tasks"] and r["reply"]["text"]
+    assert all(t["title"] for t in r["tasks"])
+    assert c.get(r["file"]).status_code == 200
+    assert c.get(r["reply"]["audio"]).status_code == 200
+    p = c.post("/api/process", data={"sample": sid}).json()  # demo mode replays the pre-computed result
+    assert p["summary"] == r["summary"] and p["notices"] == ["sample"]
+
+
+def test_samples_of_other_edition_are_hidden():
+    assert make(edition="ru").get("/api/samples/standup-en").status_code == 404
+    assert make(edition="intl").get("/api/samples/planning-ru").status_code == 404
+    assert make(edition="ru").post("/api/process", data={"sample": "nope"}).status_code == 404
+
+
+@pytest.mark.parametrize("sid", RU_SAMPLES + EN_SAMPLES)
+def test_sample_texts_have_no_em_dash_and_an_ogg_copy(sid):
+    assert "—" not in (SAMPLES / sid / "result.json").read_text()
+    assert (SAMPLES / sid / "stt.ogg").read_bytes()[:4] == b"OggS"
+
+
+def test_upload_demo_mode_uses_mock_and_browser_voice():
+    j = make(edition="intl").post("/api/process", files={"file": ("a.wav", wav(2), "audio/wav")}).json()
+    assert j["transcript"]["provider"] == "mock" and j["duration_sec"] == pytest.approx(2.0)
+    assert j["reply"]["audio"] is None and j["mode"]["tts"] == "browser"
+    assert "stt_mock" in j["notices"] and "llm_mock" in j["notices"] and j["lang"] == "en"
+
+
+def test_upload_demo_mode_with_browser_transcript_ru():
+    text = "Обсудили релиз.\n- Подготовить отчёт @Анна 2026-12-01"
+    j = make(edition="ru").post("/api/process", files={"file": ("a.webm", b"xx", "audio/webm")},
+                                data={"browser_transcript": text}).json()
+    assert j["transcript"]["provider"] == "browser" and j["lang"] == "ru"
+    assert j["summary"] == "Обсудили релиз."
+    assert j["tasks"] == [{"title": "Подготовить отчёт", "owner": "Анна", "due": "2026-12-01"}]
+    assert "llm_mock" in j["notices"] and "stt_browser" in j["notices"]
+    assert j["reply"]["text"].startswith("Коротко:")
+
+
+def test_upload_limits_any_mode():
+    c = make(max_upload_mb=1)
+    assert c.post("/api/process", files={"file": ("a.wav", b"\0" * (1024 * 1024 + 10), "audio/wav")}).status_code == 413
+    assert c.post("/api/process", files={"file": ("a.wav", b"", "audio/wav")}).status_code == 400
+    assert c.post("/api/process", data={}).status_code == 400
+
+
+def test_analyze_and_speak_demo():
+    c = make(edition="intl")
+    j = c.post("/api/analyze", json={"text": "Release sync.\n- Ship it @Liam 2026-11-30"}).json()
+    assert j["summary"] == "Release sync." and j["tasks"][0]["owner"] == "Liam" and j["mode"]["llm"] == "mock"
+    assert c.post("/api/speak", json={"text": "hi"}).status_code == 409
+
+
+# ---------- live mode (fake providers behind the same Client) ----------
+
+@pytest.fixture(params=["ru", "intl"])
+def live(request):
+    keys = {"ru": {"AI_GIGACHAT_AUTH_KEY": "g", "AI_YANDEX_API_KEY": "y"},
+            "intl": {"AI_OPENAI_API_KEY": "k", "VOICE_LIVE": "1"}}[request.param]
+    c = make({**keys, "VOICE_IP_PER_HOUR": "2", "VOICE_DAILY_LIVE": "3", "VOICE_MAX_AUDIO_SEC": "5"},
+             edition=request.param)
     llm, sp = FakeLLM(), FakeSpeech()
     c.app.state.providers.client = lambda name: Client(llm, sp, sp)
-    c.llm = llm
+    c.llm, c.sp = llm, sp
     return c
-
-
-def test_gigachat_yandex_live_detection():
-    j = make({"AI_GIGACHAT_AUTH_KEY": "x", "AI_YANDEX_API_KEY": "y"}).get("/api/config").json()
-    assert j["providers"]["llm"]["gigachat"] == "live"
-    assert j["providers"]["llm"]["yandexgpt"] == "demo"  # folder id is required too
-    j = make({"AI_YANDEX_API_KEY": "y", "AI_YANDEX_FOLDER_ID": "f"}).get("/api/config").json()
-    assert j["providers"]["llm"]["yandexgpt"] == "live"
 
 
 def test_live_config(live):
     j = live.get("/api/config").json()
-    assert j["providers"]["stt"] == "live" and j["providers"]["llm"]["openai"] == "live"
-    assert j["providers"]["llm"]["anthropic"] == "demo"
+    assert j["providers"]["stt"] == "live" and j["default_llm"] in ("gigachat", "openai")
+    assert j["providers"]["llm"][j["default_llm"]] == "live"
     assert j["limits"]["daily_left"] == 3
 
 
 def test_live_pipeline(live):
-    r = live.post("/api/process", files={"file": ("a.wav", wav(2), "audio/wav")}, data={"llm": "openai"},
-                  headers={"X-Forwarded-For": "1.1.1.1"})
+    r = live.post("/api/process", files={"file": ("a.wav", wav(2), "audio/wav")}, headers={"X-Forwarded-For": "1.1.1.1"})
     j = r.json()
     assert r.status_code == 200, j
     assert j["transcript"]["provider"] == "fake" and j["transcript"]["segments"]
@@ -175,16 +221,16 @@ def test_live_pipeline(live):
 
 
 def test_live_requires_wav_and_max_length(live):
-    r = live.post("/api/process", files={"file": ("a.mp3", b"ID3notwav", "audio/mpeg")}, data={"llm": "openai"})
+    r = live.post("/api/process", files={"file": ("a.mp3", b"ID3notwav", "audio/mpeg")})
     assert r.status_code == 400 and r.json()["error"] == "need_wav"
-    r = live.post("/api/process", files={"file": ("a.wav", wav(6), "audio/wav")}, data={"llm": "openai"})
+    r = live.post("/api/process", files={"file": ("a.wav", wav(6), "audio/wav")})
     assert r.status_code == 400 and r.json()["error"] == "too_long"
     assert live.llm.calls == 0  # rejected before any paid call
 
 
 def test_live_rate_limit_per_ip_and_daily(live):
     def run(ip):
-        return live.post("/api/process", files={"file": ("a.wav", wav(1), "audio/wav")}, data={"llm": "openai"},
+        return live.post("/api/process", files={"file": ("a.wav", wav(1), "audio/wav")},
                          headers={"X-Forwarded-For": f"9.9.9.9, {ip}"})
     assert run("1.1.1.1").status_code == 200
     assert run("1.1.1.1").status_code == 200
@@ -197,9 +243,34 @@ def test_live_rate_limit_per_ip_and_daily(live):
 
 def test_live_analyze_and_speak_count_against_limits(live):
     h = {"X-Forwarded-For": "5.5.5.5"}
-    assert live.post("/api/analyze", json={"text": "x", "llm": "openai"}, headers=h).status_code == 200
+    assert live.post("/api/analyze", json={"text": "x"}, headers=h).status_code == 200
     assert live.post("/api/speak", json={"text": "x"}, headers=h).status_code == 200
     assert live.post("/api/speak", json={"text": "x"}, headers=h).status_code == 429
+
+
+def test_live_sample_sends_ogg_copy():
+    c = make({"AI_YANDEX_API_KEY": "y"}, edition="ru")
+    sp = FakeSpeech()
+    c.app.state.providers.client = lambda name: Client(FakeLLM(), sp, sp)
+    r = c.post("/api/process", data={"sample": "planning-ru"}, headers={"X-Forwarded-For": "7.7.7.7"})
+    assert r.status_code == 200 and sp.last_filename == "stt.ogg"
+
+
+# ---------- providers ----------
+
+def test_provider_selection_per_edition():
+    p = Providers({"AI_YANDEX_API_KEY": "y", "AI_OPENAI_API_KEY": "k"}, "ru")
+    assert p.speech == "yandex_speechkit" and p.stt_live and p.tts_live
+    c = p.client("gigachat")
+    assert c.stt.name == "yandex_speechkit" and c.tts.name == "yandex_speechkit" and c.llm.name == "mock"
+    assert Providers({"AI_OPENAI_API_KEY": "k"}, "ru").speech == "mock"          # no foreign speech in ru
+    assert Providers({"AI_OPENAI_API_KEY": "k"}, "intl").speech == "openai"
+    assert Providers({"AI_OPENAI_API_KEY": "k"}, "intl", live_allowed=False).speech == "mock"
+    assert Providers({}, "ru").client("gigachat").stt.name == "mock"
+    assert default_llm(Providers({}, "ru")) == "gigachat"
+    assert default_llm(Providers({"AI_YANDEX_API_KEY": "y", "AI_YANDEX_FOLDER_ID": "f"}, "ru")) == "yandexgpt"
+    assert default_llm(Providers({"AI_ANTHROPIC_API_KEY": "a"}, "intl")) == "anthropic"
+    assert Providers({"AI_YANDEX_API_KEY": "y"}, "ru").llm_live("yandexgpt") is False  # needs a folder id too
 
 
 # ---------- units ----------
@@ -219,14 +290,6 @@ def test_limits_reset_next_day():
     assert lim.check("b") is None
 
 
-def test_guess_lang_and_template():
-    assert guess_lang("Привет, мир") == "ru" and guess_lang("Hello") == "en" and guess_lang("123", "ru") == "ru"
-    r = template_reply("Done.", [Task("Ship", "Liam", "2026-11-30")], "en")
-    assert r == "In short: Done. Action items: 1. Liam: Ship, by 2026-11-30."
-
-
-# ---------- legal: no raw personal data in memory (R9), RU providers by default (R2) ----------
-
 def test_limiter_keeps_only_hashed_keys_and_forgets_daily():
     day = ["2026-11-21"]
     lim = Limits(ip_per_hour=5, daily=100, today=lambda: day[0])
@@ -241,41 +304,7 @@ def test_limiter_keeps_only_hashed_keys_and_forgets_daily():
     assert lim.key("203.0.113.7") not in lim._ip._m and len(lim._ip._m) == 1
 
 
-def test_default_llm_prefers_russian_providers():
-    from voice_demo.providers import Providers, default_llm
-    assert default_llm(Providers({})) == "gigachat"
-    assert default_llm(Providers({"AI_OPENAI_API_KEY": "k", "AI_YANDEX_API_KEY": "y", "AI_YANDEX_FOLDER_ID": "f"})) == "yandexgpt"
-    assert default_llm(Providers({"AI_OPENAI_API_KEY": "k"})) == "openai"
-    assert make().get("/api/config").json()["default_llm"] == "gigachat"
-    assert list(make().get("/api/config").json()["providers"]["llm"])[:2] == ["gigachat", "yandexgpt"]
-
-
-
-# ---------- Yandex SpeechKit (Russian STT/TTS, preferred over OpenAI) ----------
-
-def test_speechkit_detection_and_priority():
-    from voice_demo.providers import Providers
-    p = Providers({"AI_YANDEX_API_KEY": "y", "AI_OPENAI_API_KEY": "k"})
-    assert p.speech == "yandex_speechkit" and p.stt_live and p.tts_live
-    c = p.client("gigachat")
-    assert c.stt.name == "yandex_speechkit" and c.tts.name == "yandex_speechkit"
-    assert c.llm.name == "mock"  # gigachat has no key → mock; yandexgpt would need a folder id
-    assert Providers({"AI_OPENAI_API_KEY": "k"}).speech == "openai"
-    assert Providers({}).speech == "mock" and Providers({}).client("gigachat").stt.name == "mock"
-    j = make({"AI_YANDEX_API_KEY": "y"}).get("/api/config").json()
-    assert j["providers"]["stt"] == "live" and j["providers"]["speech"] == "yandex_speechkit"
-
-
-@pytest.mark.parametrize("sid", ["standup-en", "planning-ru", "voice-note-ru"])
-def test_samples_have_ogg_copy_for_live_stt(sid):
-    from pathlib import Path
-    ogg = Path(__file__).resolve().parent.parent / "samples" / sid / "stt.ogg"
-    assert ogg.read_bytes()[:4] == b"OggS"
-
-
-def test_live_sample_sends_ogg_copy():
-    c = make({"AI_YANDEX_API_KEY": "y"})
-    sp = FakeSpeech()
-    c.app.state.providers.client = lambda name: Client(FakeLLM(), sp, sp)
-    r = c.post("/api/process", data={"sample": "planning-ru", "llm": "openai"}, headers={"X-Forwarded-For": "7.7.7.7"})
-    assert r.status_code == 200 and sp.last_filename == "stt.ogg"
+def test_guess_lang_and_template():
+    assert guess_lang("Привет, мир") == "ru" and guess_lang("Hello") == "en" and guess_lang("123", "ru") == "ru"
+    r = template_reply("Done.", [Task("Ship", "Liam", "2026-11-30")], "en")
+    assert r == "In short: Done. Action items: 1. Liam: Ship, by 2026-11-30."
