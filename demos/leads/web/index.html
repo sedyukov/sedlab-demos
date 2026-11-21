@@ -24,6 +24,7 @@
       <button role="radio" data-profile="ru" aria-checked="true"><b data-i18n="ruStack">RU-стек</b><small>amoCRM · ЮKassa</small></button>
       <button role="radio" data-profile="intl" aria-checked="false"><b data-i18n="intlStack">International</b><small>HubSpot · Stripe</small></button>
     </div>
+    <a class="ghost edlink" id="otherEdition" hidden></a>
     <div class="seg small" role="radiogroup" aria-label="Language" id="langSeg">
       <button role="radio" data-lang="ru" aria-checked="true">RU</button>
       <button role="radio" data-lang="en" aria-checked="false">EN</button>
@@ -45,7 +46,7 @@
     </div>
     <div class="tools">
       <label class="switch"><input type="checkbox" id="chaos"><span></span><b data-i18n="chaos">Симулировать сбои API</b></label>
-      <p class="hint" data-i18n="chaosHint">CRM 503, Sheets 429 с Retry-After, Telegram 502: смотрите ретраи в логе</p>
+      <p class="hint" data-i18n="chaosHint">CRM 503, таблица 429 с Retry-After, Telegram 502: смотрите повторы в логе</p>
       <button class="ghost" id="reset" data-i18n="reset">Сбросить песочницу</button>
       <p class="hint" data-i18n="retention">У каждого посетителя своя песочница. Данные удаляются раз в сутки.</p>
     </div>

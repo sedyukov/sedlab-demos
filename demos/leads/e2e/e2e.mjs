@@ -54,6 +54,16 @@ async function scenario(browser, { lang, stack, video }) {
   page.on('pageerror', (e) => errors.push(e.message));
   await page.goto(`${BASE}/?lang=${lang}&stack=${stack}`);
   await page.waitForSelector('#flow li');
+  if (stack !== 'intl' || process.env.EDITION) {
+    // in an edition the server decides the stack list; pick ours if there is a switch
+    const btn = page.locator(`#profileSeg button[data-profile="${stack}"]`);
+    if (await btn.count() && await btn.isVisible() && (await btn.getAttribute('aria-checked')) !== 'true') await btn.click();
+  }
+  if (process.env.EDITION) {
+    const other = page.locator('#otherEdition');
+    check(await other.isVisible(), `[${stack}] link to the other edition: ${await other.textContent()}`);
+    check(!(await page.locator('#langSeg').isVisible()), `[${stack}] no language switch in an edition`);
+  }
   await page.locator('#liveDot.on').waitFor();
   await pace(1200);
 
@@ -133,9 +143,9 @@ const browser = await chromium.launch();
 try {
   rmSync(vidTmp, { recursive: true, force: true });
   // STACKS=intl → one stack only (production rate limit: 3 submissions at once, then 1 per 12 s per IP)
+  // editions: BASE of the ru edition → STACKS=ru,ru_b24; intl edition → STACKS=intl
   const stacks = (process.env.STACKS || 'ru,intl').split(',');
-  if (stacks.includes('ru')) await scenario(browser, { lang: 'ru', stack: 'ru', video: MEDIA });
-  if (stacks.includes('intl')) await scenario(browser, { lang: 'en', stack: 'intl', video: MEDIA });
+  for (const stack of stacks) await scenario(browser, { lang: stack === 'intl' ? 'en' : 'ru', stack, video: MEDIA });
 } finally {
   await browser.close();
 }

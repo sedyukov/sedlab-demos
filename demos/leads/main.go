@@ -29,14 +29,28 @@ func main() {
 	public := env("PUBLIC_URL", "http://localhost:"+port)
 	if d := os.Getenv("DEMO_DOMAIN"); d != "" && os.Getenv("PUBLIC_URL") == "" {
 		public = "https://leads." + d
+		if strings.EqualFold(os.Getenv("EDITION"), EditionIntl) {
+			public = "https://leads-en." + d
+		}
 	}
-	profiles, err := LoadProfiles(nil)
+	edition := strings.ToLower(env("EDITION", ""))
+	profiles, err := LoadProfiles(nil, edition)
 	if err != nil {
 		logger.Error("config", "err", err.Error()) // module config errors never contain secret values
 		os.Exit(1)
 	}
 	maxSessions, _ := strconv.Atoi(env("MAX_SESSIONS", "2000"))
 	app := NewApp(profiles, public, env("SELF_URL", "http://127.0.0.1:"+port), maxSessions)
+	app.Edition = edition
+	app.OtherURL = env("OTHER_EDITION_URL", "")
+	if d := os.Getenv("DEMO_DOMAIN"); d != "" && app.OtherURL == "" {
+		switch edition {
+		case EditionRU:
+			app.OtherURL = "https://leads-en." + d
+		case EditionIntl:
+			app.OtherURL = "https://leads." + d
+		}
+	}
 	guard := DefaultGuard()
 	if v, err := strconv.Atoi(env("SUBMIT_PER_MIN", "")); err == nil && v > 0 {
 		guard.Submit = crmkit.NewKeyedLimiter(float64(v)/60, max(3, v/4))
@@ -49,8 +63,13 @@ func main() {
 
 	srv := &http.Server{Addr: addr, Handler: NewServer(app, guard), ReadHeaderTimeout: 5 * time.Second}
 	go func() {
-		logger.Info("listening", "addr", addr, "public", public,
-			"ru", profiles["ru"].Modes, "intl", profiles["intl"].Modes)
+		args := []any{"addr", addr, "public", public, "edition", edition}
+		for _, k := range ProfileOrder {
+			if p := profiles[k]; p != nil {
+				args = append(args, k, p.Modes)
+			}
+		}
+		logger.Info("listening", args...)
 		if err := srv.ListenAndServe(); err != nil && err != http.ErrServerClosed {
 			logger.Error("serve", "err", err.Error())
 			os.Exit(1)

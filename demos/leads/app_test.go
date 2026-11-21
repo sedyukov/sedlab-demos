@@ -20,13 +20,16 @@ type harness struct {
 	app *App
 }
 
-func newHarness(t *testing.T, g *Guard) *harness {
+func newHarness(t *testing.T, g *Guard) *harness { return newEditionHarness(t, g, EditionCombined) }
+
+func newEditionHarness(t *testing.T, g *Guard, edition string) *harness {
 	t.Helper()
-	profiles, err := LoadProfiles(func(string) (string, bool) { return "", false })
+	profiles, err := LoadProfiles(func(string) (string, bool) { return "", false }, edition)
 	if err != nil {
 		t.Fatal(err)
 	}
 	app := NewApp(profiles, "https://leads.test", "", 100)
+	app.Edition = edition
 	app.Retry.Sleep = func(context.Context, time.Duration) error { return nil }
 	if g == nil {
 		g = DefaultGuard()
@@ -58,7 +61,7 @@ func sid(n int) string { return fmt.Sprintf("test-session-%04d-abcdef", n) }
 
 func form(session, profile, subID string) map[string]any {
 	return map[string]any{"session": session, "profile": profile, "submission_id": subID, "name": "Ivan Petrov",
-		"email": "ivan@example.com", "phone": "8 (999) 123-45-67", "company": "Acme", "plan": "business", "elapsed_ms": 5000}
+		"email": "ivan@example.com", "phone": "8 (999) 123-45-67", "company": "Acme", "plan": "business", "elapsed_ms": 5000, "lang": "en"}
 }
 
 // waitFor polls the lead until cond holds.
@@ -125,7 +128,7 @@ func TestFullFlowRU(t *testing.T) {
 	sess := h.app.Sessions.Peek(s)
 	st := h.app.stack(sess, "ru")
 	msgs := sentOnly(st.Notify.ListDeliveries("telegram"))
-	if len(msgs) != 1 || !strings.Contains(msgs[0].Text, "Новая заявка") {
+	if len(msgs) != 1 || !strings.Contains(msgs[0].Text, "New lead") {
 		t.Fatalf("telegram: %+v", msgs)
 	}
 	h.waitEvent(s, "webhook.crm", "ok", 1) // deal.created came back as a signed CRM webhook
@@ -474,7 +477,8 @@ func TestPageShowsNoContacts(t *testing.T) {
 		pages = append(pages, b.String())
 	}
 	all := strings.Join(pages, "\n")
-	for _, bad := range []string{"@", "example.com", "999", "+7"} {
+	// exact raw contacts (not bare digit runs: timestamps like "…46.999Z" would match)
+	for _, bad := range []string{"@", "example.com", "123-45-67", "+79991234567", "(999)"} {
 		if strings.Contains(all, bad) {
 			i := strings.Index(all, bad)
 			t.Fatalf("page data contains %q: …%s…", bad, all[max(0, i-60):min(len(all), i+40)])
@@ -508,5 +512,90 @@ func TestSandboxContactsDiscardTypedContacts(t *testing.T) {
 	resp.Body.Close()
 	if cfg["sandbox_contacts"] != true {
 		t.Fatal("config must announce sandbox_contacts")
+	}
+}
+
+func TestEditionRU(t *testing.T) {
+	h := newEditionHarness(t, nil, EditionRU)
+	s := sid(18)
+	f := form(s, "intl", "x")
+	if c, _ := h.post("/api/leads", f); c != 400 {
+		t.Fatalf("intl profile in ru edition: %d, want 400", c)
+	}
+	for _, prof := range []string{"ru", "ru_b24"} {
+		lead := h.submitAndWait(s, prof, "ed-"+prof)
+		if lead.Lang != "ru" || lead.Amount.Currency != "RUB" {
+			t.Fatalf("%s: lang %q currency %q", prof, lead.Lang, lead.Amount.Currency)
+		}
+		msgs := sentOnly(h.app.stack(h.app.Sessions.Peek(s), prof).Notify.ListDeliveries(""))
+		if len(msgs) != 2 || msgs[0].Channel != "telegram" || msgs[1].Channel != "max" || !strings.Contains(msgs[1].Text, "Новая заявка") {
+			t.Fatalf("%s deliveries: %+v", prof, msgs)
+		}
+	}
+	want := map[string]string{"crm": "Битрикс24", "sheets": "Яндекс Диск", "payments": "ЮKassa"}
+	seen := map[string]bool{}
+	for _, e := range h.app.Hub.Events(s) {
+		if p, ok := want[e.Service]; ok && strings.HasPrefix(e.Provider, p) {
+			seen[e.Service] = true
+		}
+		if strings.Contains(e.Provider, "Google") || strings.Contains(e.Provider, "HubSpot") || strings.Contains(e.Provider, "Stripe") {
+			t.Fatalf("foreign provider in ru edition: %q", e.Provider)
+		}
+	}
+	if len(seen) != 3 {
+		t.Fatalf("labels seen: %v", seen)
+	}
+	resp, _ := http.Get(h.srv.URL + "/api/config")
+	var cfg struct {
+		Edition  string     `json:"edition"`
+		Profiles []*Profile `json:"profiles"`
+	}
+	json.NewDecoder(resp.Body).Decode(&cfg)
+	resp.Body.Close()
+	if cfg.Edition != "ru" || len(cfg.Profiles) != 2 || cfg.Profiles[0].Key != "ru" || cfg.Profiles[1].Key != "ru_b24" {
+		t.Fatalf("config: %+v", cfg)
+	}
+}
+
+func TestEditionIntl(t *testing.T) {
+	h := newEditionHarness(t, nil, EditionIntl)
+	s := sid(19)
+	if c, _ := h.post("/api/leads", form(s, "ru", "x")); c != 400 {
+		t.Fatalf("ru profile in intl edition: %d, want 400", c)
+	}
+	f := form(s, "", "def")
+	f["lang"] = "ru" // ignored: the edition speaks English
+	code, out := h.post("/api/leads", f)
+	if code != 202 {
+		t.Fatalf("default profile: %d %v", code, out)
+	}
+	lead := h.waitFor(s, out["lead_id"].(string), func(l *Lead) bool { return l.Status == "awaiting_payment" })
+	if lead.Profile != "intl" || lead.Lang != "en" || lead.Amount.Currency != "USD" {
+		t.Fatalf("lead: %+v", lead)
+	}
+	if h.app.DefaultProfile() != "intl" {
+		t.Fatal("default profile")
+	}
+}
+
+func TestUnknownEdition(t *testing.T) {
+	if _, err := LoadProfiles(func(string) (string, bool) { return "", false }, "mars"); err == nil {
+		t.Fatal("unknown edition must fail")
+	}
+}
+
+func TestRUEditionLogIsRussian(t *testing.T) {
+	h := newEditionHarness(t, nil, EditionRU)
+	s := sid(20)
+	lead := h.submitAndWait(s, "ru", "lang-1")
+	h.post("/api/leads/"+lead.ID+"/pay", map[string]any{"session": s})
+	h.waitFor(s, lead.ID, func(l *Lead) bool { return l.DealStage == "Won" })
+	h.waitEvent(s, "pipeline", "ok", 2)
+	for _, e := range h.app.Hub.Events(s) {
+		for _, en := range []string{"Form submitted", "Contact created", "created, stage", "Row appended", "Sent to", "Payment", "Webhook", "Lead processed", "sandbox"} {
+			if strings.Contains(e.Message, en) || strings.Contains(e.Provider, en) {
+				t.Fatalf("English in ru edition: %q / %q", e.Message, e.Provider)
+			}
+		}
 	}
 }

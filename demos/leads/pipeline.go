@@ -20,6 +20,8 @@ type App struct {
 	Profiles  map[string]*Profile
 	Sessions  *Sessions
 	Hub       *Hub
+	Edition   string // ru | intl | "" (combined)
+	OtherURL  string // the other edition ("English version" / "Русская версия")
 	PublicURL string // https://leads.demo.sedlab.dev — used in checkout links
 	SelfURL   string // where webhooks are delivered in mock mode (http://127.0.0.1:8080)
 	Retry     RetryPolicy
@@ -64,9 +66,9 @@ func (a *App) providerLabel(profile, service string) string {
 		return ""
 	}
 	if m == "mock" {
-		return name + " · sandbox"
+		return name + " · " + tr(p.Lang, "sandbox", "песочница")
 	}
-	return name + " · live"
+	return name + " · " + tr(p.Lang, "live", "боевой")
 }
 
 func (a *App) emit(s *Session, lead *Lead, ev Event) Event {
@@ -80,7 +82,7 @@ func (a *App) emit(s *Session, lead *Lead, ev Event) Event {
 func (a *App) step(ctx context.Context, s *Session, lead *Lead, name, service string, fn func(ctx context.Context) (string, map[string]any, error)) error {
 	label := a.providerLabel(lead.Profile, service)
 	if ch, ok := strings.CutPrefix(name, "notify."); ok {
-		label = map[string]string{"telegram": "Telegram", "email": "Email"}[ch] + " · " + map[string]string{"mock": "sandbox", "live": "live"}[a.Profiles[lead.Profile].Modes.Notify]
+		label = map[string]string{"telegram": "Telegram", "max": "Max", "email": "Email"}[ch] + " · " + map[string]string{"mock": tr(lead.Lang, "sandbox", "песочница"), "live": tr(lead.Lang, "live", "боевой")}[a.Profiles[lead.Profile].Modes.Notify]
 	}
 	setState := func(v int) { s.update(func() { lead.Steps[name] = v }) }
 	p := a.Retry
@@ -120,8 +122,9 @@ func (a *App) step(ctx context.Context, s *Session, lead *Lead, name, service st
 		d := p.delay(attempt, info)
 		setState(2)
 		a.emit(s, lead, Event{Step: name, Service: service, Status: "retry", Attempt: attempt, Duration: dur, Provider: label,
-			Message: fmt.Sprintf("%s: %s, retry in %d ms", info.Code, info.Message, d.Milliseconds()),
-			Data:    map[string]any{"error": info, "retry_in_ms": d.Milliseconds()}})
+			Message: tr(lead.Lang, fmt.Sprintf("%s: %s, retry in %d ms", info.Code, info.Message, d.Milliseconds()),
+				fmt.Sprintf("%s: %s, повтор через %d мс", info.Code, info.Message, d.Milliseconds())),
+			Data: map[string]any{"error": info, "retry_in_ms": d.Milliseconds()}})
 		if serr := p.Sleep(ctx, d); serr != nil {
 			return err
 		}
@@ -157,7 +160,7 @@ func (a *App) Submit(s *Session, in LeadInput) (*Lead, bool) {
 		lead = &Lead{ID: fmt.Sprintf("L-%03d", s.nLead), SubmissionID: in.SubmissionID, Profile: in.Profile,
 			CreatedAt: a.now().UTC().Format(time.RFC3339), Name: in.Name, Email: in.Email, Phone: in.Phone,
 			Company: in.Company, Message: in.Message, Plan: plan.Key, Amount: Money{plan.Amount, prof.Currency},
-			Status: "processing", Steps: map[string]int{}, Alias: fmt.Sprintf("client-%d", s.nLead), Lang: in.Lang}
+			Status: "processing", Steps: map[string]int{}, Alias: fmt.Sprintf("client-%d", s.nLead), Lang: a.leadLang(prof, in.Lang)}
 		s.leads[lead.ID] = lead
 		s.bySubmit[in.SubmissionID] = lead.ID
 		s.order = append(s.order, lead.ID)
@@ -167,11 +170,12 @@ func (a *App) Submit(s *Session, in LeadInput) (*Lead, bool) {
 	}
 	if dup {
 		a.emit(s, lead, Event{Step: "form.submit", Service: "form", Status: "duplicate",
-			Message: "Same submission_id received again: ignored, nothing is created twice",
-			Data:    map[string]any{"submission_id": in.SubmissionID}})
+			Message: tr(lead.Lang, "Same submission_id received again: ignored, nothing is created twice",
+				"Тот же submission_id пришёл повторно: пропущено, дублей не создано"),
+			Data: map[string]any{"submission_id": in.SubmissionID}})
 		return lead, true
 	}
-	a.emit(s, lead, Event{Step: "form.submit", Service: "form", Status: "ok", Message: "Form submitted: " + lead.Name,
+	a.emit(s, lead, Event{Step: "form.submit", Service: "form", Status: "ok", Message: tr(lead.Lang, "Form submitted: ", "Форма отправлена: ") + lead.Name,
 		Data: map[string]any{"submission_id": in.SubmissionID, "plan": plan.Key, "amount": lead.Amount, "profile": in.Profile}})
 	s.update(func() { lead.Steps["form.submit"] = 1 })
 	go a.process(s, lead)
@@ -186,7 +190,8 @@ func (a *App) process(s *Session, lead *Lead) {
 	prof := a.Profiles[lead.Profile]
 	fail := func() {
 		s.update(func() { lead.Status = "failed" })
-		a.emit(s, lead, Event{Step: "pipeline", Service: "system", Status: "error", Message: "Pipeline stopped. The failed step can be retried safely (idempotency keys)"})
+		a.emit(s, lead, Event{Step: "pipeline", Service: "system", Status: "error", Message: tr(lead.Lang, "Pipeline stopped. The failed step can be retried safely (idempotency keys)",
+			"Цепочка остановлена. Упавший шаг можно безопасно повторить (ключи идемпотентности)")})
 	}
 
 	// 1. CRM: contact (dedup by email → phone)
@@ -198,9 +203,9 @@ func (a *App) process(s *Session, lead *Lead) {
 			return "", nil, err
 		}
 		contact = c
-		verb := "Contact matched (existing)"
+		verb := tr(lead.Lang, "Contact matched (existing)", "Контакт найден (уже был)")
 		if c.Created {
-			verb = "Contact created"
+			verb = tr(lead.Lang, "Contact created", "Контакт создан")
 		}
 		return fmt.Sprintf("%s: %s", verb, c.ID), map[string]any{"contact": c}, nil
 	}); err != nil {
@@ -219,7 +224,7 @@ func (a *App) process(s *Session, lead *Lead) {
 			return "", nil, err
 		}
 		deal = d
-		return fmt.Sprintf("Deal %s created, stage «%s»", d.ID, d.StageName), map[string]any{"deal": d, "idempotency_key": "deal-" + lead.SubmissionID}, nil
+		return tr(lead.Lang, fmt.Sprintf("Deal %s created, stage «%s»", d.ID, d.StageName), fmt.Sprintf("Сделка %s создана, этап «%s»", d.ID, stageRU(d.StageName))), map[string]any{"deal": d, "idempotency_key": "deal-" + lead.SubmissionID}, nil
 	}); err != nil {
 		fail()
 		return
@@ -238,7 +243,7 @@ func (a *App) process(s *Session, lead *Lead) {
 		if err != nil {
 			return "", nil, err
 		}
-		return "Row appended: " + r.UpdatedRange, map[string]any{"result": r}, nil
+		return tr(lead.Lang, "Row appended: ", "Строка добавлена: ") + r.UpdatedRange, map[string]any{"result": r}, nil
 	}); err != nil {
 		fail()
 		return
@@ -250,18 +255,19 @@ func (a *App) process(s *Session, lead *Lead) {
 		if err := a.step(ctx, s, lead, "notify."+ch, "notify", func(ctx context.Context) (string, map[string]any, error) {
 			text := fmt.Sprintf("🆕 New lead %s\n%s · contact: %s (in CRM)\nPlan: %s, %s\nDeal: %s", lead.ID, lead.Name, lead.Alias,
 				lead.Plan, formatMoney(lead.Amount), deal.ID)
-			if lead.Profile == "ru" {
+			if lead.Lang == "ru" {
 				text = fmt.Sprintf("🆕 Новая заявка %s\n%s · контакт: %s (в CRM)\nТариф: %s, %s\nСделка: %s", lead.ID, lead.Name, lead.Alias,
-					lead.Plan, formatMoney(lead.Amount), deal.ID)
+					planRU(lead.Plan), formatMoney(lead.Amount), deal.ID)
 			}
 			r, err := st.Notify.Send(ctx, notify.SendInput{Channel: ch, To: prof.recipients[ch], Text: text, Subject: "New lead " + lead.ID, IdempotencyKey: "new-" + lead.SubmissionID, Metadata: notifyMeta(ctx, lead)})
 			if err != nil {
 				return "", nil, err
 			}
-			return fmt.Sprintf("Sent to %s (%s)", recipientLabel(lead, ch), r.ID), map[string]any{"result": r, "text": text}, nil
+			return fmt.Sprintf(tr(lead.Lang, "Sent to %s (%s)", "Отправлено: %s (%s)"), recipientLabel(lead, ch), r.ID), map[string]any{"result": r, "text": text}, nil
 		}); err != nil {
 			// a notification failure must not lose the lead — it is already in CRM and the sheet
-			a.emit(s, lead, Event{Step: "notify." + ch, Service: "notify", Status: "info", Message: "Notification skipped after retries; lead is safe in CRM + sheet"})
+			a.emit(s, lead, Event{Step: "notify." + ch, Service: "notify", Status: "info", Message: tr(lead.Lang, "Notification skipped after retries; lead is safe in CRM + sheet",
+				"Уведомление пропущено после повторов; заявка сохранена в CRM и таблице")})
 		}
 	}
 
@@ -276,7 +282,7 @@ func (a *App) process(s *Session, lead *Lead) {
 			return "", nil, err
 		}
 		pay = p
-		return fmt.Sprintf("Payment %s created (%s), link ready", p.ID, p.Status), map[string]any{"payment": p}, nil
+		return fmt.Sprintf(tr(lead.Lang, "Payment %s created (%s), link ready", "Платёж %s создан (%s), ссылка готова"), p.ID, p.Status), map[string]any{"payment": p}, nil
 	}); err != nil {
 		fail()
 		return
@@ -285,7 +291,7 @@ func (a *App) process(s *Session, lead *Lead) {
 		lead.PaymentID, lead.PaymentStatus, lead.ConfirmationURL, lead.Status = pay.ID, pay.Status, pay.ConfirmationURL, "awaiting_payment"
 	})
 	a.emit(s, lead, Event{Step: "pipeline", Service: "system", Status: "ok",
-		Message: fmt.Sprintf("Lead processed in %d ms, waiting for payment", a.now().Sub(t0).Milliseconds())})
+		Message: fmt.Sprintf(tr(lead.Lang, "Lead processed in %d ms, waiting for payment", "Заявка обработана за %d мс, ждём оплату"), a.now().Sub(t0).Milliseconds())})
 }
 
 func customer(l *Lead) *payments.Customer {
@@ -297,7 +303,7 @@ func customer(l *Lead) *payments.Customer {
 
 // recipientLabel is how a notification recipient is shown on the page (no handles, no addresses).
 func recipientLabel(lead *Lead, ch string) string {
-	name := map[string]string{"telegram": "Telegram", "email": "email"}[ch]
+	name := map[string]string{"telegram": "Telegram", "max": "Max", "email": "email"}[ch]
 	if lead != nil && lead.Lang == "ru" {
 		return "Менеджер (" + name + ")"
 	}
@@ -316,7 +322,7 @@ func (a *App) registerRedactions(s *Session, lead *Lead) {
 	if p, err := crm.NormalizePhone(lead.Phone); err == nil && p != lead.Phone {
 		pairs = append(pairs, p, pairs[3])
 	}
-	for _, ch := range []string{"telegram", "email"} {
+	for _, ch := range []string{"telegram", "max", "email"} {
 		pairs = append(pairs, a.Profiles[lead.Profile].recipients[ch], recipientLabel(lead, ch))
 	}
 	s.addRedaction(pairs...)
@@ -380,7 +386,8 @@ func (a *App) MockPay(ctx context.Context, s *Session, lead *Lead, outcome strin
 	}
 	s.update(func() { lead.lastWebhook = &storedWebhook{Headers: w.Headers, Body: w.Body} })
 	a.emit(s, lead, Event{Step: "payments.checkout", Service: "payments", Status: "info", Provider: a.providerLabel(lead.Profile, "payments"),
-		Message: fmt.Sprintf("Customer finished checkout: %s → provider sends signed webhook %s", outcome, w.EventType)})
+		Message: fmt.Sprintf(tr(lead.Lang, "Customer finished checkout: %s → provider sends signed webhook %s",
+			"Клиент завершил оплату: %s → провайдер шлёт подписанный вебхук %s"), outcome, w.EventType)})
 	_, err = a.post(ctx, a.SelfURL+"/webhooks/payments/"+lead.Profile, w.Headers, []byte(w.Body))
 	return err
 }
@@ -392,7 +399,7 @@ func (a *App) ReplayWebhook(ctx context.Context, s *Session, lead *Lead) error {
 	if w == nil {
 		return fmt.Errorf("no webhook yet, pay first")
 	}
-	a.emit(s, lead, Event{Step: "webhook.replay", Service: "webhook", Status: "info", Message: "Provider re-delivers the same webhook (network retry)"})
+	a.emit(s, lead, Event{Step: "webhook.replay", Service: "webhook", Status: "info", Message: tr(lead.Lang, "Provider re-delivers the same webhook (network retry)", "Провайдер присылает тот же вебхук повторно (сетевой повтор)")})
 	_, err := a.post(ctx, a.SelfURL+"/webhooks/payments/"+lead.Profile, w.Headers, []byte(w.Body))
 	return err
 }
@@ -409,7 +416,8 @@ func (a *App) ForgeWebhook(ctx context.Context, s *Session, lead *Lead) error {
 			headers[k] = v // reuse a real signature from another body
 		}
 	}
-	a.emit(s, lead, Event{Step: "webhook.forge", Service: "webhook", Status: "info", Message: "Attacker posts a fake “payment.succeeded” (amount 0.01, stolen signature)"})
+	a.emit(s, lead, Event{Step: "webhook.forge", Service: "webhook", Status: "info", Message: tr(lead.Lang, "Attacker posts a fake “payment.succeeded” (amount 0.01, stolen signature)",
+		"Злоумышленник шлёт поддельный «payment.succeeded» (сумма 0.01, чужая подпись)")})
 	_, err := a.post(ctx, a.SelfURL+"/webhooks/payments/"+lead.Profile, headers, []byte(body))
 	return err
 }
@@ -455,7 +463,7 @@ func (a *App) HandlePaymentWebhook(ctx context.Context, profile string, headers 
 		info := classify(err)
 		if s != nil {
 			a.emit(s, lead, Event{Step: "webhook.payment", Service: "webhook", Status: "rejected", Duration: dur, Provider: label,
-				Message: "Webhook rejected → HTTP 401: " + info.Code + " (" + info.Message + ")", Data: map[string]any{"error": info}})
+				Message: tr(leadLang(lead, prof), "Webhook rejected → HTTP 401: ", "Вебхук отклонён → HTTP 401: ") + info.Code + " (" + info.Message + ")", Data: map[string]any{"error": info}})
 		}
 		if info.Code == "signature_invalid" {
 			return http.StatusUnauthorized
@@ -473,11 +481,13 @@ func (a *App) HandlePaymentWebhook(ctx context.Context, profile string, headers 
 	}
 	if ev.Duplicate {
 		a.emit(s, lead, Event{Step: "webhook.payment", Service: "webhook", Status: "duplicate", Duration: dur, Provider: label,
-			Message: fmt.Sprintf("Duplicate webhook %s → HTTP 200, already processed, nothing changed", ev.ID), Data: map[string]any{"event_id": ev.ID}})
+			Message: fmt.Sprintf(tr(lead.Lang, "Duplicate webhook %s → HTTP 200, already processed, nothing changed",
+				"Повторный вебхук %s → HTTP 200, уже обработан, ничего не изменилось"), ev.ID), Data: map[string]any{"event_id": ev.ID}})
 		return http.StatusOK
 	}
 	a.emit(s, lead, Event{Step: "webhook.payment", Service: "webhook", Status: "ok", Duration: dur, Provider: label,
-		Message: fmt.Sprintf("Webhook %s verified (signature ✓, first delivery) → %s", ev.ID, ev.Type), Data: map[string]any{"event": ev}})
+		Message: fmt.Sprintf(tr(lead.Lang, "Webhook %s verified (signature ✓, first delivery) → %s",
+			"Вебхук %s проверен (подпись ✓, первая доставка) → %s"), ev.ID, ev.Type), Data: map[string]any{"event": ev}})
 	go a.onPayment(s, lead, ev)
 	return http.StatusOK
 }
@@ -505,7 +515,7 @@ func (a *App) onPayment(s *Session, lead *Lead, ev *payments.WebhookEvent) {
 			return "", nil, err
 		}
 		deal = d
-		return fmt.Sprintf("Deal %s → stage «%s»", d.ID, d.StageName), map[string]any{"deal": d}, nil
+		return tr(lead.Lang, fmt.Sprintf("Deal %s → stage «%s»", d.ID, d.StageName), fmt.Sprintf("Сделка %s → этап «%s»", d.ID, stageRU(d.StageName))), map[string]any{"deal": d}, nil
 	}); err == nil {
 		s.update(func() { lead.DealStage = deal.StageName })
 		a.deliverCRMWebhook(ctx, s, lead, st)
@@ -516,7 +526,7 @@ func (a *App) onPayment(s *Session, lead *Lead, ev *payments.WebhookEvent) {
 		if err != nil {
 			return "", nil, err
 		}
-		return "Note added: " + n.ID, map[string]any{"note": n}, nil
+		return tr(lead.Lang, "Note added: ", "Примечание добавлено: ") + n.ID, map[string]any{"note": n}, nil
 	})
 	_ = a.step(ctx, s, lead, "sheets.update_row", "sheets", func(ctx context.Context) (string, map[string]any, error) {
 		found, err := st.Sheets.FindRows(ctx, sheets.FindRowsInput{SheetID: st.SheetID, Tab: st.SheetTab, Column: "Lead ID", Value: lead.ID})
@@ -538,13 +548,13 @@ func (a *App) onPayment(s *Session, lead *Lead, ev *payments.WebhookEvent) {
 		if err != nil {
 			return "", nil, err
 		}
-		return fmt.Sprintf("Row %d updated: %s", row.Index, r.UpdatedRange), map[string]any{"result": r}, nil
+		return fmt.Sprintf(tr(lead.Lang, "Row %d updated: %s", "Строка %d обновлена: %s"), row.Index, r.UpdatedRange), map[string]any{"result": r}, nil
 	})
 	prof := a.Profiles[lead.Profile]
 	ch := prof.NotifyChans[0]
 	_ = a.step(ctx, s, lead, "notify."+ch, "notify", func(ctx context.Context) (string, map[string]any, error) {
 		text := fmt.Sprintf("💰 %s paid: %s, %s. Deal %s → %s", lead.ID, lead.Name, formatMoney(lead.Amount), lead.DealID, stage)
-		if lead.Profile == "ru" {
+		if lead.Lang == "ru" {
 			text = fmt.Sprintf("💰 %s оплачена: %s, %s. Сделка %s → %s", lead.ID, lead.Name, formatMoney(lead.Amount), lead.DealID, stage)
 		}
 		if status != "paid" {
@@ -554,9 +564,9 @@ func (a *App) onPayment(s *Session, lead *Lead, ev *payments.WebhookEvent) {
 		if err != nil {
 			return "", nil, err
 		}
-		return fmt.Sprintf("Sent to %s (%s)", recipientLabel(lead, ch), r.ID), map[string]any{"result": r, "text": text}, nil
+		return fmt.Sprintf(tr(lead.Lang, "Sent to %s (%s)", "Отправлено: %s (%s)"), recipientLabel(lead, ch), r.ID), map[string]any{"result": r, "text": text}, nil
 	})
-	a.emit(s, lead, Event{Step: "pipeline", Service: "system", Status: "ok", Message: "Payment processed: CRM, sheet and team are up to date"})
+	a.emit(s, lead, Event{Step: "pipeline", Service: "system", Status: "ok", Message: tr(lead.Lang, "Payment processed: CRM, sheet and team are up to date", "Оплата обработана: CRM, таблица и команда в курсе")})
 }
 
 // HandleCRMWebhook verifies a CRM webhook (mock: HMAC; for amoCRM the URL token is the secret).
@@ -570,13 +580,8 @@ func (a *App) HandleCRMWebhook(ctx context.Context, profile, sid string, headers
 	label := a.providerLabel(profile, "crm")
 	if err != nil {
 		info := classify(err)
-		a.emit(s, nil, Event{Step: "webhook.crm", Service: "webhook", Status: "rejected", Provider: label, Message: "CRM webhook rejected: " + info.Code})
+		a.emit(s, nil, Event{Step: "webhook.crm", Service: "webhook", Status: "rejected", Provider: label, Message: tr(a.Profiles[profile].Lang, "CRM webhook rejected: ", "Вебхук CRM отклонён: ") + info.Code})
 		return http.StatusUnauthorized
-	}
-	st2 := "ok"
-	msg := fmt.Sprintf("CRM webhook %s: %s %s (signature ✓)", ev.ID, ev.Type, ev.EntityID)
-	if ev.Duplicate {
-		st2, msg = "duplicate", fmt.Sprintf("CRM webhook %s already seen, skipped", ev.ID)
 	}
 	var lead *Lead
 	s.update(func() {
@@ -586,6 +591,12 @@ func (a *App) HandleCRMWebhook(ctx context.Context, profile, sid string, headers
 			}
 		}
 	})
+	lang := leadLang(lead, a.Profiles[profile])
+	st2 := "ok"
+	msg := fmt.Sprintf(tr(lang, "CRM webhook %s: %s %s (signature ✓)", "Вебхук CRM %s: %s %s (подпись ✓)"), ev.ID, ev.Type, ev.EntityID)
+	if ev.Duplicate {
+		st2, msg = "duplicate", fmt.Sprintf(tr(lang, "CRM webhook %s already seen, skipped", "Вебхук CRM %s уже был, пропущен"), ev.ID)
+	}
 	a.emit(s, lead, Event{Step: "webhook.crm", Service: "webhook", Status: st2, Provider: label, Message: msg, Data: map[string]any{"event": ev}})
 	return http.StatusOK
 }
@@ -596,4 +607,63 @@ func notifyMeta(ctx context.Context, lead *Lead) map[string]string {
 		m[notify.MockFailKey] = c
 	}
 	return m
+}
+
+// leadLang: an edition speaks one language; the combined page follows the visitor's UI language.
+func (a *App) leadLang(p *Profile, uiLang string) string {
+	if a.Edition != EditionCombined || uiLang == "" {
+		return p.Lang
+	}
+	return uiLang
+}
+
+// DefaultProfile is the first profile of the edition in display order.
+func (a *App) DefaultProfile() string {
+	for _, k := range ProfileOrder {
+		if a.Profiles[k] != nil {
+			return k
+		}
+	}
+	return ""
+}
+
+// tr picks the Russian text for Russian leads/editions (the RU edition is Russian-only).
+func tr(lang, en, ru string) string {
+	if lang == "ru" {
+		return ru
+	}
+	return en
+}
+
+func leadLang(l *Lead, p *Profile) string {
+	if l != nil {
+		return l.Lang
+	}
+	if p != nil {
+		return p.Lang
+	}
+	return "en"
+}
+
+// stageRU translates the mock pipeline stage names (live CRMs return their own, already localized names).
+func stageRU(name string) string {
+	if v, ok := map[string]string{"New": "Новая", "Qualified": "Квалифицирована", "Won": "Успешно", "Lost": "Закрыто"}[name]; ok {
+		return v
+	}
+	return name
+}
+
+// Lang is the language of session-level messages (spam filter, settings).
+func (a *App) Lang() string {
+	if a.Edition == EditionRU {
+		return "ru"
+	}
+	return "en"
+}
+
+func planRU(key string) string {
+	if v, ok := map[string]string{"start": "Старт", "business": "Бизнес", "pro": "Про"}[key]; ok {
+		return v
+	}
+	return key
 }

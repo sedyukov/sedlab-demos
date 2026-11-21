@@ -4,7 +4,7 @@
     ru: {
       title: 'Заявка → CRM', tagline: 'Форма → CRM → Google Таблица → Telegram → оплата → сделка «Успешно»',
       ruStack: 'RU-стек', intlStack: 'International', site: 'Сайт клиента', widgetHint: 'встраиваемый JS-виджет',
-      chaos: 'Симулировать сбои API', chaosHint: 'CRM 503, Sheets 429 с Retry-After, Telegram 502: смотрите ретраи в логе',
+      chaos: 'Симулировать сбои API', chaosHint: 'CRM 503, таблица 429 с Retry-After, Telegram 502: смотрите повторы в логе',
       reset: 'Сбросить песочницу', retention: 'У каждого посетителя своя песочница. Данные удаляются раз в сутки.',
       log: 'Лог событий', onlyLead: 'Только выбранная', clear: 'Очистить',
       logEmpty: 'Отправьте форму слева, и каждый шаг появится здесь в реальном времени.',
@@ -19,7 +19,8 @@
       replayHint: 'Повтор: тот же вебхук ещё раз (идемпотентность). Подделка: чужая подпись (отклоняется).',
       chatName: 'Отдел продаж', bot: 'бот уведомлений', selected: 'Выбрана заявка', liveOn: 'онлайн', liveOff: 'переподключение…',
       st: { processing: 'обработка', awaiting_payment: 'ждёт оплаты', paid: 'оплачено', canceled: 'отменено', failed: 'ошибка',
-        pending: 'ожидает', succeeded: 'оплачен' }, mock: 'sandbox', live: 'live', fakeUrl: 'example-shop'
+        pending: 'ожидает', succeeded: 'оплачен' }, mock: 'песочница', live: 'боевой', fakeUrl: 'example-shop', payload: 'данные',
+      badge: { ok: 'успех', retry: 'повтор', error: 'ошибка', duplicate: 'дубль', rejected: 'отклонён', info: 'инфо', start: 'старт' }
     },
     en: {
       title: 'Lead → CRM', tagline: 'Form → CRM → Google Sheet → Telegram → payment → deal won',
@@ -39,7 +40,8 @@
       replayHint: 'Replay: the same webhook again (idempotency). Forged: wrong signature (rejected).',
       chatName: 'Sales team', bot: 'notification bot', selected: 'Selected lead', liveOn: 'live', liveOff: 'reconnecting…',
       st: { processing: 'processing', awaiting_payment: 'awaiting payment', paid: 'paid', canceled: 'canceled', failed: 'failed',
-        pending: 'pending', succeeded: 'succeeded' }, mock: 'sandbox', live: 'live', fakeUrl: 'example-shop'
+        pending: 'pending', succeeded: 'succeeded' }, mock: 'sandbox', live: 'live', fakeUrl: 'example-shop', payload: 'payload',
+      badge: { ok: 'ok', retry: 'retry', error: 'error', duplicate: 'duplicate', rejected: 'rejected', info: 'info', start: 'start' }
     }
   };
 
@@ -70,6 +72,7 @@
     return fetch(path, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(Object.assign({ session: S.session }, body || {})) })
       .then(function (r) { return r.json(); });
   }
+  function notifyNames(p) { return p.notify.map(function (c) { return { telegram: 'Telegram', max: 'Max', email: 'Email' }[c] || c; }); }
   function profile() { return S.cfg ? S.cfg.profiles.filter(function (p) { return p.key === S.profile; })[0] : null; }
 
   // ---------- i18n + switches
@@ -88,19 +91,50 @@
     history.replaceState(null, '', u);
   }
   document.querySelectorAll('#langSeg button').forEach(function (b) {
-    b.addEventListener('click', function () { S.lang = b.dataset.lang; ls('leads.lang', S.lang); applyLang(); syncURL(); widget.setLang(S.lang); renderAll(); });
+    b.addEventListener('click', function () { S.lang = b.dataset.lang; ls('leads.lang', S.lang); applyLang(); syncURL(); if (widget) widget.setLang(S.lang); renderAll(); });
   });
-  document.querySelectorAll('#profileSeg button').forEach(function (b) {
-    b.addEventListener('click', function () {
-      if (S.profile === b.dataset.profile) return;
-      S.profile = b.dataset.profile; ls('leads.profile', S.profile); S.selected = null;
-      applyProfile(); syncURL(); widget.setProfile(S.profile); refresh();
+  function bindProfileButtons() {
+    document.querySelectorAll('#profileSeg button').forEach(function (b) {
+      b.addEventListener('click', function () {
+        if (S.profile === b.dataset.profile) return;
+        S.profile = b.dataset.profile; ls('leads.profile', S.profile); S.selected = null;
+        applyProfile(); syncURL(); if (widget) widget.setProfile(S.profile); refresh();
+      });
     });
-  });
+  }
+  bindProfileButtons();
 
-  // ---------- widget
-  var widget = LeadsWidget.mount('#widget', { endpoint: location.origin, profile: S.profile, lang: S.lang, session: S.session, theme: 'auto',
-    onSubmitted: function (j) { if (j.lead_id && j.lead_id !== 'L-000') { S.selected = j.lead_id; refresh(); } } });
+  // ---------- edition (EDITION=ru|intl on the server: one language, one set of integrations, link to the other edition)
+  function applyEdition(c) {
+    var keys = (c.profiles || []).map(function (p) { return p.key; });
+    if (keys.length && keys.indexOf(S.profile) < 0) S.profile = keys[0];
+    if (!c.edition) return;
+    S.lang = c.edition === 'ru' ? 'ru' : 'en';
+    $('#langSeg').hidden = true;
+    var seg = $('#profileSeg');
+    if (keys.length < 2) seg.hidden = true;
+    else {
+      seg.innerHTML = c.profiles.map(function (p) {
+        return '<button role="radio" data-profile="' + esc(p.key) + '" aria-checked="false"><b>' + esc(p.crm) + '</b><small>' +
+          esc(p.payments + ' · ' + p.sheets) + '</small></button>';
+      }).join('');
+      bindProfileButtons();
+    }
+    var a = $('#otherEdition');
+    if (c.other_edition_url) {
+      a.href = c.other_edition_url;
+      a.textContent = c.edition === 'ru' ? 'English version' : 'Русская версия';
+      a.hidden = false;
+    }
+    if (c.edition === 'ru') I18N.ru.tagline = 'Форма → CRM → таблица на Яндекс Диске → Telegram и Max → оплата → сделка «Успешно»';
+  }
+
+  // ---------- widget (mounted once the edition is known)
+  var widget = null;
+  function mountWidget() {
+    widget = LeadsWidget.mount('#widget', { endpoint: location.origin, profile: S.profile, lang: S.lang, session: S.session, theme: 'auto',
+      onSubmitted: function (j) { if (j.lead_id && j.lead_id !== 'L-000') { S.selected = j.lead_id; refresh(); } } });
+  }
 
   // ---------- tools
   $('#chaos').addEventListener('change', function (e) { api('/api/session/chaos', { on: e.target.checked }); });
@@ -134,7 +168,7 @@
       if (S.events.length > 400) S.events.shift();
       appendLog(ev);
       if (ev.lead_id && (!S.selected || ev.step === 'form.submit')) S.selected = ev.lead_id;
-      if (ev.step === 'settings') $('#chaos').checked = /ON/.test(ev.message);
+      if (ev.step === 'settings' && ev.data) $('#chaos').checked = !!ev.data.on;
       scheduleRefresh();
     });
   }
@@ -145,12 +179,12 @@
     var meta = [];
     if (ev.attempt > 1 || ev.status === 'retry') meta.push('attempt ' + ev.attempt);
     if (ev.duration_ms) meta.push(ev.duration_ms + ' ms');
-    li.innerHTML = '<time>' + time + '</time><span class="badge b-' + esc(ev.status) + '">' + esc(ev.status) + '</span>' +
+    li.innerHTML = '<time>' + time + '</time><span class="badge b-' + esc(ev.status) + '">' + esc(t('badge')[ev.status] || ev.status) + '</span>' +
       '<div class="ev-main"><div class="ev-step">' + (ev.lead_id ? '<span class="lid">' + esc(ev.lead_id) + '</span>' : '') + esc(undot(ev.step)) +
       (ev.provider ? '<span class="prov">· ' + esc(ev.provider) + '</span>' : '') + '</div>' +
       '<div class="ev-msg">' + esc(undot(ev.message)) + '</div>' +
       (meta.length ? '<div class="ev-meta">' + esc(meta.join(' · ')) + '</div>' : '') +
-      (ev.data ? '<details class="ev-data"><summary>payload</summary><pre>' + esc(JSON.stringify(ev.data, null, 2)) + '</pre></details>' : '') + '</div>';
+      (ev.data ? '<details class="ev-data"><summary>' + t('payload') + '</summary><pre>' + esc(JSON.stringify(ev.data, null, 2)) + '</pre></details>' : '') + '</div>';
     if (S.onlyLead && S.selected && ev.lead_id && ev.lead_id !== S.selected) li.classList.add('dim');
     return li;
   }
@@ -179,12 +213,15 @@
     var ls_ = S.state.leads || [];
     return ls_.filter(function (l) { return l.id === S.selected; })[0] || ls_[0] || null;
   }
-  function renderAll() { renderFlow(); renderCRM(); renderSheet(); renderInbox(); renderPay(); renderModes(); }
+  function renderAll() {
+    var p = profile(), tab = document.querySelector('.tabs [data-tab="inbox"]');
+    if (p && tab) tab.textContent = notifyNames(p).filter(function (n) { return n !== 'Email'; }).join(' / ');
+    renderFlow(); renderCRM(); renderSheet(); renderInbox(); renderPay(); renderModes(); }
 
   function renderFlow() {
     var p = profile(), l = lead(), steps = t('steps');
     if (!p) return;
-    var notifyName = p.notify.map(function (c) { return c === 'telegram' ? 'Telegram' : 'Email'; }).join(' + ');
+    var notifyName = notifyNames(p).join(' + ');
     var nodes = [
       ['form.submit', steps['form.submit'], S.lang === 'ru' ? 'JS-виджет' : 'JS widget'],
       ['crm.upsert_contact', steps['crm.upsert_contact'], p.crm],
@@ -237,7 +274,7 @@
     var p = profile(), el = $('#tab-sheet');
     if (!p) return;
     var rows = (S.state && S.state.sheet) || [];
-    var html = sys(p.sheets + ' · Leads', p.modes.sheets);
+    var html = sys(p.sheets + (S.cfg.edition === 'ru' ? ' · leads.xlsx' : ' · Leads'), p.modes.sheets);
     if (!rows.length) { el.innerHTML = html + '<p class="empty">' + t('noRows') + '</p>'; return; }
     var cols = Math.max.apply(null, rows.map(function (r) { return r.length; }));
     html += '<div class="sheet-wrap"><table class="sheet"><thead><tr><th class="rn"></th>';
@@ -257,7 +294,7 @@
     var p = profile(), el = $('#tab-inbox');
     if (!p) return;
     var msgs = (S.state && S.state.messages) || [];
-    var html = sys('Telegram' + (p.notify.indexOf('email') >= 0 ? ' + email' : '') + ' · notify', p.modes.notify) +
+    var html = sys(notifyNames(p).join(' + ') + ' · notify', p.modes.notify) +
       '<div class="chat"><div class="chat-h"><span class="av">S</span><div><b>' + t('chatName') + '</b><br>' + t('bot') + '</div></div>';
     if (!msgs.length) html += '<p class="empty">' + t('noMsgs') + '</p>';
     msgs.forEach(function (m) {
@@ -316,8 +353,11 @@
   });
 
   // ---------- boot
-  applyLang(); applyProfile(); syncURL();
-  fetch('/api/config').then(function (r) { return r.json(); }).then(function (c) { S.cfg = c; refresh(); });
+  applyLang(); applyProfile();
+  fetch('/api/config').then(function (r) { return r.json(); }).then(function (c) {
+    S.cfg = c;
+    applyEdition(c); applyLang(); applyProfile(); syncURL(); mountWidget(); refresh();
+  });
   connect();
   window.leadsDemo = S; // for e2e tests
 })();

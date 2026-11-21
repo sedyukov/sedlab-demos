@@ -183,3 +183,6 @@ dialog::backdrop { background: rgba(10, 12, 16, .45); }
   .log li .badge { grid-column: 2; justify-self: start; }
   .log li .ev-main { grid-column: 1 / -1; }
 }
+
+.edlink { display: inline-flex; align-items: center; text-decoration: none; color: var(--acc); }
+[hidden] { display: none !important; }

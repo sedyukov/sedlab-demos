@@ -159,18 +159,24 @@ func (s *Server) session(w http.ResponseWriter, id string) (*Session, bool) {
 
 func (s *Server) profile(w http.ResponseWriter, key string) (string, bool) {
 	if key == "" {
-		key = "ru"
+		key = s.App.DefaultProfile()
 	}
 	if s.App.Profiles[key] == nil {
-		apiErr(w, http.StatusBadRequest, "invalid_argument", "profile must be ru or intl")
+		apiErr(w, http.StatusBadRequest, "invalid_argument", "profile is not available in this edition")
 		return "", false
 	}
 	return key, true
 }
 
 func (s *Server) config(w http.ResponseWriter, r *http.Request) {
-	ps := []*Profile{s.App.Profiles["ru"], s.App.Profiles["intl"]}
-	writeJSON(w, http.StatusOK, map[string]any{"profiles": ps, "retention": "24h", "sandbox_contacts": s.Guard.SandboxContacts})
+	ps := []*Profile{}
+	for _, k := range ProfileOrder {
+		if p := s.App.Profiles[k]; p != nil {
+			ps = append(ps, p)
+		}
+	}
+	writeJSON(w, http.StatusOK, map[string]any{"edition": s.App.Edition, "other_edition_url": s.App.OtherURL,
+		"profiles": ps, "retention": "24h", "sandbox_contacts": s.Guard.SandboxContacts})
 }
 
 // events streams the session's log as Server-Sent Events (backlog first, then live; Last-Event-ID resumes).
@@ -316,22 +322,24 @@ func (s *Server) submit(w http.ResponseWriter, r *http.Request) {
 	}
 	// Bots: pretend success (202) so they learn nothing; the visitor's log shows what happened.
 	if b.Website != "" || (b.ElapsedMs > 0 && time.Duration(b.ElapsedMs)*time.Millisecond < s.Guard.MinFillTime) {
-		reason := "honeypot field filled"
+		reason := tr(s.App.Lang(), "honeypot field filled", "заполнено поле-ловушка")
 		if b.Website == "" {
-			reason = fmt.Sprintf("form filled in %d ms (bot-fast)", b.ElapsedMs)
+			reason = fmt.Sprintf(tr(s.App.Lang(), "form filled in %d ms (bot-fast)", "форма заполнена за %d мс (слишком быстро для человека)"), b.ElapsedMs)
 		}
 		s.App.Hub.Publish(sess.ID, Event{Step: "guard", Service: "guard", Status: "rejected",
-			Message: "Spam filter: " + reason + " → silently dropped (HTTP 202, nothing created)", Data: map[string]any{"reason": reason}})
+			Message: tr(s.App.Lang(), "Spam filter: "+reason+" → silently dropped (HTTP 202, nothing created)",
+				"Антиспам: "+reason+" → тихо отброшено (HTTP 202, ничего не создано)"), Data: map[string]any{"reason": reason}})
 		writeJSON(w, http.StatusAccepted, map[string]any{"lead_id": "L-000", "accepted": true})
 		return
 	}
 	if (s.Guard.Submit != nil && !s.Guard.Submit.Allow(ip)) || (s.Guard.Global != nil && !s.Guard.Global.Allow()) {
 		w.Header().Set("Retry-After", "12")
-		reject(http.StatusTooManyRequests, "rate_limited", "rate_limit", "Rate limit: too many submissions from this IP, try again in a few seconds (HTTP 429)")
+		reject(http.StatusTooManyRequests, "rate_limited", "rate_limit", tr(s.App.Lang(), "Rate limit: too many submissions from this IP, try again in a few seconds (HTTP 429)",
+			"Лимит: слишком много заявок с этого IP, попробуйте через несколько секунд (HTTP 429)"))
 		return
 	}
 	if len(sess.Leads("")) >= s.Guard.MaxLeads {
-		reject(http.StatusTooManyRequests, "rate_limited", "session_cap", fmt.Sprintf("Demo limit: %d leads per session. Press Reset", s.Guard.MaxLeads))
+		reject(http.StatusTooManyRequests, "rate_limited", "session_cap", fmt.Sprintf(tr(s.App.Lang(), "Demo limit: %d leads per session. Press Reset", "Лимит демо: %d заявок на сессию. Нажмите «Сбросить песочницу»"), s.Guard.MaxLeads))
 		return
 	}
 	in := LeadInput{SubmissionID: clean(b.SubmissionID, 64), Profile: prof, Name: clean(b.Name, 80), Email: clean(b.Email, 120),
@@ -444,11 +452,12 @@ func (s *Server) sessionAction(w http.ResponseWriter, r *http.Request) {
 	switch r.PathValue("action") {
 	case "chaos":
 		sess.update(func() { sess.Chaos = b.On })
-		msg := "Failure simulation OFF"
+		msg := tr(s.App.Lang(), "Failure simulation OFF", "Симуляция сбоев выключена")
 		if b.On {
-			msg = "Failure simulation ON: CRM 503, Sheets 429, Telegram 502/timeout on first attempts. Watch the retries"
+			msg = tr(s.App.Lang(), "Failure simulation ON: CRM 503, Sheets 429, Telegram 502/timeout on first attempts. Watch the retries",
+				"Симуляция сбоев включена: CRM 503, таблица 429, Telegram 502 и таймаут на первых попытках. Смотрите повторы")
 		}
-		s.App.Hub.Publish(sess.ID, Event{Step: "settings", Service: "system", Status: "info", Message: msg})
+		s.App.Hub.Publish(sess.ID, Event{Step: "settings", Service: "system", Status: "info", Message: msg, Data: map[string]any{"on": b.On}})
 	case "reset":
 		s.App.Sessions.Remove(sess.ID) // drops its sandbox + log; open streams get a "reset" event
 	default:
