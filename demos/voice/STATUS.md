@@ -17,5 +17,6 @@
 ## Осталось / зависит от владельца
 - Передеплой: `~/freelance/infra/deploy.sh voice --tag sha-<новый>` (теги — из CI build-voice).
 - Живой режим (решение 2026-11-21, правило юрисдикции): для RU — только российский стек на российском VPS. LLM: GigaChat или YandexGPT (в модуле готовы). STT и TTS: Yandex SpeechKit (заказан у s2-modules; после него в `providers.py` нужно добавить детект `stt_live`/`tts_live` по ключам SpeechKit). На freelance-1 (DO) остаётся только демо на моках. OpenAI и Anthropic на нашем демо не включаем: это опция для иностранных заказчиков на их ключах.
+  - Через ru-relay (telegram-core/ai, коммит 634ed4d в модулях) после подъёма RU-VPS: `AI_GIGACHAT_BASE_URL=https://<relay>/…/api/v1`, `AI_GIGACHAT_AUTH_URL=<полный URL OAuth через relay>`, `AI_YANDEX_BASE_URL=https://<relay>/<префикс>` (только префикс). Определение живых провайдеров в `providers.py` от relay не зависит: смотрит только на ключи. Пока не включать.
 - Telegram-бот: токен BotFather → `VOICE_TELEGRAM_TOKEN`.
 - Когда будет живой режим на RU VPS: пересчитать результаты примеров настоящими моделями (сейчас они составлены вручную по сценарию) и снять видео в живом режиме.
