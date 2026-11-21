@@ -1,0 +1,12 @@
+e2e
+media
+*.md
+!contract/*.md
+data
+web/vendor
+python/.venv
+**/__pycache__
+go/api-go
+.modules-src/.git
+.modules-src/**/tests
+.modules-src/**/.venv

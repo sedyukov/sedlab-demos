@@ -1,0 +1,607 @@
+openapi: 3.1.0
+info:
+  title: Orders API (sedlab demo)
+  version: 1.0.0
+  summary: One contract, two implementations (Go and Python/FastAPI) sharing one database.
+  description: |
+    A small-company order desk: customers, orders with a status workflow, background jobs with retries.
+
+    **How to try it:** call `POST /v1/auth/sandbox` (or press the button on the page) → you get a token and a
+    private sandbox filled with sample data. Press **Authorize**, paste the token, and call anything.
+
+    Pick the backend with the **Servers** dropdown: `/go` (Go, net/http) or `/py` (Python, FastAPI).
+    Both read and write the same database and pass the same contract tests, so the answers are identical.
+
+    Conventions:
+    - money is an integer in minor units (`total: 150000` = 1 500.00);
+    - timestamps are UTC, RFC 3339 with milliseconds; dates are `YYYY-MM-DD`;
+    - lists use cursor pagination (`limit`, `cursor` → `next_cursor`);
+    - `POST` accepts an `Idempotency-Key` header: a retry with the same key and body returns the first answer
+      (`Idempotent-Replayed: true`), a different body with the same key is `409 idempotency_conflict`;
+    - every error has the same shape: `{"error": {"code", "message", "details"?}}`;
+    - every response carries `X-Backend: go|python` and `X-Request-Id`.
+
+    Sandbox data is synthetic and is wiped daily (03:00 UTC) and after 12 hours of inactivity. Do not enter real data.
+servers:
+  - url: /go
+    description: Go (net/http + SQLite)
+  - url: /py
+    description: Python (FastAPI + SQLite)
+tags:
+  - name: auth
+    description: Tokens and the sandbox workspace
+  - name: customers
+  - name: orders
+    description: "Status workflow: new → confirmed → in_progress → done; any non-final status → cancelled"
+  - name: jobs
+    description: Background queue shared by both backends; failed attempts are retried with exponential backoff
+  - name: system
+security:
+  - bearerAuth: []
+paths:
+  /health:
+    get:
+      tags: [system]
+      operationId: health
+      security: []
+      summary: Liveness and database check
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Health" }
+  /v1/auth/sandbox:
+    post:
+      tags: [auth]
+      operationId: createSandbox
+      security: []
+      summary: Create a private sandbox with sample data and get a token
+      description: Rate limited per client IP. The token lives 24 hours.
+      responses:
+        "201":
+          description: Sandbox created
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/TokenResponse" }
+        "429": { $ref: "#/components/responses/RateLimited" }
+  /v1/auth/accounts:
+    post:
+      tags: [auth]
+      operationId: exchangeAccountsToken
+      security: []
+      summary: Exchange a sedlab account session for an API token (Russian edition)
+      description: |
+        Sign-in through the sedlab accounts service (Max, Yandex ID, VK ID). The session is taken from the
+        `sl_auth` cookie or from the body. The workspace is persistent for the account (still synthetic data).
+        Disabled in the international edition (`404 feature_disabled`).
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              properties:
+                accounts_token: { type: string, maxLength: 4096 }
+      responses:
+        "200":
+          description: Token issued
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/TokenResponse" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "422": { $ref: "#/components/responses/ValidationError" }
+  /v1/me:
+    get:
+      tags: [auth]
+      operationId: getMe
+      summary: Current workspace, quotas and usage
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Me" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+  /v1/customers:
+    get:
+      tags: [customers]
+      operationId: listCustomers
+      summary: List customers
+      parameters:
+        - { name: q, in: query, schema: { type: string, maxLength: 100 }, description: Substring of name or city, case-insensitive }
+        - name: sort
+          in: query
+          schema: { type: string, enum: [name, -name, created_at, -created_at], default: -created_at }
+        - $ref: "#/components/parameters/Limit"
+        - $ref: "#/components/parameters/Cursor"
+      responses:
+        "200":
+          description: Page of customers
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: false
+                required: [items, next_cursor, total_count]
+                properties:
+                  items: { type: array, items: { $ref: "#/components/schemas/Customer" } }
+                  next_cursor: { type: [string, "null"] }
+                  total_count: { type: integer, minimum: 0 }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "422": { $ref: "#/components/responses/ValidationError" }
+    post:
+      tags: [customers]
+      operationId: createCustomer
+      summary: Create a customer
+      parameters:
+        - $ref: "#/components/parameters/IdempotencyKey"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/CustomerCreate" }
+      responses:
+        "201":
+          description: Created
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Customer" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "409": { $ref: "#/components/responses/Conflict" }
+        "422": { $ref: "#/components/responses/ValidationError" }
+  /v1/customers/{id}:
+    parameters:
+      - { name: id, in: path, required: true, schema: { type: string } }
+    get:
+      tags: [customers]
+      operationId: getCustomer
+      summary: Get a customer
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Customer" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "404": { $ref: "#/components/responses/NotFound" }
+    patch:
+      tags: [customers]
+      operationId: updateCustomer
+      summary: Update a customer (partial)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/CustomerUpdate" }
+      responses:
+        "200":
+          description: Updated
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Customer" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "422": { $ref: "#/components/responses/ValidationError" }
+    delete:
+      tags: [customers]
+      operationId: deleteCustomer
+      summary: Delete a customer without orders
+      responses:
+        "204": { description: Deleted }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "409": { $ref: "#/components/responses/Conflict" }
+  /v1/orders:
+    get:
+      tags: [orders]
+      operationId: listOrders
+      summary: List orders with filters
+      parameters:
+        - name: status
+          in: query
+          description: One status or several separated by commas, e.g. `new,confirmed`
+          schema: { type: string, example: "new,confirmed" }
+        - { name: customer_id, in: query, schema: { type: string } }
+        - { name: tag, in: query, schema: { type: string } }
+        - { name: q, in: query, schema: { type: string, maxLength: 100 }, description: Substring of the title, case-insensitive }
+        - { name: created_from, in: query, schema: { type: string, format: date }, description: Inclusive, UTC }
+        - { name: created_to, in: query, schema: { type: string, format: date }, description: Inclusive, UTC }
+        - { name: min_total, in: query, schema: { type: integer, minimum: 0 } }
+        - { name: max_total, in: query, schema: { type: integer, minimum: 0 } }
+        - name: sort
+          in: query
+          schema: { type: string, enum: [created_at, -created_at, total, -total, number, -number], default: -created_at }
+        - $ref: "#/components/parameters/Limit"
+        - $ref: "#/components/parameters/Cursor"
+      responses:
+        "200":
+          description: Page of orders
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: false
+                required: [items, next_cursor, total_count]
+                properties:
+                  items: { type: array, items: { $ref: "#/components/schemas/Order" } }
+                  next_cursor: { type: [string, "null"] }
+                  total_count: { type: integer, minimum: 0 }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "422": { $ref: "#/components/responses/ValidationError" }
+    post:
+      tags: [orders]
+      operationId: createOrder
+      summary: Create an order (status `new`)
+      parameters:
+        - $ref: "#/components/parameters/IdempotencyKey"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/OrderCreate" }
+      responses:
+        "201":
+          description: Created
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Order" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "409": { $ref: "#/components/responses/Conflict" }
+        "422": { $ref: "#/components/responses/ValidationError" }
+  /v1/orders/{id}:
+    parameters:
+      - { name: id, in: path, required: true, schema: { type: string } }
+    get:
+      tags: [orders]
+      operationId: getOrder
+      summary: Get an order
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Order" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "404": { $ref: "#/components/responses/NotFound" }
+    patch:
+      tags: [orders]
+      operationId: updateOrder
+      summary: Update an order (partial); status changes follow the workflow
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/OrderUpdate" }
+      responses:
+        "200":
+          description: Updated
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Order" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "409": { $ref: "#/components/responses/Conflict" }
+        "422": { $ref: "#/components/responses/ValidationError" }
+    delete:
+      tags: [orders]
+      operationId: deleteOrder
+      summary: Delete an order and its jobs
+      responses:
+        "204": { description: Deleted }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "404": { $ref: "#/components/responses/NotFound" }
+  /v1/orders/{id}/jobs:
+    parameters:
+      - { name: id, in: path, required: true, schema: { type: string } }
+    post:
+      tags: [jobs]
+      operationId: enqueueJob
+      summary: Put a background job for the order into the queue
+      description: |
+        `simulate_failures: N` makes the first N attempts fail (as if the upstream answered 503), to show retries.
+        Up to 4 attempts with backoff 1 s, 2 s, 4 s; after that the job is `dead`.
+      parameters:
+        - $ref: "#/components/parameters/IdempotencyKey"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/JobCreate" }
+      responses:
+        "202":
+          description: Queued
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Job" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "409": { $ref: "#/components/responses/Conflict" }
+        "422": { $ref: "#/components/responses/ValidationError" }
+  /v1/jobs:
+    get:
+      tags: [jobs]
+      operationId: listJobs
+      summary: List jobs (newest first)
+      parameters:
+        - { name: order_id, in: query, schema: { type: string } }
+        - { name: status, in: query, schema: { $ref: "#/components/schemas/JobStatus" } }
+        - $ref: "#/components/parameters/Limit"
+        - $ref: "#/components/parameters/Cursor"
+      responses:
+        "200":
+          description: Page of jobs
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: false
+                required: [items, next_cursor, total_count]
+                properties:
+                  items: { type: array, items: { $ref: "#/components/schemas/Job" } }
+                  next_cursor: { type: [string, "null"] }
+                  total_count: { type: integer, minimum: 0 }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "422": { $ref: "#/components/responses/ValidationError" }
+  /v1/jobs/{id}:
+    parameters:
+      - { name: id, in: path, required: true, schema: { type: string } }
+    get:
+      tags: [jobs]
+      operationId: getJob
+      summary: Get a job with its attempt history
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Job" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "404": { $ref: "#/components/responses/NotFound" }
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+      description: Token from `POST /v1/auth/sandbox`
+  parameters:
+    Limit:
+      name: limit
+      in: query
+      schema: { type: integer, minimum: 1, maximum: 100, default: 20 }
+    Cursor:
+      name: cursor
+      in: query
+      description: "`next_cursor` from the previous page; use it with the same filters and sort"
+      schema: { type: string }
+    IdempotencyKey:
+      name: Idempotency-Key
+      in: header
+      required: false
+      schema: { type: string, minLength: 1, maxLength: 100 }
+  responses:
+    Unauthorized:
+      description: Missing, invalid or expired token
+      content:
+        application/json:
+          schema: { $ref: "#/components/schemas/Error" }
+    NotFound:
+      description: Not found (or not in your workspace)
+      content:
+        application/json:
+          schema: { $ref: "#/components/schemas/Error" }
+    Conflict:
+      description: "`conflict`, `invalid_transition`, `idempotency_conflict` or `quota_exceeded`"
+      content:
+        application/json:
+          schema: { $ref: "#/components/schemas/Error" }
+    ValidationError:
+      description: Request does not match the contract; `details` lists every bad field
+      content:
+        application/json:
+          schema: { $ref: "#/components/schemas/Error" }
+    RateLimited:
+      description: Too many requests; see `Retry-After`
+      headers:
+        Retry-After: { schema: { type: integer } }
+      content:
+        application/json:
+          schema: { $ref: "#/components/schemas/Error" }
+  schemas:
+    Error:
+      type: object
+      additionalProperties: false
+      required: [error]
+      properties:
+        error:
+          type: object
+          additionalProperties: false
+          required: [code, message]
+          properties:
+            code:
+              type: string
+              enum: [unauthorized, not_found, validation_error, conflict, invalid_transition, idempotency_conflict,
+                     quota_exceeded, rate_limited, feature_disabled, payload_too_large, method_not_allowed, internal]
+            message: { type: string }
+            details:
+              type: array
+              items:
+                type: object
+                additionalProperties: false
+                required: [field, issue]
+                properties:
+                  field: { type: string, description: "Body field, query parameter, header or `body`" }
+                  issue:
+                    type: string
+                    description: required, invalid_type, too_short, too_long, out_of_range, invalid, unknown, empty, invalid_json
+    Health:
+      type: object
+      additionalProperties: false
+      required: [status, backend, edition, db]
+      properties:
+        status: { type: string, enum: [ok] }
+        backend: { type: string, enum: [go, python] }
+        edition: { type: string, enum: [ru, intl] }
+        db: { type: string, enum: [ok] }
+    TokenResponse:
+      type: object
+      additionalProperties: false
+      required: [access_token, token_type, expires_in, workspace]
+      properties:
+        access_token: { type: string }
+        token_type: { type: string, enum: [Bearer] }
+        expires_in: { type: integer, example: 86400 }
+        workspace: { $ref: "#/components/schemas/Workspace" }
+    Workspace:
+      type: object
+      additionalProperties: false
+      required: [id, auth_method, created_at]
+      properties:
+        id: { type: string, pattern: "^ws_" }
+        auth_method: { type: string, enum: [sandbox, accounts] }
+        created_at: { $ref: "#/components/schemas/Timestamp" }
+    Me:
+      type: object
+      additionalProperties: false
+      required: [workspace, backend, edition, token_expires_at, quotas, usage]
+      properties:
+        workspace: { $ref: "#/components/schemas/Workspace" }
+        backend: { type: string, enum: [go, python] }
+        edition: { type: string, enum: [ru, intl] }
+        token_expires_at: { $ref: "#/components/schemas/Timestamp" }
+        quotas: { $ref: "#/components/schemas/Counts" }
+        usage: { $ref: "#/components/schemas/Counts" }
+    Counts:
+      type: object
+      additionalProperties: false
+      required: [customers, orders, jobs]
+      properties:
+        customers: { type: integer }
+        orders: { type: integer }
+        jobs: { type: integer }
+    Timestamp:
+      type: string
+      format: date-time
+      pattern: "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}\\.\\d{3}Z$"
+      example: "2026-11-21T09:30:00.000Z"
+    Customer:
+      type: object
+      additionalProperties: false
+      required: [id, name, city, created_at, updated_at]
+      properties:
+        id: { type: string, pattern: "^cus_" }
+        name: { type: string, minLength: 1, maxLength: 100, description: Company name }
+        city: { type: [string, "null"], maxLength: 60 }
+        created_at: { $ref: "#/components/schemas/Timestamp" }
+        updated_at: { $ref: "#/components/schemas/Timestamp" }
+    CustomerCreate:
+      type: object
+      additionalProperties: false
+      required: [name]
+      properties:
+        name: { type: string, minLength: 1, maxLength: 100, example: "Northwind Bakery" }
+        city: { type: [string, "null"], maxLength: 60, example: "Tomsk" }
+    CustomerUpdate:
+      type: object
+      additionalProperties: false
+      minProperties: 1
+      properties:
+        name: { type: string, minLength: 1, maxLength: 100 }
+        city: { type: [string, "null"], maxLength: 60 }
+    OrderStatus:
+      type: string
+      enum: [new, confirmed, in_progress, done, cancelled]
+    Currency:
+      type: string
+      enum: [RUB, USD, EUR]
+    Tags:
+      type: array
+      maxItems: 5
+      description: Lowercase `a-z 0-9 -`, up to 24 chars each; duplicates are dropped
+      items: { type: string, pattern: "^[a-z0-9-]{1,24}$" }
+    Order:
+      type: object
+      additionalProperties: false
+      required: [id, number, customer_id, title, status, total, currency, tags, due_date, created_at, updated_at]
+      properties:
+        id: { type: string, pattern: "^ord_" }
+        number: { type: integer, minimum: 1, description: Sequential within the workspace }
+        customer_id: { type: string, pattern: "^cus_" }
+        title: { type: string, minLength: 1, maxLength: 120 }
+        status: { $ref: "#/components/schemas/OrderStatus" }
+        total: { type: integer, minimum: 0, maximum: 100000000, description: Minor units }
+        currency: { $ref: "#/components/schemas/Currency" }
+        tags: { $ref: "#/components/schemas/Tags" }
+        due_date: { type: [string, "null"], format: date }
+        created_at: { $ref: "#/components/schemas/Timestamp" }
+        updated_at: { $ref: "#/components/schemas/Timestamp" }
+    OrderCreate:
+      type: object
+      additionalProperties: false
+      required: [customer_id, title, total]
+      properties:
+        customer_id: { type: string, minLength: 1, maxLength: 64, example: "cus_..." }
+        title: { type: string, minLength: 1, maxLength: 120, example: "Website redesign" }
+        total: { type: integer, minimum: 0, maximum: 100000000, example: 150000 }
+        currency: { allOf: [{ $ref: "#/components/schemas/Currency" }], description: "Default: RUB (Russian edition) or USD" }
+        tags: { $ref: "#/components/schemas/Tags" }
+        due_date: { type: [string, "null"], format: date, example: "2026-12-01" }
+    OrderUpdate:
+      type: object
+      additionalProperties: false
+      minProperties: 1
+      properties:
+        customer_id: { type: string, minLength: 1, maxLength: 64 }
+        title: { type: string, minLength: 1, maxLength: 120 }
+        status: { $ref: "#/components/schemas/OrderStatus" }
+        total: { type: integer, minimum: 0, maximum: 100000000 }
+        currency: { $ref: "#/components/schemas/Currency" }
+        tags: { $ref: "#/components/schemas/Tags" }
+        due_date: { type: [string, "null"], format: date }
+    JobType:
+      type: string
+      enum: [send_invoice, sync_crm, notify_customer]
+    JobStatus:
+      type: string
+      enum: [queued, running, retrying, succeeded, dead]
+    JobCreate:
+      type: object
+      additionalProperties: false
+      required: [type]
+      properties:
+        type: { $ref: "#/components/schemas/JobType" }
+        simulate_failures: { type: integer, minimum: 0, maximum: 5, default: 0 }
+    Job:
+      type: object
+      additionalProperties: false
+      required: [id, order_id, type, status, attempts, max_attempts, simulate_failures, next_run_at, last_error,
+                 result, processed_by, history, created_at, updated_at]
+      properties:
+        id: { type: string, pattern: "^job_" }
+        order_id: { type: string, pattern: "^ord_" }
+        type: { $ref: "#/components/schemas/JobType" }
+        status: { $ref: "#/components/schemas/JobStatus" }
+        attempts: { type: integer, minimum: 0 }
+        max_attempts: { type: integer, example: 4 }
+        simulate_failures: { type: integer }
+        next_run_at: { oneOf: [{ $ref: "#/components/schemas/Timestamp" }, { type: "null" }] }
+        last_error: { type: [string, "null"] }
+        result: { type: [object, "null"], description: "Depends on the type: invoice number, CRM deal id, message text" }
+        processed_by: { type: [string, "null"], enum: [go, python, null], description: Backend whose worker finished the job }
+        history:
+          type: array
+          items:
+            type: object
+            additionalProperties: false
+            required: [attempt, at, worker, outcome, error]
+            properties:
+              attempt: { type: integer }
+              at: { $ref: "#/components/schemas/Timestamp" }
+              worker: { type: string, enum: [go, python] }
+              outcome: { type: string, enum: [ok, error] }
+              error: { type: [string, "null"] }
+        created_at: { $ref: "#/components/schemas/Timestamp" }
+        updated_at: { $ref: "#/components/schemas/Timestamp" }

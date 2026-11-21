@@ -1,0 +1,267 @@
+{
+ "_comment": "Synthetic sample data for every new workspace (both backends). ru/intl = edition. Totals in minor units. Orders are listed oldest first (number 1..N).",
+ "customers": [
+  {
+   "name": {
+    "ru": "Пекарня «Колос»",
+    "intl": "Northwind Bakery"
+   },
+   "city": {
+    "ru": "Томск",
+    "intl": "Austin"
+   }
+  },
+  {
+   "name": {
+    "ru": "Студия йоги «Прана»",
+    "intl": "Blue Lotus Yoga"
+   },
+   "city": {
+    "ru": "Новосибирск",
+    "intl": "Denver"
+   }
+  },
+  {
+   "name": {
+    "ru": "Автосервис «Гараж 70»",
+    "intl": "Garage 42 Auto Repair"
+   },
+   "city": {
+    "ru": "Томск",
+    "intl": "Austin"
+   }
+  },
+  {
+   "name": {
+    "ru": "Цветочная мастерская «Флора»",
+    "intl": "Flora Flower Studio"
+   },
+   "city": {
+    "ru": "Кемерово",
+    "intl": "Seattle"
+   }
+  },
+  {
+   "name": {
+    "ru": "Кофейня «Зерно»",
+    "intl": "Bean There Coffee"
+   },
+   "city": {
+    "ru": null,
+    "intl": null
+   }
+  }
+ ],
+ "orders": [
+  {
+   "customer": 0,
+   "title": {
+    "ru": "Торт на юбилей, 3 кг",
+    "intl": "Anniversary cake, 3 kg"
+   },
+   "total": {
+    "ru": 450000,
+    "intl": 8500
+   },
+   "status": "done",
+   "tags": [
+    "catering"
+   ],
+   "due_in_days": null,
+   "age_hours": 600
+  },
+  {
+   "customer": 1,
+   "title": {
+    "ru": "Абонементы для сотрудников, 10 шт.",
+    "intl": "Staff memberships, 10 pcs"
+   },
+   "total": {
+    "ru": 3500000,
+    "intl": 90000
+   },
+   "status": "done",
+   "tags": [
+    "b2b",
+    "subscription"
+   ],
+   "due_in_days": null,
+   "age_hours": 520
+  },
+  {
+   "customer": 2,
+   "title": {
+    "ru": "Замена масла и фильтров",
+    "intl": "Oil and filter change"
+   },
+   "total": {
+    "ru": 620000,
+    "intl": 14000
+   },
+   "status": "done",
+   "tags": [
+    "service"
+   ],
+   "due_in_days": null,
+   "age_hours": 410
+  },
+  {
+   "customer": 3,
+   "title": {
+    "ru": "Букеты на открытие магазина",
+    "intl": "Flowers for a store opening"
+   },
+   "total": {
+    "ru": 1850000,
+    "intl": 42000
+   },
+   "status": "cancelled",
+   "tags": [
+    "event"
+   ],
+   "due_in_days": null,
+   "age_hours": 330
+  },
+  {
+   "customer": 4,
+   "title": {
+    "ru": "Кофе-брейк на 40 человек",
+    "intl": "Coffee break for 40 people"
+   },
+   "total": {
+    "ru": 960000,
+    "intl": 26000
+   },
+   "status": "in_progress",
+   "tags": [
+    "catering",
+    "event"
+   ],
+   "due_in_days": 2,
+   "age_hours": 190
+  },
+  {
+   "customer": 0,
+   "title": {
+    "ru": "Хлеб для кафе, поставка на неделю",
+    "intl": "Bread for a cafe, weekly supply"
+   },
+   "total": {
+    "ru": 780000,
+    "intl": 17500
+   },
+   "status": "in_progress",
+   "tags": [
+    "b2b",
+    "subscription"
+   ],
+   "due_in_days": 5,
+   "age_hours": 140
+  },
+  {
+   "customer": 2,
+   "title": {
+    "ru": "Шиномонтаж, 4 колеса",
+    "intl": "Tire change, 4 wheels"
+   },
+   "total": {
+    "ru": 280000,
+    "intl": 8000
+   },
+   "status": "confirmed",
+   "tags": [
+    "service"
+   ],
+   "due_in_days": 3,
+   "age_hours": 96
+  },
+  {
+   "customer": 1,
+   "title": {
+    "ru": "Корпоративная йога, 4 занятия",
+    "intl": "Corporate yoga, 4 sessions"
+   },
+   "total": {
+    "ru": 1600000,
+    "intl": 48000
+   },
+   "status": "confirmed",
+   "tags": [
+    "b2b",
+    "event"
+   ],
+   "due_in_days": 7,
+   "age_hours": 70
+  },
+  {
+   "customer": 3,
+   "title": {
+    "ru": "Оформление зала к свадьбе",
+    "intl": "Wedding hall decoration"
+   },
+   "total": {
+    "ru": 4500000,
+    "intl": 120000
+   },
+   "status": "new",
+   "tags": [
+    "event"
+   ],
+   "due_in_days": 14,
+   "age_hours": 30
+  },
+  {
+   "customer": 4,
+   "title": {
+    "ru": "Зерно для офиса, 5 кг",
+    "intl": "Office coffee beans, 5 kg"
+   },
+   "total": {
+    "ru": 650000,
+    "intl": 11000
+   },
+   "status": "new",
+   "tags": [
+    "b2b"
+   ],
+   "due_in_days": null,
+   "age_hours": 12
+  },
+  {
+   "customer": 2,
+   "title": {
+    "ru": "Диагностика подвески",
+    "intl": "Suspension check"
+   },
+   "total": {
+    "ru": 150000,
+    "intl": 4500
+   },
+   "status": "new",
+   "tags": [
+    "service",
+    "urgent"
+   ],
+   "due_in_days": 1,
+   "age_hours": 5
+  },
+  {
+   "customer": 0,
+   "title": {
+    "ru": "Пироги на детский праздник",
+    "intl": "Pies for a kids' party"
+   },
+   "total": {
+    "ru": 320000,
+    "intl": 7500
+   },
+   "status": "new",
+   "tags": [
+    "catering",
+    "urgent"
+   ],
+   "due_in_days": 2,
+   "age_hours": 1.5
+  }
+ ]
+}

@@ -1,0 +1,96 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Orders API: Go + Python</title>
+<meta name="description" content="REST API demo: one OpenAPI contract, two backends (Go and Python FastAPI), one database. Swagger, auth, pagination, background jobs with retries.">
+<link rel="stylesheet" href="vendor/swagger-ui/swagger-ui.css">
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<header class="top">
+  <div class="wrap row">
+    <div class="brand"><span class="logo">{ }</span> <b>Orders API</b> <span class="muted">Go + Python</span></div>
+    <nav class="row gap">
+      <a id="other-edition" class="muted small" href="#"></a>
+      <div class="seg" id="lang">
+        <button data-lang="ru">RU</button><button data-lang="en">EN</button>
+      </div>
+    </nav>
+  </div>
+</header>
+
+<main class="wrap">
+  <section class="hero">
+    <h1 data-i18n="h1"></h1>
+    <p class="lead" data-i18n="lead"></p>
+    <ul class="facts">
+      <li data-i18n="f1"></li><li data-i18n="f2"></li><li data-i18n="f3"></li><li data-i18n="f4"></li>
+    </ul>
+  </section>
+
+  <section class="card controls">
+    <div class="ctl">
+      <div class="label" data-i18n="backend"></div>
+      <div class="seg big" id="backend">
+        <button data-b="go"><span class="dot go"></span>Go</button>
+        <button data-b="py"><span class="dot py"></span>Python (FastAPI)</button>
+      </div>
+    </div>
+    <div class="ctl">
+      <div class="label" data-i18n="access"></div>
+      <div class="row gap wrapline">
+        <button class="btn primary" id="get-token" data-i18n="getToken"></button>
+        <span id="token-state" class="muted small"></span>
+      </div>
+    </div>
+    <div class="ctl" id="accounts-box" hidden>
+      <div class="label" data-i18n="accTitle"></div>
+      <div class="row gap wrapline">
+        <div id="sl-account"></div>
+        <button class="btn" id="acc-token" data-i18n="accToken"></button>
+      </div>
+      <div class="muted small" data-i18n="accHint"></div>
+    </div>
+  </section>
+
+  <div class="grid2">
+    <section class="card">
+      <h2 data-i18n="cmpTitle"></h2>
+      <p class="muted small" data-i18n="cmpHint"></p>
+      <button class="btn" id="compare" data-i18n="cmpBtn"></button>
+      <table class="cmp" id="cmp-table" hidden>
+        <thead><tr><th data-i18n="cmpReq"></th><th>Go</th><th>Python</th><th></th></tr></thead>
+        <tbody></tbody>
+      </table>
+      <div id="cmp-summary" class="summary" hidden></div>
+    </section>
+
+    <section class="card">
+      <h2 data-i18n="jobsTitle"></h2>
+      <p class="muted small" data-i18n="jobsHint"></p>
+      <div class="row gap wrapline">
+        <button class="btn" data-job="send_invoice" data-fail="0" data-i18n="jobOk"></button>
+        <button class="btn" data-job="sync_crm" data-fail="2" data-i18n="jobRetry"></button>
+        <button class="btn" data-job="notify_customer" data-fail="5" data-i18n="jobDead"></button>
+      </div>
+      <div id="jobs" class="jobs"><div class="muted small" data-i18n="jobsEmpty"></div></div>
+    </section>
+  </div>
+
+  <section class="card swagger-card">
+    <div class="row between wrapline">
+      <h2 data-i18n="swTitle"></h2>
+      <span class="muted small" data-i18n="swHint"></span>
+    </div>
+    <div id="swagger"></div>
+  </section>
+
+  <footer class="muted small foot" data-i18n="foot"></footer>
+</main>
+
+<script src="vendor/swagger-ui/swagger-ui-bundle.js"></script>
+<script src="app.js"></script>
+</body>
+</html>
