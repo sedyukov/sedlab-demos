@@ -147,7 +147,7 @@ await page.click('#ownBtn');
 await page.waitForSelector('#reviews .own-tag');
 const ownText = await page.locator('#reviews .rev', { has: page.locator('.own-tag') }).first().textContent();
 check(!ownText.includes('913') && !/Петров|Smith/.test(ownText), 'pasted review is de-identified');
-check((await page.locator('#consentLabel a[href="https://sedlab.dev/consent/prices"]').count()) === 1, 'consent link to prices-v1');
+check((await page.locator('#consentLabel a[href="https://auth.demo.sedlab.dev/consent/prices"]').count()) === 1, 'consent link to prices-v1');
 await pause(1800);
 await shot('08-own-review');
 
