@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Voice AI Assistant</title>
 <meta name="description" content="Demo: transcribe voice messages and calls, get a summary, action items (who / what / when) and a spoken reply. Switch LLM: OpenAI, Anthropic, GigaChat, YandexGPT.">
-<meta property="og:title" content="Voice AI Assistant — demo">
+<meta property="og:title" content="Voice AI Assistant: demo">
 <meta property="og:description" content="Voice messages and calls → transcript → summary → action items → voice reply.">
 <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' rx='8' fill='%234f46e5'/><path d='M8 13v6M12 10v12M16 7v18M20 11v10M24 14v4' stroke='white' stroke-width='2.4' stroke-linecap='round'/></svg>">
 <link rel="stylesheet" href="/static/style.css">
@@ -76,7 +76,7 @@
     </div>
 
     <p class="limits muted" id="limits"></p>
-    <p class="limits muted" data-i18n="privacy">Recordings are not stored: they are processed in memory and discarded right away. Please don’t upload recordings with personal data — the samples show everything.</p>
+    <p class="limits muted" data-i18n="privacy">Recordings are not stored: they are processed in memory and discarded right away. Please don’t upload recordings with personal data: the samples show everything.</p>
   </section>
 
   <section id="results" class="results" hidden>
@@ -128,9 +128,9 @@
     <h2 data-i18n="about_h">What’s inside</h2>
     <ul class="feat">
       <li data-i18n="f1">Speech-to-text for voice notes, calls and video files (Whisper / gpt-4o-transcribe), timestamps per segment.</li>
-      <li data-i18n="f2">Summary and action items with owner and due date as JSON — ready to push to a CRM, Notion, Jira or a Google Sheet.</li>
-      <li data-i18n="f3">One LLM interface: OpenAI, Anthropic, GigaChat, YandexGPT (or a local model) — switch by config, no code changes.</li>
-      <li data-i18n="f4">Voice reply (TTS) — in a Telegram bot it comes back as a voice message.</li>
+      <li data-i18n="f2">Summary and action items with owner and due date as JSON, ready to push to a CRM, Notion, Jira or a Google Sheet.</li>
+      <li data-i18n="f3">One LLM interface: OpenAI, Anthropic, GigaChat, YandexGPT (or a local model), switched by config, no code changes.</li>
+      <li data-i18n="f4">Voice reply (TTS). In a Telegram bot it comes back as a voice message.</li>
       <li data-i18n="f5">Cost control: rate limit per user, daily budget, maximum audio length.</li>
     </ul>
     <p class="muted" id="tgLine" hidden></p>

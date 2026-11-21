@@ -222,7 +222,7 @@ def test_limits_reset_next_day():
 def test_guess_lang_and_template():
     assert guess_lang("Привет, мир") == "ru" and guess_lang("Hello") == "en" and guess_lang("123", "ru") == "ru"
     r = template_reply("Done.", [Task("Ship", "Liam", "2026-11-30")], "en")
-    assert r == "In short: Done. Action items: 1. Liam: Ship — by 2026-11-30."
+    assert r == "In short: Done. Action items: 1. Liam: Ship, by 2026-11-30."
 
 
 # ---------- legal: no raw personal data in memory (R9), RU providers by default (R2) ----------

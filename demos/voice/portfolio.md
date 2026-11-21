@@ -20,7 +20,7 @@ LLM переключается конфигом: OpenAI, Claude, GigaChat, Yande
 Для работы по 152-ФЗ конвейер собирается целиком на российском стеке: GigaChat или YandexGPT, Yandex SpeechKit, хостинг в РФ.
 
 Стек: Python, FastAPI, Telegram Bot API, OpenAI Whisper и TTS, Anthropic, GigaChat, YandexGPT, Docker.
-Срок похожего проекта — 5–10 дней.
+Срок похожего проекта: 5–10 дней.
 
 **Теги:** Telegram-бот, AI, ChatGPT, GigaChat, YandexGPT, распознавание речи, Whisper, саммари, автоматизация, Python
 

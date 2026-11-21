@@ -1,6 +1,6 @@
 # Build context = repo root of sedlab-demos with the private modules checked out at ./modules-src (see CI workflow).
 # Multi-stage: module sources exist only in the builder stage (never pushed). The final image gets just the
-# installed packages in /opt/venv — no module source trees, tests, contract fixtures or build files in any layer.
+# installed packages in /opt/venv: no module source trees, tests, contract fixtures or build files in any layer.
 
 FROM python:3.12-slim AS builder
 ENV PIP_NO_CACHE_DIR=1 PIP_DISABLE_PIP_VERSION_CHECK=1

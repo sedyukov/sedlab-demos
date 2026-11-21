@@ -5,7 +5,7 @@
 
 For every sample → samples/<id>/input.<mp3|mp4|ogg>, samples/<id>/reply.mp3, samples/<id>/result.json.
 The transcript/segments come from the script itself (exact timings measured from the generated audio);
-summary, tasks and reply are curated in samples_src.json. Voices are synthetic — no personal data.
+summary, tasks and reply are curated in samples_src.json. Voices are synthetic, no personal data.
 """
 from __future__ import annotations
 

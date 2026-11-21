@@ -8,24 +8,24 @@
       s_audio: "Audio / video", s_transcript: "Transcript", s_summary: "Summary", s_tasks: "Tasks", s_reply: "Voice reply",
       t_samples: "Samples", t_upload: "Upload file", t_record: "Record", llm: "LLM",
       drop: "Drop an audio or video file here, or click to choose",
-      drop_hint: "mp3, m4a, ogg/opus (Telegram voice), wav, webm, mp4/mov — up to {mb} MB",
+      drop_hint: "mp3, m4a, ogg/opus (Telegram voice), wav, webm, mp4/mov, up to {mb} MB",
       rec_start: "Start recording", rec_stop: "Stop and process",
       rec_hint: "Say a few sentences, e.g. “Anna will send the report by Friday, I’ll call the client tomorrow”.",
       edit: "Edit text", done_edit: "Done", reanalyze: "Re-analyze", copy_md: "Copy as Markdown", copied: "Copied ✓",
       th_what: "What", th_who: "Who", th_due: "Due", play_reply: "Play the reply", stop: "Stop",
       about_h: "What’s inside",
       f1: "Speech-to-text for voice notes, calls and video files (Whisper / gpt-4o-transcribe), timestamps per segment.",
-      f2: "Summary and action items with owner and due date as JSON — ready to push to a CRM, Notion, Jira or a Google Sheet.",
-      f3: "One LLM interface: OpenAI, Anthropic, GigaChat, YandexGPT (or a local model) — switch by config, no code changes.",
-      f4: "Voice reply (TTS) — in a Telegram bot it comes back as a voice message.",
+      f2: "Summary and action items with owner and due date as JSON, ready to push to a CRM, Notion, Jira or a Google Sheet.",
+      f3: "One LLM interface: OpenAI, Anthropic, GigaChat, YandexGPT (or a local model), switched by config, no code changes.",
+      f4: "Voice reply (TTS). In a Telegram bot it comes back as a voice message.",
       f5: "Cost control: rate limit per user, daily budget, maximum audio length.",
       foot: "Demo by sedlab · samples are synthetic voices, no personal data.",
-      privacy: "Recordings are not stored: they are processed in memory and discarded right away. Please don’t upload recordings with personal data — the samples show everything.",
+      privacy: "Recordings are not stored: they are processed in memory and discarded right away. Please don’t upload recordings with personal data: the samples show everything.",
       mode_demo: "Demo mode", mode_live: "Live", mode_demo_t: "No API keys on this server: samples are pre-computed, everything else runs on mocks.",
       mode_live_t: "Real models with spend limits.",
       tag_live: "live", tag_demo: "demo",
       limits_live: "Live mode: up to {sec} s of audio, {mb} MB, {n} runs per hour per visitor. Runs left today: {left}.",
-      limits_demo: "Demo mode — no keys, no costs. In live mode: audio up to {sec} s and {n} runs per hour per visitor.",
+      limits_demo: "Demo mode: no keys, no costs. In live mode: audio up to {sec} s and {n} runs per hour per visitor.",
       k_meeting: "meeting", k_voice: "voice note", sec: "s",
       n_sample: "Pre-computed result for this sample (demo mode). With API keys the same button runs the real pipeline.",
       n_stt_mock: "Demo mode: live speech recognition is off, so the transcript is a placeholder from the mock. Press “Edit text”, type a few lines and “Re-analyze”, or try a sample.",
@@ -34,7 +34,7 @@
       e_generic: "Something went wrong. Please try again.", e_mic: "Microphone is not available: {m}",
       e_decode: "This browser can’t decode the file. Try mp3, m4a or wav.",
       no_tasks: "No action items found", processing: "Processing…",
-      tg_line: "Telegram bot: send it a voice message — it replies with the summary, tasks and a voice answer.",
+      tg_line: "Telegram bot: send it a voice message and it replies with the summary, tasks and a voice answer.",
       p_sample: "sample", p_mock: "mock", p_browser: "browser", p_live: "live",
       seg_count: "{n} segments", dur: "{s} s",
     },
@@ -45,33 +45,33 @@
       s_audio: "Аудио / видео", s_transcript: "Расшифровка", s_summary: "Саммари", s_tasks: "Задачи", s_reply: "Ответ голосом",
       t_samples: "Примеры", t_upload: "Загрузить файл", t_record: "Записать", llm: "LLM",
       drop: "Перетащите аудио или видео сюда или нажмите, чтобы выбрать",
-      drop_hint: "mp3, m4a, ogg/opus (голосовые Telegram), wav, webm, mp4/mov — до {mb} МБ",
+      drop_hint: "mp3, m4a, ogg/opus (голосовые Telegram), wav, webm, mp4/mov, до {mb} МБ",
       rec_start: "Начать запись", rec_stop: "Остановить и обработать",
       rec_hint: "Скажите пару фраз, например: «Анна пришлёт отчёт до пятницы, я завтра позвоню клиенту».",
       edit: "Править текст", done_edit: "Готово", reanalyze: "Пересчитать", copy_md: "Скопировать в Markdown", copied: "Скопировано ✓",
       th_what: "Что", th_who: "Кто", th_due: "Срок", play_reply: "Прослушать ответ", stop: "Стоп",
       about_h: "Что внутри",
       f1: "Распознавание голосовых, созвонов и видеофайлов (Whisper / gpt-4o-transcribe), таймкоды по фразам.",
-      f2: "Саммари и задачи с ответственным и сроком в JSON — сразу в CRM, Notion, Jira или Google Таблицу.",
-      f3: "Единый интерфейс LLM: OpenAI, Anthropic, GigaChat, YandexGPT (или локальная модель) — переключение конфигом, без правок кода.",
-      f4: "Ответ голосом (TTS) — в Telegram-боте приходит голосовым сообщением.",
+      f2: "Саммари и задачи с ответственным и сроком в JSON, сразу в CRM, Notion, Jira или Google Таблицу.",
+      f3: "Единый интерфейс LLM: OpenAI, Anthropic, GigaChat, YandexGPT (или локальная модель), переключение конфигом, без правок кода.",
+      f4: "Ответ голосом (TTS). В Telegram-боте приходит голосовым сообщением.",
       f5: "Контроль расходов: лимит на пользователя, дневной бюджет, максимальная длина аудио.",
       foot: "Демо sedlab · в примерах синтезированные голоса, без персональных данных.",
-      privacy: "Записи не сохраняются: обрабатываются в памяти и сразу удаляются. Пожалуйста, не загружайте записи с персональными данными — всё видно на примерах.",
-      mode_demo: "Демо-режим", mode_live: "Живой режим", mode_demo_t: "На сервере нет API-ключей: примеры посчитаны заранее, остальное — на моках.",
+      privacy: "Записи не сохраняются: обрабатываются в памяти и сразу удаляются. Пожалуйста, не загружайте записи с персональными данными: всё видно на примерах.",
+      mode_demo: "Демо-режим", mode_live: "Живой режим", mode_demo_t: "На сервере нет API-ключей: примеры посчитаны заранее, остальное работает на моках.",
       mode_live_t: "Настоящие модели с лимитами расходов.",
       tag_live: "live", tag_demo: "демо",
       limits_live: "Живой режим: аудио до {sec} с и {mb} МБ, {n} запусков в час на посетителя. Осталось на сегодня: {left}.",
-      limits_demo: "Демо-режим — без ключей и расходов. В живом режиме: аудио до {sec} с, {n} запусков в час на посетителя.",
+      limits_demo: "Демо-режим: без ключей и расходов. В живом режиме: аудио до {sec} с, {n} запусков в час на посетителя.",
       k_meeting: "созвон", k_voice: "голосовое", sec: "с",
       n_sample: "Результат для примера посчитан заранее (демо-режим). С API-ключами та же кнопка запускает настоящий конвейер.",
-      n_stt_mock: "Демо-режим: живое распознавание выключено, поэтому расшифровка — заглушка мока. Нажмите «Править текст», напишите пару строк и «Пересчитать», или откройте пример.",
+      n_stt_mock: "Демо-режим: живое распознавание выключено, поэтому расшифровка будет заглушкой мока. Нажмите «Править текст», напишите пару строк и «Пересчитать», или откройте пример.",
       n_stt_browser: "Демо-режим: расшифровка сделана распознаванием речи вашего браузера.",
-      n_llm_mock: "LLM без ключа — мок: саммари = первое предложение, задачи = строки вида «- Прислать отчёт @Анна 2026-12-01».",
+      n_llm_mock: "LLM без ключа работает как мок: саммари = первое предложение, задачи = строки вида «- Прислать отчёт @Анна 2026-12-01».",
       e_generic: "Что-то пошло не так. Попробуйте ещё раз.", e_mic: "Микрофон недоступен: {m}",
       e_decode: "Браузер не смог прочитать файл. Попробуйте mp3, m4a или wav.",
       no_tasks: "Задач не найдено", processing: "Обработка…",
-      tg_line: "Telegram-бот: пришлите ему голосовое — ответит саммари, задачами и голосом.",
+      tg_line: "Telegram-бот: пришлите ему голосовое, и он ответит саммари, задачами и голосом.",
       p_sample: "пример", p_mock: "мок", p_browser: "браузер", p_live: "live",
       seg_count: "{n} фраз", dur: "{s} с",
     },
@@ -323,8 +323,8 @@
     const color = (name) => colors[[...name].reduce((a, c) => a + c.charCodeAt(0), 0) % colors.length];
     $("#tasks").innerHTML = tasks.length ? tasks.map((x, i) => `<tr class="reveal" style="animation-delay:${i * 70}ms">
       <td>${esc(x.title)}</td>
-      <td>${x.owner ? `<span class="who"><span class="av" style="background:${color(x.owner)}">${esc(x.owner[0])}</span>${esc(x.owner)}</span>` : '<span class="empty">—</span>'}</td>
-      <td>${x.due ? esc(fmtDate(x.due)) : '<span class="empty">—</span>'}</td></tr>`).join("")
+      <td>${x.owner ? `<span class="who"><span class="av" style="background:${color(x.owner)}">${esc(x.owner[0])}</span>${esc(x.owner)}</span>` : '<span class="empty">·</span>'}</td>
+      <td>${x.due ? esc(fmtDate(x.due)) : '<span class="empty">·</span>'}</td></tr>`).join("")
       : `<tr><td colspan="3" class="empty">${t("no_tasks")}</td></tr>`;
   }
   function fmtDate(d) {
@@ -369,7 +369,7 @@
   $("#copyBtn").addEventListener("click", async () => {
     const r = state.result; if (!r) return;
     const md = `## ${t("s_summary")}\n${r.summary}\n\n## ${t("s_tasks")}\n` +
-      (r.tasks || []).map((x) => `- [ ] ${x.title}${x.owner ? " — " + x.owner : ""}${x.due ? " (" + x.due + ")" : ""}`).join("\n");
+      (r.tasks || []).map((x) => `- [ ] ${x.title}${x.owner || x.due ? " (" + [x.owner, x.due].filter(Boolean).join(", ") + ")" : ""}`).join("\n");
     try { await navigator.clipboard.writeText(md); $("#copyBtn").textContent = t("copied"); setTimeout(() => { $("#copyBtn").textContent = t("copy_md"); }, 1500); }
     catch { /* clipboard blocked */ }
   });

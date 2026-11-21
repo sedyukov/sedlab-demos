@@ -25,15 +25,15 @@ DEFAULT_NAMES = {"voice": "voice.ogg", "audio": "audio.mp3", "video_note": "vide
 
 TEXT = {
     "start": {
-        "en": "Send me a voice message, an audio file or a round video — I'll transcribe it, summarize it, list the "
+        "en": "Send me a voice message, an audio file or a round video. I'll transcribe it, summarize it, list the "
               "action items (who / what / when) and answer with a voice message. Text works too.",
-        "ru": "Пришлите голосовое, аудиофайл или кружок — расшифрую, сделаю саммари, выпишу задачи (кто / что / срок) "
+        "ru": "Пришлите голосовое, аудиофайл или кружок: расшифрую, сделаю саммари, выпишу задачи (кто / что / срок) "
               "и отвечу голосом. Можно и текстом.",
     },
-    "too_long": {"en": "Audio is limited to {n} s in this demo.", "ru": "В демо аудио — не длиннее {n} с."},
+    "too_long": {"en": "Audio is limited to {n} s in this demo.", "ru": "В демо аудио не длиннее {n} с."},
     "too_big": {"en": "The file is too large for this demo ({n} MB max).", "ru": "Файл слишком большой для демо (до {n} МБ)."},
-    "speechkit_fmt": {"en": "Please send a voice message or an mp3/ogg file — this format isn't supported by the "
-                            "speech service.", "ru": "Пришлите, пожалуйста, голосовое или файл mp3/ogg — этот формат "
+    "speechkit_fmt": {"en": "Please send a voice message or an mp3/ogg file: this format isn't supported by the "
+                            "speech service.", "ru": "Пришлите, пожалуйста, голосовое или файл mp3/ogg: этот формат "
                                                      "сервис распознавания не принимает."},
     "unsupported": {"en": "Send a voice message, audio or video, please.", "ru": "Пришлите, пожалуйста, голосовое, аудио или видео."},
     "limit": {"en": "Demo limit reached, try again later.", "ru": "Лимит демо исчерпан, попробуйте позже."},
@@ -61,7 +61,7 @@ def format_result(transcript: str, r: dict[str, Any], lang: str) -> str:
         lines.append(t("none", lang))
     for x in r["tasks"]:
         meta = " · ".join(v for v in (x.get("owner"), x.get("due")) if v)
-        lines.append("• " + e(x["title"]) + (f" — <i>{e(meta)}</i>" if meta else ""))
+        lines.append("• " + e(x["title"]) + (f" <i>({e(meta)})</i>" if meta else ""))
     return "\n".join(lines)[:4000]
 
 

@@ -1,4 +1,4 @@
-"""voice demo — FastAPI app: upload or record audio → transcript → summary → tasks → spoken reply.
+"""voice demo, FastAPI app: upload or record audio → transcript → summary → tasks → spoken reply.
 
 Without keys everything runs on the ai module's mock + pre-computed samples; with AI_OPENAI_API_KEY /
 AI_ANTHROPIC_API_KEY the same endpoints go live behind per-IP and daily limits.

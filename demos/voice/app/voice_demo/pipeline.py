@@ -29,7 +29,7 @@ def _task_phrase(t: Task, lang: str) -> str:
     if t.owner:
         s = f"{t.owner}: {s}"
     if t.due:
-        s += (" — до " if lang == "ru" else " — by ") + t.due
+        s += (", до " if lang == "ru" else ", by ") + t.due
     return s
 
 

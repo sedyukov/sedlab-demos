@@ -14,7 +14,7 @@ from sedlab_ai.kit.ratelimit import KeyedLimiter
 
 class Limits:
     """Keys (IP, Telegram chat id) are kept only as salted hashes, in memory, and all buckets are dropped at the
-    daily reset — no personal data is stored (the demo host is outside Russia)."""
+    daily reset: no personal data is stored (the demo host is outside Russia)."""
 
     def __init__(self, ip_per_hour: int, daily: int, clock: Callable[[], float] = time.monotonic,
                  today: Callable[[], str] = lambda: datetime.now(timezone.utc).strftime("%Y-%m-%d")) -> None:
