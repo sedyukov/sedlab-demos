@@ -9,7 +9,7 @@ This repository is **public**. Its CI also tests **private** code from `sedyukov
    GitHub does not expose secrets to workflows from forks — keep it that way.
 2. **Access to private code:** only via the `MODULES_DEPLOY_KEY` secret (read-only deploy key scoped to one repo),
    `persist-credentials: false`.
-3. **Quiet output:** `go test` without `-v`, `pytest -q --tb=no`; no `set -x`, no `cat`/`tree`/`ls -R` of the private checkout,
+3. **Quiet output:** `go test` without `-v`, `pytest -q --tb=no`, TypeScript via `npm run test:ci` with all output suppressed (vitest/tsc show code frames) — only pass/fail counts are printed; no `set -x`, no `cat`/`tree`/`ls -R` of the private checkout,
    no printing of env.
 4. **No persistence of private code:** no `actions/cache`, no `upload-artifact`, `setup-go` with `cache: false`,
    `setup-python` without `cache`.

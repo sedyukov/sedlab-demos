@@ -80,5 +80,10 @@ jobs:
           if [ -f ts/package.json ]; then
             cd ts
             if [ -f package-lock.json ]; then npm ci --silent --no-audit --no-fund; else npm install --silent --no-audit --no-fund; fi
-            npm test --silent
+            # vitest/tsc print source code frames on failure -> output suppressed, only counts are shown
+            set +e
+            npm run -s test:ci >/dev/null 2>&1; rc=$?
+            set -e
+            node -e 'try{const r=require("./.vitest.json");console.log(`ts tests: ${r.numPassedTests} passed, ${r.numFailedTests} failed`)}catch(e){console.log("ts: no report (type-check failed?)")}'
+            exit $rc
           else echo "no ts"; fi
