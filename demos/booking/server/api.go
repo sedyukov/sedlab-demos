@@ -269,7 +269,7 @@ func (a *App) bookingView(b Booking) map[string]any {
 		"refunded": b.Refunded, "hold_until": b.HoldUntil,
 		"price_rub": svc.PriceRub, "price_stars": svc.PriceStars, "price_usd": svc.PriceUSD,
 		"card_currency": a.cardCurrency(), "card_price": a.cardPrice(svc), "deposit_card": a.deposit(a.cardPrice(svc), 100),
-		"deposit_stars": a.deposit(svc.PriceStars, 1),
+		"deposit_stars":     a.deposit(svc.PriceStars, 1),
 		"cancel_refundable": b.Status == "confirmed" && b.StartAt-a.now().Unix() >= 24*3600,
 	}
 }

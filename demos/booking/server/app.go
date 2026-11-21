@@ -18,10 +18,10 @@ import (
 )
 
 type Config struct {
-	Edition   string // ru | intl: language, providers, UI switches (one code base, chosen by EDITION)
-	Lang      string // ru for the ru edition, en for intl
-	OtherURL  string // link to the other edition
-	PDAllowed bool   // host may store personal data (RU host, 152-FZ); false on the public intl host
+	Edition        string // ru | intl: language, providers, UI switches (one code base, chosen by EDITION)
+	Lang           string // ru for the ru edition, en for intl
+	OtherURL       string // link to the other edition
+	PDAllowed      bool   // host may store personal data (RU host, 152-FZ); false on the public intl host
 	PublicURL      string // https://booking.demo.sedlab.dev
 	TZ             *time.Location
 	PayMethods     []string // card, stars
