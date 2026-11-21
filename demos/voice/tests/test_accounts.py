@@ -114,3 +114,33 @@ def test_bad_accounts_config_fails_closed_not_crashes():
     c.app.state.providers.client = lambda name: Client(FakeLLM(), FakeSpeech(), FakeSpeech())
     j = c.post("/api/process", files={"file": ("a.wav", wav(1), "audio/wav")}).json()
     assert j["mode"]["llm"] == "mock"
+
+
+class SpyGigaChat(FakeLLM):
+    """Looks like GigaChat to the ai module (PII masking on) and records what it was sent."""
+    name = "gigachat"
+
+    def __init__(self):
+        super().__init__()
+        self.seen = []
+
+    def chat(self, req):
+        self.seen.append(" ".join(m.content for m in req.messages))
+        return super().chat(req)
+
+
+@pytest.mark.xfail(strict=True, reason="ai module masker misses known names ending in -ей (Сергей); "
+                                      "when fixed: set GIGACHAT_LIVE_ALLOWED = True and drop this mark")
+def test_gigachat_gets_masked_names_for_samples(monkeypatch):
+    import voice_demo.providers as pv
+    from sedlab_ai import PIIConfig
+    monkeypatch.setattr(pv, "GIGACHAT_LIVE_ALLOWED", True)
+    c = make({**RU_KEYS, "AI_GIGACHAT_AUTH_KEY": "g"}, edition="ru")
+    spy, sp = SpyGigaChat(), FakeSpeech()
+    sp.transcribe = lambda req: __import__("sedlab_ai").Transcript(
+        text="Сергей проверит возвраты до 27 ноября, Ольга подготовит тексты.", language="ru", provider="fake")
+    c.app.state.providers.client = lambda name: Client(spy, sp, sp, pii=PIIConfig())
+    r = c.post("/api/process", data={"sample": "planning-ru", "llm": "gigachat"},
+               headers={"Authorization": "Bearer " + c.app.state.accounts.client.mock.issue_token("u", "s", "vk").token})
+    assert r.status_code == 200 and r.json()["mode"]["llm"] == "live"
+    assert spy.seen and all("Сергей" not in x and "Ольга" not in x for x in spy.seen)

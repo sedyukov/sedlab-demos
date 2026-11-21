@@ -14,8 +14,10 @@ from sedlab_ai import Client, Env, from_env
 
 EDITION_LLMS = {"ru": ("gigachat", "yandexgpt"), "intl": ("openai", "anthropic")}
 EDITION_SPEECH = {"ru": "yandex_speechkit", "intl": "openai"}
-# legal-ru: only depersonalised text may go to GigaChat. Until an anonymiser exists (ordered in the ai module),
-# GigaChat never goes live, whatever keys are set; YandexGPT is the live LLM of the RU edition.
+# legal-ru: only depersonalised text may go to GigaChat. The ai module masks PII inside Client.chat for GigaChat
+# (AI_GIGACHAT_PII_MASKING=on by default); if someone turns it off, GigaChat never goes live here.
+# Hold: the module's masker misses known names ending in "-ей" (e.g. "Сергей"), see test_gigachat_gets_masked_names.
+# Flip to True once that test passes (it is a strict xfail and will fail loudly when the module is fixed).
 GIGACHAT_LIVE_ALLOWED = False
 
 
@@ -47,7 +49,8 @@ class Providers:
 
     @property
     def gigachat(self) -> bool:
-        return GIGACHAT_LIVE_ALLOWED and self._has("AI_GIGACHAT_AUTH_KEY")
+        masked = (self.environ.get("AI_GIGACHAT_PII_MASKING") or "on").strip().lower() != "off"
+        return GIGACHAT_LIVE_ALLOWED and masked and self._has("AI_GIGACHAT_AUTH_KEY", "AI_GIGACHAT_API_KEY")
 
     @property
     def yandexgpt(self) -> bool:

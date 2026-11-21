@@ -108,7 +108,7 @@ def test_foreign_keys_ignored_in_ru_and_russian_in_intl():
            "AI_YANDEX_API_KEY": "y", "AI_YANDEX_FOLDER_ID": "f", "VOICE_LIVE": "1"}
     ru = make(env, edition="ru").get("/api/config").json()["providers"]
     assert ru == {"llm": {"gigachat": "demo", "yandexgpt": "live"}, "stt": "live", "tts": "live",
-                  "speech": "yandex_speechkit"}  # GigaChat: no live until text is depersonalised (legal-ru)
+                  "speech": "yandex_speechkit"}  # GigaChat on hold until the masker is fixed
     en = make(env, edition="intl").get("/api/config").json()["providers"]
     assert en == {"llm": {"openai": "live", "anthropic": "live"}, "stt": "live", "tts": "live", "speech": "openai"}
 
@@ -301,8 +301,13 @@ def test_guess_lang_and_template():
     assert r == "In short: Done. Action items: 1. Liam: Ship, by 2026-11-30."
 
 
-def test_gigachat_never_live_until_anonymiser():
-    p = Providers({"AI_GIGACHAT_AUTH_KEY": "g"}, "ru")
-    assert p.llm_live("gigachat") is False and p.client("gigachat").llm.name == "mock"
-    assert default_llm(Providers({"AI_GIGACHAT_AUTH_KEY": "g", "AI_YANDEX_API_KEY": "y",
-                                  "AI_YANDEX_FOLDER_ID": "f"}, "ru")) == "yandexgpt"
+def test_gigachat_live_only_with_pii_masking(monkeypatch):
+    import voice_demo.providers as pv
+    assert not Providers({"AI_GIGACHAT_AUTH_KEY": "g"}, "ru").llm_live("gigachat")  # on hold
+    monkeypatch.setattr(pv, "GIGACHAT_LIVE_ALLOWED", True)
+    assert Providers({"AI_GIGACHAT_AUTH_KEY": "g"}, "ru").llm_live("gigachat")
+    assert Providers({"AI_GIGACHAT_MODE": "cloudru", "AI_GIGACHAT_API_KEY": "c"}, "ru").llm_live("gigachat")
+    off = Providers({"AI_GIGACHAT_AUTH_KEY": "g", "AI_GIGACHAT_PII_MASKING": "off"}, "ru")
+    assert not off.llm_live("gigachat") and off.client("gigachat").llm.name == "mock"
+    c = Providers({"AI_GIGACHAT_AUTH_KEY": "g"}, "ru").client("gigachat")
+    assert c.llm.name == "gigachat" and c.pii_masking_enabled()

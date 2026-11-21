@@ -224,7 +224,8 @@ def create_app(settings: Settings | None = None) -> FastAPI:
             notices.append("stt_mock")
         out_lang = pipeline.guess_lang(transcript["text"], lang or "en") if transcript["provider"] != "mock" else (lang or "en")
 
-        result, llm_live = analyze_text(g, llm, client, transcript["text"], out_lang)
+        names = sorted({x["owner"] for x in (samples[sample]["tasks"] if sample else []) if x.get("owner")})
+        result, llm_live = analyze_text(g, llm, client, transcript["text"], out_lang, names)
         if not llm_live:
             notices.append("llm_mock")
         audio = speak_text(g, client, result["reply"]["text"])
@@ -238,9 +239,11 @@ def create_app(settings: Settings | None = None) -> FastAPI:
                 "account": account_info(g),
                 "notices": notices}
 
-    def analyze_text(g: Gate | None, llm: str, client, text: str, lang: str) -> tuple[dict[str, Any], bool]:
+    def analyze_text(g: Gate | None, llm: str, client, text: str, lang: str,
+                     names: list[str] | None = None) -> tuple[dict[str, Any], bool]:
         if prov.llm_live(llm):
-            r = run(g, LLM_RESOURCE.get(llm, llm), 1, lambda: pipeline.analyze(client, text, lang, live_llm=True))
+            r = run(g, LLM_RESOURCE.get(llm, llm), 1,
+                    lambda: pipeline.analyze(client, text, lang, live_llm=True, known_names=names))
             if r is not None:
                 return r, True
         return pipeline.analyze(mock, text, lang, live_llm=False), False

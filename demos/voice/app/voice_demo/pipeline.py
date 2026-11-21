@@ -4,7 +4,7 @@ from __future__ import annotations
 import base64
 import re
 from dataclasses import asdict
-from typing import Any
+from typing import Any, Sequence
 
 from sedlab_ai import Client, Task
 
@@ -46,13 +46,16 @@ def template_reply(summary: str, tasks: list[Task], lang: str) -> str:
     return head + f" Action items: {len(tasks)}. " + "; ".join(_task_phrase(t, lang) for t in tasks) + "."
 
 
-def analyze(client: Client, text: str, lang: str, *, live_llm: bool) -> dict[str, Any]:
-    s = client.summarize(text, language=LANG_NAMES.get(lang))
-    t = client.extract_tasks(text)
+def analyze(client: Client, text: str, lang: str, *, live_llm: bool,
+            known_names: Sequence[str] | None = None) -> dict[str, Any]:
+    """known_names: meeting participants, masked before the text reaches the LLM (when PII masking is on)."""
+    names = list(known_names or [])
+    s = client.summarize(text, language=LANG_NAMES.get(lang), known_names=names)
+    t = client.extract_tasks(text, known_names=names)
     if live_llm:
         brief = s.text + "\n\nAction items:\n" + "\n".join("- " + _task_phrase(x, lang) for x in t.tasks)
         r = client.chat([{"role": "system", "content": REPLY_PROMPT.format(lang=LANG_NAMES.get(lang, lang))},
-                         {"role": "user", "content": brief}], max_tokens=300)
+                         {"role": "user", "content": brief}], max_tokens=300, known_names=names)
         reply = r.text.strip()
     else:
         reply = template_reply(s.text, t.tasks, lang)
