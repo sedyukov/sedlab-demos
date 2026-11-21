@@ -1,10 +1,14 @@
 import { defineConfig } from 'vite'
 import { svelte } from '@sveltejs/vite-plugin-svelte'
 import { resolve } from 'node:path'
+import { writeFileSync } from 'node:fs'
+
+// keep the placeholder that lets `go:embed all:static` compile without a web build (CI tests)
+const keepGitkeep = { name: 'keep-gitkeep', closeBundle() { writeFileSync(resolve(__dirname, '../server/static/.gitkeep'), '') } }
 
 // Multi-page build → ../server/static (embedded into the Go binary)
 export default defineConfig({
-  plugins: [svelte()],
+  plugins: [svelte(), keepGitkeep],
   build: {
     outDir: '../server/static',
     emptyOutDir: true,
