@@ -10,7 +10,7 @@
       kWeek: 'Bookings, next 7 days', kRub: 'Card prepayments, 30 d', kStars: 'Stars prepayments, 30 d', kHold: 'Unpaid holds now',
       client: 'Client', service: 'Service', master: 'Master', when: 'When', status: 'Status', paid: 'Prepaid', actions: '',
       cancel: 'Cancel', cancelRefund: 'Cancel + refund', complete: 'Done', all: 'All', save: 'Save', add: 'Add', active: 'Active',
-      nameRu: 'Name (RU)', nameEn: 'Name (EN)', duration: 'Duration, min', priceRub: 'Price, ₽', priceStars: 'Price, ⭐',
+      nameRu: 'Name (RU)', nameEn: 'Name (EN)', duration: 'Duration, min', priceRub: 'Price, ₽', priceUsd: 'Price, $', priceStars: 'Price, ⭐',
       roleRu: 'Role (RU)', roleEn: 'Role (EN)', color: 'Colour', hours: 'Working hours', does: 'Services', off: 'day off', saved: 'Saved',
       noAccess: 'Owner access only. Open the admin from the bot (/admin) or from the demo emulator as «Salon owner».', free: 'free',
       st: { pending: 'Awaiting payment', confirmed: 'Confirmed', completed: 'Completed', cancelled: 'Cancelled' }, refunded: 'refunded', newMaster: 'New master', newService: 'New service',
@@ -19,7 +19,7 @@
       kWeek: 'Записей на 7 дней', kRub: 'Предоплаты картой, 30 дн', kStars: 'Предоплаты Stars, 30 дн', kHold: 'Неоплаченных броней',
       client: 'Клиент', service: 'Услуга', master: 'Мастер', when: 'Когда', status: 'Статус', paid: 'Предоплата', actions: '',
       cancel: 'Отменить', cancelRefund: 'Отменить + возврат', complete: 'Пришёл', all: 'Все', save: 'Сохранить', add: 'Добавить', active: 'Активна',
-      nameRu: 'Название (RU)', nameEn: 'Название (EN)', duration: 'Длительность, мин', priceRub: 'Цена, ₽', priceStars: 'Цена, ⭐',
+      nameRu: 'Название (RU)', nameEn: 'Название (EN)', duration: 'Длительность, мин', priceRub: 'Цена, ₽', priceUsd: 'Цена, $', priceStars: 'Цена, ⭐',
       roleRu: 'Специализация (RU)', roleEn: 'Специализация (EN)', color: 'Цвет', hours: 'Часы работы', does: 'Услуги', off: 'выходной', saved: 'Сохранено',
       noAccess: 'Только для владельца. Откройте админку из бота (/admin) или из демо-эмулятора как «Владелец салона».', free: 'свободно',
       st: { pending: 'Ждёт оплаты', confirmed: 'Подтверждена', completed: 'Завершена', cancelled: 'Отменена' }, refunded: 'возвращена', newMaster: 'Новый мастер', newService: 'Новая услуга',
@@ -31,6 +31,8 @@
   let err = $state('')
   let ready = $state(false)
   let tz = $state('Europe/Moscow')
+  let cfg = $state({ edition: 'intl', card_currency: 'USD', other_url: '' })
+  const isRU = $derived(cfg.edition === 'ru')
   let date = $state('')
   let ov = $state(null)
   let list = $state([])
@@ -49,9 +51,10 @@
     document.documentElement.dataset.theme = tg.colorScheme()
     try {
       const a = await api('POST', '/api/auth', { init_data: tg.initData() })
-      setToken(a.token); lang = a.user.lang || 'en'
+      setToken(a.token)
       if (a.role !== 'owner') { err = 'noAccess'; return }
-      tz = (await api('GET', '/api/config')).tz
+      cfg = await api('GET', '/api/config')
+      tz = cfg.tz; lang = cfg.lang === 'ru' ? 'ru' : 'en'
       date = isoToday()
       await Promise.all([loadOverview(), loadCatalog()])
       ready = true
@@ -76,10 +79,11 @@
   }
 
   async function saveService(s) {
-    try { await api('POST', '/api/admin/services', { ...s, duration_min: +s.duration_min, price_rub: Math.round(+s.price_rub_view * 100), price_stars: +s.price_stars }); flash(L.saved); await loadCatalog() }
+    const cents = Math.round(+s.price_view * 100)
+    try { await api('POST', '/api/admin/services', { ...s, duration_min: +s.duration_min, ...(isRU ? { price_rub: cents } : { price_usd: cents }), price_stars: +s.price_stars }); flash(L.saved); await loadCatalog() }
     catch (e) { flash(e.message) }
   }
-  function addService() { services = [...services, { id: 0, name_ru: '', name_en: '', duration_min: 60, price_rub: 100000, price_stars: 600, active: true, sort: services.length + 1 }] }
+  function addService() { services = [...services, { id: 0, name_ru: '', name_en: '', duration_min: 60, price_rub: 100000, price_usd: 2000, price_stars: 600, active: true, sort: services.length + 1 }] }
 
   async function saveMaster(m) {
     const hours = Object.values(m.hoursMap).filter(Boolean).map((h) => ({ weekday: h.weekday, start_min: +h.start_min, end_min: +h.end_min }))
@@ -107,15 +111,15 @@
     <nav>
       {#each ['schedule', 'bookings', 'services', 'masters'] as t}<button class:on={tab === t} onclick={() => setTab(t)}>{L[t]}</button>{/each}
     </nav>
-    <div class="lang"><button class:on={lang === 'en'} onclick={() => (lang = 'en')}>EN</button><button class:on={lang === 'ru'} onclick={() => (lang = 'ru')}>RU</button></div>
+    {#if cfg.other_url}<a class="other" href={cfg.other_url}>{isRU ? 'English version' : 'Русская версия'} ↗</a>{/if}
   </header>
 
   <main>
     {#if tab === 'schedule' && ov}
       <div class="kpis">
         <div class="card kpi"><span class="hint">{L.kWeek}</span><b>{ov.kpi.week_bookings}</b></div>
-        <div class="card kpi"><span class="hint">{L.kRub}</span><b>{money('RUB', ov.kpi.prepaid_rub_30d, lang)}</b></div>
-        <div class="card kpi"><span class="hint">{L.kStars}</span><b>{money('XTR', ov.kpi.prepaid_stars_30d, lang)}</b></div>
+        <div class="card kpi"><span class="hint">{L.kRub}</span><b>{money(ov.kpi.card_currency, ov.kpi.prepaid_card_30d, lang)}</b></div>
+        {#if !isRU}<div class="card kpi"><span class="hint">{L.kStars}</span><b>{money('XTR', ov.kpi.prepaid_stars_30d, lang)}</b></div>{/if}
         <div class="card kpi"><span class="hint">{L.kHold}</span><b>{ov.kpi.pending_holds}</b></div>
       </div>
       <div class="daynav">
@@ -179,15 +183,15 @@
     {:else if tab === 'services'}
       <div class="card table-wrap">
         <table class="edit">
-          <thead><tr><th>{L.nameRu}</th><th>{L.nameEn}</th><th>{L.duration}</th><th>{L.priceRub}</th><th>{L.priceStars}</th><th>{L.active}</th><th></th></tr></thead>
+          <thead><tr><th>{L.nameRu}</th><th>{L.nameEn}</th><th>{L.duration}</th><th>{isRU ? L.priceRub : L.priceUsd}</th>{#if !isRU}<th>{L.priceStars}</th>{/if}<th>{L.active}</th><th></th></tr></thead>
           <tbody>
             {#each services as s, i (s.id || 'new' + i)}
-              {@const _ = (s.price_rub_view ??= s.price_rub / 100)}
+              {@const _ = (s.price_view ??= (isRU ? s.price_rub : s.price_usd) / 100)}
               <tr>
                 <td><input bind:value={s.name_ru} /></td><td><input bind:value={s.name_en} /></td>
                 <td><input type="number" step="15" min="15" bind:value={s.duration_min} class="num" /></td>
-                <td><input type="number" min="1" bind:value={s.price_rub_view} class="num" /></td>
-                <td><input type="number" min="1" bind:value={s.price_stars} class="num" /></td>
+                <td><input type="number" min="1" bind:value={s.price_view} class="num" /></td>
+                {#if !isRU}<td><input type="number" min="1" bind:value={s.price_stars} class="num" /></td>{/if}
                 <td><input type="checkbox" bind:checked={s.active} /></td>
                 <td><button class="save" onclick={() => saveService(s)}>{L.save}</button></td>
               </tr>
@@ -239,17 +243,19 @@
   nav { display: flex; gap: 4px; flex: 1; overflow-x: auto; }
   nav button, .filters button { border: 0; background: none; padding: 8px 12px; border-radius: 8px; font-weight: 600; color: var(--hint); white-space: nowrap; }
   nav button.on, .filters button.on { background: color-mix(in srgb, var(--btn) 12%, transparent); color: var(--btn); }
+  .other { font-size: 13px; font-weight: 600; color: var(--link); text-decoration: none; }
   .lang { display: flex; background: var(--bg2); border-radius: 8px; padding: 2px; }
   .lang button { border: 0; background: none; padding: 4px 8px; border-radius: 6px; font-size: 12px; font-weight: 600; color: var(--hint); }
   .lang button.on { background: var(--card); color: var(--text); }
   main { max-width: 1200px; margin: 0 auto; padding: 20px; }
-  .kpis { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; }
+  .kpis { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 12px; }
   .kpi { padding: 14px 16px; display: flex; flex-direction: column; gap: 4px; }
   .kpi b { font-size: 24px; }
   .daynav { display: flex; align-items: center; gap: 10px; margin: 18px 0 10px; }
   .daynav button { border: 1px solid var(--line); background: var(--card); border-radius: 8px; padding: 4px 12px; font-size: 18px; }
   .daynav .today { font-size: 14px; padding: 6px 12px; }
-  .cap { text-transform: capitalize; }
+  .cap { display: inline-block; }
+  .cap::first-letter { text-transform: uppercase; }
   .grid-wrap { overflow-x: auto; padding: 12px; }
   .grid { display: grid; grid-template-columns: 56px repeat(var(--cols), minmax(150px, 1fr)); min-width: calc(56px + var(--cols) * 150px); }
   .colhead { display: flex; flex-direction: column; padding: 0 8px 10px; font-weight: 600; }

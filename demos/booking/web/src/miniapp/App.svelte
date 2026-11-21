@@ -32,14 +32,18 @@
 
   const L = (k, v) => t(lang, k, v)
   const svc = $derived(services.find((s) => s.id === sel.service))
-  // Max has no Stars → card only; in Telegram: EN market → Stars, RU → card + Stars
-  const methods = $derived(cfg.pay_methods.filter((m) => (tg.platform === 'max' ? m === 'yookassa' : lang === 'en' ? m === 'stars' : true)))
+  // methods come from the edition (ru: card/YooKassa; intl: Stars + card/Stripe); Max has no Stars
+  const methods = $derived(cfg.pay_methods.filter((m) => (tg.platform === 'max' ? m === 'card' : true)))
+  const cardCur = $derived(cfg.card_currency || 'RUB')
+  const cardPrice = (s) => (cardCur === 'USD' ? s.price_usd : s.price_rub)
   const mastersFor = $derived(svc ? masters.filter((m) => m.service_ids.includes(svc.id)) : [])
-  const price = (s) => (lang === 'ru' || tg.platform === 'max' ? money('RUB', s.price_rub, lang) : money('XTR', s.price_stars, lang))
+  const price = (s) => money(cardCur, cardPrice(s), lang)
   const depositOf = (s, m) => {
     const p = cfg.deposit_percent / 100
-    return m === 'stars' ? Math.max(1, Math.ceil(s.price_stars * p)) : Math.max(100, Math.ceil((s.price_rub * p) / 100) * 100)
+    return m === 'stars' ? Math.max(1, Math.ceil(s.price_stars * p)) : Math.max(100, Math.ceil((cardPrice(s) * p) / 100) * 100)
   }
+  const amountOf = (s, m) => (m === 'stars' ? money('XTR', depositOf(s, m), lang) : money(cardCur, depositOf(s, m), lang))
+  const fullOf = (s, m) => (m === 'stars' ? money('XTR', s.price_stars, lang) : money(cardCur, cardPrice(s), lang))
   const holdLeft = $derived(booking && booking.status === 'pending' ? Math.max(0, booking.hold_until - nowTs) : 0)
 
   function flash(msg) { toast = msg; setTimeout(() => (toast = ''), 2800) }
@@ -58,10 +62,10 @@
     timer = setInterval(() => (nowTs = Math.floor(Date.now() / 1000)), 1000)
     try {
       const auth = await api('POST', '/api/auth', { init_data: tg.initData(), platform: tg.platform })
-      setToken(auth.token); user = auth.user; lang = auth.user.lang || 'en'
+      setToken(auth.token); user = auth.user
       form.name = auth.user.first_name || ''
       const [c, cat] = await Promise.all([api('GET', '/api/config'), api('GET', '/api/catalog')])
-      cfg = c; services = cat.services; masters = cat.masters
+      cfg = c; services = cat.services; masters = cat.masters; lang = c.lang === 'ru' ? 'ru' : 'en'
       const q = new URLSearchParams(location.search)
       if (q.get('booking')) await openBooking(+q.get('booking'))
       else if (q.get('screen') === 'my') await openMy()
@@ -77,11 +81,6 @@
     if (ev.data?.type === 'checkout_done') { checkoutUrl = ''; checkoutResolve?.(ev.data.outcome); checkoutResolve = null }
   }
 
-  async function setLang(l) {
-    lang = l
-    if (method && !methods.includes(method)) method = ''
-    try { await api('POST', '/api/lang', { lang: l }) } catch {}
-  }
 
   function go(s) { screen = s; window.scrollTo(0, 0); tg.haptic() }
 
@@ -169,10 +168,6 @@
       <b>{L('salon')}</b>
       <span class="hint">{L('tagline')}</span>
     </div>
-    <div class="lang">
-      <button class:on={lang === 'en'} onclick={() => setLang('en')}>EN</button>
-      <button class:on={lang === 'ru'} onclick={() => setLang('ru')}>RU</button>
-    </div>
   </header>
 
   <main>
@@ -236,7 +231,7 @@
         </div>
       </div>
       <label class="field"><span>{L('name')}</span><input bind:value={form.name} maxlength="60" autocomplete="name" /></label>
-      {#if !tg.isEmulator}<label class="field"><span>{L('phone')}</span><input bind:value={form.phone} maxlength="30" inputmode="tel" autocomplete="tel" placeholder="+7 …" /></label>{/if}
+      {#if cfg.collect_phone}<label class="field"><span>{L('phone')}</span><input bind:value={form.phone} maxlength="30" inputmode="tel" autocomplete="tel" placeholder="+7 …" /></label>{/if}
 
       <h3>{L('prepay')}</h3>
       <p class="hint">{L('prepayHint', { p: cfg.deposit_percent })}</p>
@@ -245,8 +240,8 @@
           <button class="card item method" class:on={method === mth} onclick={() => (method = mth)}>
             <span class="radio"></span>
             <div class="grow"><div class="name">{mth === 'stars' ? L('payStars') : L('payCard')}</div>
-              <div class="hint">{L('total')}: {mth === 'stars' ? money('XTR', svc.price_stars, lang) : money('RUB', svc.price_rub, lang)}</div></div>
-            <div class="price">{mth === 'stars' ? money('XTR', depositOf(svc, mth), lang) : money('RUB', depositOf(svc, mth), lang)}</div>
+              <div class="hint">{L('total')}: {fullOf(svc, mth)}</div></div>
+            <div class="price">{amountOf(svc, mth)}</div>
           </button>
         {/each}
       </div>
@@ -255,7 +250,7 @@
       {/if}
       <div class="bar">
         <button class="btn" disabled={busy || !method} onclick={pay}>
-          {busy ? '…' : L('pay', { amount: method === 'stars' ? money('XTR', depositOf(svc, method), lang) : money('RUB', depositOf(svc, method), lang) })}
+          {busy ? '…' : L('pay', { amount: amountOf(svc, method) })}
         </button>
       </div>
 

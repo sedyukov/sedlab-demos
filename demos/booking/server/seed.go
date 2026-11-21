@@ -9,12 +9,12 @@ import (
 
 // Sample salon (fictional) — the demo starts populated so the admin schedule looks alive.
 var seedServices = []Service{
-	{NameRU: "Женская стрижка и укладка", NameEN: "Women's haircut & styling", DurationMin: 60, PriceRub: 250000, PriceStars: 1500, Sort: 1},
-	{NameRU: "Мужская стрижка", NameEN: "Men's haircut", DurationMin: 45, PriceRub: 150000, PriceStars: 900, Sort: 2},
-	{NameRU: "Маникюр с покрытием", NameEN: "Gel manicure", DurationMin: 90, PriceRub: 220000, PriceStars: 1300, Sort: 3},
-	{NameRU: "Педикюр", NameEN: "Pedicure", DurationMin: 90, PriceRub: 260000, PriceStars: 1550, Sort: 4},
-	{NameRU: "Оформление и окрашивание бровей", NameEN: "Brow shaping & tint", DurationMin: 45, PriceRub: 120000, PriceStars: 700, Sort: 5},
-	{NameRU: "Окрашивание волос", NameEN: "Hair colouring", DurationMin: 150, PriceRub: 650000, PriceStars: 3900, Sort: 6},
+	{NameRU: "Женская стрижка и укладка", NameEN: "Women's haircut & styling", DurationMin: 60, PriceRub: 250000, PriceStars: 1500, PriceUSD: 4500, Sort: 1},
+	{NameRU: "Мужская стрижка", NameEN: "Men's haircut", DurationMin: 45, PriceRub: 150000, PriceStars: 900, PriceUSD: 3000, Sort: 2},
+	{NameRU: "Маникюр с покрытием", NameEN: "Gel manicure", DurationMin: 90, PriceRub: 220000, PriceStars: 1300, PriceUSD: 4000, Sort: 3},
+	{NameRU: "Педикюр", NameEN: "Pedicure", DurationMin: 90, PriceRub: 260000, PriceStars: 1550, PriceUSD: 4500, Sort: 4},
+	{NameRU: "Оформление и окрашивание бровей", NameEN: "Brow shaping & tint", DurationMin: 45, PriceRub: 120000, PriceStars: 700, PriceUSD: 2500, Sort: 5},
+	{NameRU: "Окрашивание волос", NameEN: "Hair colouring", DurationMin: 150, PriceRub: 650000, PriceStars: 3900, PriceUSD: 12000, Sort: 6},
 }
 
 func workWeek(days []int, from, to int) []Hours {
@@ -32,7 +32,11 @@ var seedMasters = []Master{
 	{NameRU: "Дмитрий", NameEN: "Dmitry", RoleRU: "Барбер", RoleEN: "Barber", Color: "#2bb0a6", ServiceIDs: []int64{2}, Hours: workWeek([]int{0, 1, 2, 4, 5, 6}, 12, 21)},
 }
 
-var seedClients = []string{"Ольга К.", "Sofia M.", "Ирина П.", "James W.", "Наталья В.", "Ana R.", "Екатерина Л.", "Lena T.", "Алексей Н.", "Marko P.", "Юлия С.", "Daria B."}
+// fictional clients, per edition
+var seedClients = map[string][]string{
+	"ru":   {"Ольга К.", "Ирина П.", "Наталья В.", "Екатерина Л.", "Алексей Н.", "Юлия С.", "Мария Д.", "Анна Г."},
+	"intl": {"Sofia M.", "James W.", "Ana R.", "Lena T.", "Oliver B.", "Emma S.", "Noah K.", "Mia L."},
+}
 
 // ResetDemo wipes data and seeds the sample salon with bookings ±7 days around today.
 func (a *App) ResetDemo() error {
@@ -49,8 +53,8 @@ func (a *App) Seed() error {
 	for i := range seedServices {
 		s := seedServices[i]
 		s.ID, s.Active = int64(i+1), true
-		if _, err := a.store.db.Exec(`INSERT INTO services(id,name_ru,name_en,duration_min,price_rub,price_stars,active,sort) VALUES(?,?,?,?,?,?,1,?)`,
-			s.ID, s.NameRU, s.NameEN, s.DurationMin, s.PriceRub, s.PriceStars, s.Sort); err != nil {
+		if _, err := a.store.db.Exec(`INSERT INTO services(id,name_ru,name_en,duration_min,price_rub,price_stars,price_usd,active,sort) VALUES(?,?,?,?,?,?,?,1,?)`,
+			s.ID, s.NameRU, s.NameEN, s.DurationMin, s.PriceRub, s.PriceStars, s.PriceUSD, s.Sort); err != nil {
 			return err
 		}
 	}
@@ -71,6 +75,10 @@ func (a *App) Seed() error {
 		return err
 	}
 	now := a.now().Unix()
+	clients := seedClients[a.cfg.Edition]
+	if len(clients) == 0 {
+		clients = seedClients["intl"]
+	}
 	for d := -7; d <= 7; d++ {
 		day := today.AddDate(0, 0, d)
 		for _, m := range ms {
@@ -86,13 +94,13 @@ func (a *App) Seed() error {
 					break
 				}
 				sl := slots[rng.Intn(len(slots))]
-				b := &Booking{UserID: EmulatorUserBase + 500 + int64(rng.Intn(1000)), ClientName: seedClients[rng.Intn(len(seedClients))],
+				b := &Booking{UserID: EmulatorUserBase + 500 + int64(rng.Intn(1000)), ClientName: clients[rng.Intn(len(clients))],
 					ServiceID: sid, MasterID: m.ID, StartAt: sl.Start, EndAt: sl.Start + int64(svc.DurationMin)*60,
-					Status: "confirmed", Lang: "ru", CreatedAt: sl.Start - int64(2+rng.Intn(10))*86400}
-				if rng.Intn(3) == 0 {
-					b.PayMethod, b.PayCurrency, b.PayAmount, b.Lang = "stars", "XTR", a.deposit(svc.PriceStars, 1), "en"
+					Status: "confirmed", Lang: a.cfg.Lang, CreatedAt: sl.Start - int64(2+rng.Intn(10))*86400}
+				if a.cfg.Edition == "intl" && rng.Intn(2) == 0 {
+					b.PayMethod, b.PayCurrency, b.PayAmount = "stars", "XTR", a.deposit(svc.PriceStars, 1)
 				} else {
-					b.PayMethod, b.PayCurrency, b.PayAmount = "yookassa", "RUB", a.deposit(svc.PriceRub, 100)
+					b.PayMethod, b.PayCurrency, b.PayAmount = "card", a.cardCurrency(), a.deposit(a.cardPrice(svc), 100)
 				}
 				b.PayID, b.PaidAt = fmt.Sprintf("seed_%d_%d", d+7, rng.Int63()), b.CreatedAt
 				if b.EndAt <= now {

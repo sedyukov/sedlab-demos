@@ -18,9 +18,13 @@ import (
 )
 
 type Config struct {
+	Edition   string // ru | intl: language, providers, UI switches (one code base, chosen by EDITION)
+	Lang      string // ru for the ru edition, en for intl
+	OtherURL  string // link to the other edition
+	PDAllowed bool   // host may store personal data (RU host, 152-FZ); false on the public intl host
 	PublicURL      string // https://booking.demo.sedlab.dev
 	TZ             *time.Location
-	PayMethods     []string // yookassa, stars
+	PayMethods     []string // card, stars
 	DepositPercent int64    // prepayment share of the service price
 	HoldMinutes    int
 	LeadMinutes    int // earliest bookable start from now
@@ -79,7 +83,9 @@ func (a *App) Routes() http.Handler {
 
 	// Provider webhooks
 	mux.HandleFunc("POST /tg/webhook", a.handleTelegramWebhook)
-	mux.HandleFunc("POST /max/webhook", a.handleMaxWebhook)
+	if a.maxEnabled() {
+		mux.HandleFunc("POST /max/webhook", a.handleMaxWebhook)
+	}
 	mux.HandleFunc("POST /payments/webhook", a.handlePaymentsWebhook)
 
 	// Browser emulator (sandbox only)
@@ -175,6 +181,10 @@ func (a *App) handleAuth(w http.ResponseWriter, r *http.Request) {
 	if !readJSON(w, r, &in) {
 		return
 	}
+	if in.Platform == "max" && !a.maxEnabled() {
+		writeErr(w, 400, "invalid_argument", "Max is available in the Russian edition")
+		return
+	}
 	m := a.messenger(in.Platform)
 	u, emulated, err := m.AuthWebApp(in.InitData)
 	if err != nil {
@@ -182,7 +192,7 @@ func (a *App) handleAuth(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	name := u.FirstName
-	if a.cfg.DemoReset && !emulated { // public demo host (outside RU): real users' names stay in the session only
+	if !a.cfg.PDAllowed && !emulated { // host outside RU: real users' names stay in the session only
 		name = ""
 	}
 	if err := a.store.UpsertUser(u.ID, name, "" /* username not stored */, a.userLangOr(u.ID, u.Lang), m.Platform()); err != nil {
@@ -200,15 +210,42 @@ func (a *App) handleAuth(w http.ResponseWriter, r *http.Request) {
 	}
 	writeJSON(w, 200, map[string]any{
 		"token": tok, "expires_at": exp, "role": a.roleFor(u.ID, emulated), "emulated": emulated, "platform": m.Platform(),
-		"user": map[string]any{"id": u.ID, "first_name": u.FirstName, "username": u.Username, "lang": a.store.UserLang(u.ID)},
+		"user": map[string]any{"id": u.ID, "first_name": u.FirstName, "username": u.Username, "lang": a.cfg.Lang},
 	})
 }
 
 func (a *App) messenger(platform string) Messenger {
-	if platform == "max" {
+	if platform == "max" && a.maxEnabled() {
 		return a.max
 	}
 	return a.msg
+}
+
+func (a *App) maxEnabled() bool { return a.cfg.Edition == "ru" }
+
+// langFor: each edition speaks one language.
+func (a *App) langFor(int64) string { return a.cfg.Lang }
+
+// Card prepayment: ru → RUB via YooKassa (payments module), intl → USD via Stripe.
+func (a *App) cardCurrency() string {
+	if a.cfg.Edition == "ru" {
+		return "RUB"
+	}
+	return "USD"
+}
+
+func (a *App) cardPrice(s Service) int64 {
+	if a.cfg.Edition == "ru" {
+		return s.PriceRub
+	}
+	return s.PriceUSD
+}
+
+func (a *App) cardProvider() string {
+	if a.cfg.Edition == "ru" {
+		return "yookassa"
+	}
+	return "stripe"
 }
 
 // platformOf: emulator users by id range, real users by the platform they signed in from.
@@ -238,6 +275,8 @@ func (a *App) userLangOr(id int64, def string) string {
 func (a *App) handleConfig(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, 200, map[string]any{
 		"pay_methods": a.cfg.PayMethods, "deposit_percent": a.cfg.DepositPercent, "tz": a.cfg.TZ.String(),
+		"edition": a.cfg.Edition, "lang": a.cfg.Lang, "other_url": a.cfg.OtherURL, "max": a.maxEnabled(),
+		"card_provider": a.cardProvider(), "card_currency": a.cardCurrency(), "collect_phone": a.cfg.PDAllowed,
 		"emulator": a.cfg.Emulator, "payments_mock": a.cfg.PaymentsMock, "telegram_live": a.cfg.TelegramLive,
 		"platform": a.msg.Platform(), "hold_minutes": a.cfg.HoldMinutes,
 	})

@@ -85,7 +85,11 @@ func main() {
 }
 
 func NewAppFromEnv(log *slog.Logger) (*App, error) {
-	tz, err := time.LoadLocation(env("SALON_TZ", "Europe/Moscow"))
+	defTZ := "Europe/London"
+	if env("EDITION", "intl") == "ru" {
+		defTZ = "Europe/Moscow"
+	}
+	tz, err := time.LoadLocation(env("SALON_TZ", defTZ))
 	if err != nil {
 		return nil, err
 	}
@@ -131,14 +135,22 @@ func NewAppFromEnv(log *slog.Logger) (*App, error) {
 			admins = append(admins, id)
 		}
 	}
+	edition := env("EDITION", "intl")
+	if edition != "ru" {
+		edition = "intl"
+	}
+	// ru: card (YooKassa) only — Stars are an international product; intl: Stars + card (Stripe)
+	defMethods := map[string]string{"ru": "card", "intl": "stars,card"}[edition]
 	var methods []string
-	for _, m := range strings.Split(env("PAY_METHODS", "yookassa,stars"), ",") {
-		if m = strings.TrimSpace(m); m == "yookassa" || m == "stars" {
+	for _, m := range strings.Split(env("PAY_METHODS", defMethods), ",") {
+		if m = strings.TrimSpace(m); m == "card" || (m == "stars" && edition == "intl") {
 			methods = append(methods, m)
 		}
 	}
+	lang := map[string]string{"ru": "ru", "intl": "en"}[edition]
 	live := env("TELEGRAM_PROVIDER", "mock") == "telegram"
 	cfg := Config{
+		Edition: edition, Lang: lang, OtherURL: env("OTHER_EDITION_URL", ""), PDAllowed: env("PD_ALLOWED", "false") == "true",
 		PublicURL: public, TZ: tz, PayMethods: methods,
 		DepositPercent: int64(envInt("DEPOSIT_PERCENT", 30)), HoldMinutes: envInt("HOLD_MINUTES", 15), LeadMinutes: envInt("LEAD_MINUTES", 60),
 		AdminIDs: admins, Emulator: env("DEMO_EMULATOR", "true") == "true", DemoReset: env("DEMO_RESET", "false") == "true",
@@ -147,8 +159,11 @@ func NewAppFromEnv(log *slog.Logger) (*App, error) {
 	}
 	// R9 (data localisation): the public demo host is outside RU, so it must never receive real users.
 	// Live bots (real Telegram/Max ids) run only on a RU host without DEMO_RESET.
-	if cfg.DemoReset && (cfg.TelegramLive || cfg.MaxLive) {
-		return nil, fmt.Errorf("live TELEGRAM/MAX provider is not allowed with DEMO_RESET=true (public demo host stores no real users)")
+	if !cfg.PDAllowed && (cfg.TelegramLive || cfg.MaxLive) {
+		return nil, fmt.Errorf("live TELEGRAM/MAX provider needs PD_ALLOWED=true (a RU host): real users' data must stay in RU")
+	}
+	if cfg.MaxLive && edition != "ru" {
+		return nil, fmt.Errorf("Max is part of the ru edition only")
 	}
 	maxm := newMaxMessenger(mbot, cfg.MaxLive, cfg.Emulator, cfg.MaxSecret, env("MAX_BOT_USERNAME", "bloom_salon_bot"))
 	// notify: NOTIFY_TELEGRAM_PROVIDER=telegram + NOTIFY_TELEGRAM_BOT_TOKEN for a live bot (default mock)

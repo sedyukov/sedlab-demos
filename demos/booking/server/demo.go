@@ -27,6 +27,10 @@ func (a *App) handleDemoInitData(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	u := WebUser{Lang: normLang(in.Lang)}
+	if in.Platform == "max" && !a.maxEnabled() {
+		writeErr(w, 400, "invalid_argument", "Max is available in the Russian edition")
+		return
+	}
 	m := a.messenger(in.Platform)
 	if in.Persona == "owner" {
 		m = a.msg // the owner persona lives in Telegram

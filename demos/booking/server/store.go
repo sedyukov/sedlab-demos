@@ -20,6 +20,7 @@ CREATE TABLE IF NOT EXISTS services (
   duration_min INTEGER NOT NULL,
   price_rub INTEGER NOT NULL,      -- kopecks
   price_stars INTEGER NOT NULL,    -- XTR
+  price_usd INTEGER NOT NULL DEFAULT 0, -- cents (intl edition, card)
   active INTEGER NOT NULL DEFAULT 1,
   sort INTEGER NOT NULL DEFAULT 0
 );
@@ -88,6 +89,7 @@ func OpenStore(path string) (*Store, error) {
 	if _, err := db.Exec(schema); err != nil {
 		return nil, fmt.Errorf("schema: %w", err)
 	}
+	db.Exec(`ALTER TABLE services ADD COLUMN price_usd INTEGER NOT NULL DEFAULT 0`) // older DBs; error = already there
 	return &Store{db: db}, nil
 }
 
@@ -104,6 +106,7 @@ type Service struct {
 	DurationMin int    `json:"duration_min"`
 	PriceRub    int64  `json:"price_rub"` // kopecks
 	PriceStars  int64  `json:"price_stars"`
+	PriceUSD    int64  `json:"price_usd"` // cents
 	Active      bool   `json:"active"`
 	Sort        int    `json:"sort"`
 }
@@ -175,7 +178,7 @@ type Message struct {
 // ---- services ----
 
 func (s *Store) Services(onlyActive bool) ([]Service, error) {
-	q := `SELECT id,name_ru,name_en,duration_min,price_rub,price_stars,active,sort FROM services`
+	q := `SELECT id,name_ru,name_en,duration_min,price_rub,price_stars,price_usd,active,sort FROM services`
 	if onlyActive {
 		q += ` WHERE active=1`
 	}
@@ -187,7 +190,7 @@ func (s *Store) Services(onlyActive bool) ([]Service, error) {
 	out := []Service{}
 	for rows.Next() {
 		var v Service
-		if err := rows.Scan(&v.ID, &v.NameRU, &v.NameEN, &v.DurationMin, &v.PriceRub, &v.PriceStars, &v.Active, &v.Sort); err != nil {
+		if err := rows.Scan(&v.ID, &v.NameRU, &v.NameEN, &v.DurationMin, &v.PriceRub, &v.PriceStars, &v.PriceUSD, &v.Active, &v.Sort); err != nil {
 			return nil, err
 		}
 		out = append(out, v)
@@ -197,8 +200,8 @@ func (s *Store) Services(onlyActive bool) ([]Service, error) {
 
 func (s *Store) Service(id int64) (Service, error) {
 	var v Service
-	err := s.db.QueryRow(`SELECT id,name_ru,name_en,duration_min,price_rub,price_stars,active,sort FROM services WHERE id=?`, id).
-		Scan(&v.ID, &v.NameRU, &v.NameEN, &v.DurationMin, &v.PriceRub, &v.PriceStars, &v.Active, &v.Sort)
+	err := s.db.QueryRow(`SELECT id,name_ru,name_en,duration_min,price_rub,price_stars,price_usd,active,sort FROM services WHERE id=?`, id).
+		Scan(&v.ID, &v.NameRU, &v.NameEN, &v.DurationMin, &v.PriceRub, &v.PriceStars, &v.PriceUSD, &v.Active, &v.Sort)
 	if errors.Is(err, sql.ErrNoRows) {
 		return v, ErrNotFound
 	}
@@ -207,16 +210,16 @@ func (s *Store) Service(id int64) (Service, error) {
 
 func (s *Store) SaveService(v *Service) error {
 	if v.ID == 0 {
-		res, err := s.db.Exec(`INSERT INTO services(name_ru,name_en,duration_min,price_rub,price_stars,active,sort) VALUES(?,?,?,?,?,?,?)`,
-			v.NameRU, v.NameEN, v.DurationMin, v.PriceRub, v.PriceStars, v.Active, v.Sort)
+		res, err := s.db.Exec(`INSERT INTO services(name_ru,name_en,duration_min,price_rub,price_stars,price_usd,active,sort) VALUES(?,?,?,?,?,?,?,?)`,
+			v.NameRU, v.NameEN, v.DurationMin, v.PriceRub, v.PriceStars, v.PriceUSD, v.Active, v.Sort)
 		if err != nil {
 			return err
 		}
 		v.ID, _ = res.LastInsertId()
 		return nil
 	}
-	res, err := s.db.Exec(`UPDATE services SET name_ru=?,name_en=?,duration_min=?,price_rub=?,price_stars=?,active=?,sort=? WHERE id=?`,
-		v.NameRU, v.NameEN, v.DurationMin, v.PriceRub, v.PriceStars, v.Active, v.Sort, v.ID)
+	res, err := s.db.Exec(`UPDATE services SET name_ru=?,name_en=?,duration_min=?,price_rub=?,price_stars=?,price_usd=?,active=?,sort=? WHERE id=?`,
+		v.NameRU, v.NameEN, v.DurationMin, v.PriceRub, v.PriceStars, v.PriceUSD, v.Active, v.Sort, v.ID)
 	return mustAffect(res, err)
 }
 

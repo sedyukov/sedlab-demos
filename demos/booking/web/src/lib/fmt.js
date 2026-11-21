@@ -1,5 +1,6 @@
 export function money(currency, amount, lang = 'en') {
   if (currency === 'XTR') return `${amount.toLocaleString(lang === 'ru' ? 'ru-RU' : 'en-US')} ⭐`
+  if (currency === 'USD') return `$${(amount / 100).toLocaleString('en-US', { maximumFractionDigits: 2 })}`
   if (currency === 'RUB') return `${(amount / 100).toLocaleString(lang === 'ru' ? 'ru-RU' : 'en-US', { maximumFractionDigits: 2 })} ₽`
   return `${amount} ${currency}`
 }

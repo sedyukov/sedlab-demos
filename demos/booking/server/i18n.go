@@ -68,6 +68,11 @@ func fmtMoney(currency string, amount int64) string {
 	switch currency {
 	case "XTR":
 		return fmt.Sprintf("%d ⭐", amount)
+	case "USD":
+		if amount%100 == 0 {
+			return fmt.Sprintf("$%d", amount/100)
+		}
+		return fmt.Sprintf("$%.2f", float64(amount)/100)
 	case "RUB":
 		if amount%100 == 0 {
 			return fmt.Sprintf("%d ₽", amount/100)

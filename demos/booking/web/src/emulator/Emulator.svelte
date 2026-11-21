@@ -4,7 +4,10 @@
   import { onMount, onDestroy, tick } from 'svelte'
 
   const store = (k, v) => { try { if (v === undefined) return localStorage.getItem(k); localStorage.setItem(k, v) } catch {} }
-  let lang = $state(store('emu_lang') || (navigator.language?.startsWith('ru') ? 'ru' : 'en'))
+  // one language per edition (EDITION=ru|intl on the server); the other edition is a link
+  let lang = $state(document.documentElement.lang === 'ru' ? 'ru' : 'en')
+  let cfg = $state({ edition: 'intl', max: false, other_url: '' })
+  let ready = $state(false)
   let persona = $state(store('emu_persona') || 'guest')
   let platform = $state(store('emu_platform') || 'telegram') // telegram | max
   let name = $state(store('emu_name') || '')
@@ -24,22 +27,24 @@
     en: {
       h1: 'Salon booking bot + Telegram Mini App', lead: 'Live demo. This page emulates the Telegram app, so you can try it without an account. The backend is the production one: signed launch data, webhooks, payments sandbox.',
       persona: 'You are', guest: 'Client', owner: 'Salon owner', name: 'Your name', steps: 'Try it',
-      s1: 'Tap «Book now» in the chat', s2: 'Pick a service, a master and a time', s3: 'Pay the deposit in Telegram Stars (sandbox)', s4: 'Get the confirmation and reminders in the chat',
+      s1: 'Tap «Book now» in the chat', s2: 'Pick a service, a master and a time', s3: 'Pay the deposit in Telegram Stars or by card (Stripe sandbox)', s4: 'Get the confirmation and reminders in the chat',
       ownerSteps: 'As the owner you get a message for every new booking and manage the schedule, masters and services in the admin panel.',
       remind: '⏩ Send me a reminder now', admin: 'Open the admin panel ↗', reset: 'Reset demo data', resetDone: 'Demo data restored',
       bot: 'Bloom Salon Bot', online: 'bot', placeholder: 'Message', open: 'Open', start: 'Start',
       built: 'Built with', more: 'Same code runs as a real Telegram bot: just add a BotFather token.', noRem: 'Book something first: the reminder is about your next visit.',
-      variants: 'Payments: Telegram Stars (international) · card via YooKassa (Russia, switch to RU). Max: card only.', messenger: 'Messenger',
+      variants: 'International edition: English, Telegram, Stars and Stripe. A Russian edition (YooKassa, Max) runs on a Russian server.', messenger: 'Messenger', other: 'Русская версия',
+      chips: ['Go', 'SQLite', 'Svelte', 'Telegram Mini App', 'Telegram Stars', 'Stripe', 'Docker'],
     },
     ru: {
       h1: 'Бот записи в салон + Telegram Mini App', lead: 'Живое демо. Страница эмулирует Telegram, поэтому попробовать можно без аккаунта. Бэкенд боевой: подписанные данные запуска, вебхуки, песочница платежей.',
       persona: 'Вы', guest: 'Клиент', owner: 'Владелец салона', name: 'Ваше имя', steps: 'Как попробовать',
-      s1: 'Нажмите «Записаться» в чате', s2: 'Выберите услугу, мастера и время', s3: 'Внесите предоплату картой (ЮKassa, песочница) или в Telegram Stars', s4: 'Получите подтверждение и напоминания в чат',
+      s1: 'Нажмите «Записаться» в чате', s2: 'Выберите услугу, мастера и время', s3: 'Внесите предоплату картой (ЮKassa, песочница)', s4: 'Получите подтверждение и напоминания в чат',
       ownerSteps: 'Владельцу приходит сообщение о каждой новой записи, а в админке он ведёт расписание, мастеров и услуги.',
       remind: '⏩ Прислать напоминание сейчас', admin: 'Открыть админку ↗', reset: 'Сбросить демо-данные', resetDone: 'Демо-данные восстановлены',
       bot: 'Bloom Salon Bot', online: 'бот', placeholder: 'Сообщение', open: 'Открыть', start: 'Старт',
       built: 'Стек', more: 'Тот же код работает как настоящий Telegram-бот, нужен только токен от BotFather.', noRem: 'Сначала запишитесь: напоминание приходит о ближайшем визите.',
-      variants: 'Оплата: ЮKassa (РФ) и Telegram Stars (международный рынок, переключите на EN). В Max оплата картой.', messenger: 'Мессенджер',
+      variants: 'Российская редакция: Telegram и Max, оплата через ЮKassa, данные хранятся в России.', messenger: 'Мессенджер', other: 'English version',
+      chips: ['Go', 'SQLite', 'Svelte', 'Telegram Mini App', 'Max', 'ЮKassa', 'Docker'],
     },
   }
   const L = $derived(T[lang])
@@ -57,7 +62,6 @@
     userId = r.user_id
     const a = await post('/api/auth', { init_data: initData, platform: r.platform })
     token = a.token
-    await post('/api/lang', { lang }, true)
     if (changed) { messages = []; await loadChat(true) }
   }
 
@@ -106,22 +110,28 @@
   function onMsg(ev) { if (ev.origin === location.origin && ev.data?.type === 'emu_close') appUrl = '' }
   onMount(async () => {
     window.addEventListener('message', onMsg)
+    cfg = await fetch('/api/config').then((r) => r.json())
+    lang = cfg.lang === 'ru' ? 'ru' : 'en'
+    document.documentElement.lang = lang
+    document.title = L.h1 + (lang === 'ru' ? ': живое демо' : ': live demo')
+    if (!cfg.max) platform = 'telegram'
+    ready = true
     await signIn()
     poll = setInterval(loadChat, 2000)
   })
   onDestroy(() => { clearInterval(poll); window.removeEventListener('message', onMsg) })
 
   async function switchPersona(p) { persona = p; appUrl = ''; messages = []; initData = ''; await signIn() }
-  async function switchPlatform(p) { platform = p; if (p === 'max' && lang === 'en') lang = 'ru'; appUrl = ''; messages = []; initData = ''; await signIn() }
+  async function switchPlatform(p) { platform = p; appUrl = ''; messages = []; initData = ''; await signIn() }
   const onMax = $derived(platform === 'max' && persona === 'guest')
-  async function switchLang(l) { lang = l; appUrl = ''; await signIn(); await send('/start') }
 </script>
 
+{#if ready}
 <div class="page">
   <section class="intro">
     <div class="top">
       <span class="badge">sedlab · demo</span>
-      <div class="lang"><button class:on={lang === 'en'} onclick={() => switchLang('en')}>EN</button><button class:on={lang === 'ru'} onclick={() => switchLang('ru')}>RU</button></div>
+      {#if cfg.other_url}<a class="other" href={cfg.other_url}>{L.other} ↗</a>{/if}
     </div>
     <h1>{L.h1}</h1>
     <p class="lead">{L.lead}</p>
@@ -132,12 +142,14 @@
         <button class:on={persona === 'guest'} onclick={() => switchPersona('guest')}>👤 {L.guest}</button>
         <button class:on={persona === 'owner'} onclick={() => switchPersona('owner')}>💼 {L.owner}</button>
       </div>
-      {#if persona === 'guest'}
+      {#if persona === 'guest' && cfg.max}
         <div class="label sp">{L.messenger}</div>
         <div class="seg">
           <button class:on={platform === 'telegram'} onclick={() => switchPlatform('telegram')}>Telegram</button>
           <button class:on={platform === 'max'} onclick={() => switchPlatform('max')}>Max</button>
         </div>
+      {/if}
+      {#if persona === 'guest'}
         <input class="name" placeholder={L.name} bind:value={name} maxlength="32" onchange={signIn} />
       {/if}
     </div>
@@ -157,7 +169,7 @@
     <p class="hint">{L.variants}</p>
     <div class="block stack">
       <div class="label">{L.built}</div>
-      <div class="chips">{#each ['Go', 'SQLite', 'Svelte', 'Telegram Mini App', 'Telegram Stars', 'YooKassa', 'Docker'] as c}<span>{c}</span>{/each}</div>
+      <div class="chips">{#each L.chips as c}<span>{c}</span>{/each}</div>
       <p class="hint">{L.more}</p>
     </div>
     {#if notice}<div class="notice">{notice}</div>{/if}
@@ -193,6 +205,8 @@
     </div>
   </section>
 </div>
+{/if}
+
 
 <style>
   :global(body) { background: radial-gradient(1200px 600px at 10% -10%, #efe9ff, transparent), radial-gradient(900px 500px at 110% 110%, #ffe3ee, transparent), #f7f6fb; }
@@ -204,6 +218,7 @@
   .lead { font-size: 17px; color: #4b4b57; max-width: 560px; }
   .block { margin-top: 22px; max-width: 520px; }
   .label { font-size: 12px; text-transform: uppercase; letter-spacing: .6px; color: var(--hint); font-weight: 600; margin-bottom: 8px; }
+  .other { font-size: 14px; font-weight: 600; color: #6b4eff; text-decoration: none; background: #fff; padding: 6px 12px; border-radius: 10px; box-shadow: 0 1px 3px #0001; }
   .seg, .lang { display: inline-flex; background: #fff; border-radius: 12px; padding: 3px; box-shadow: 0 1px 3px #0001; }
   .seg button, .lang button { border: 0; background: none; padding: 8px 14px; border-radius: 9px; font-weight: 600; color: var(--hint); }
   .lang button { padding: 5px 10px; font-size: 13px; }

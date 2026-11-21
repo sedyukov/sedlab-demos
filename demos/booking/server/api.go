@@ -177,13 +177,13 @@ func (a *App) handleCreateBooking(w http.ResponseWriter, r *http.Request) {
 		writeErr(w, 429, "rate_limited", "too many unpaid bookings: pay or wait 15 minutes")
 		return
 	}
-	if s.Emulated {
-		in.Phone = "" // public demo (hosted outside RU): never store visitors' personal data
+	if !a.cfg.PDAllowed {
+		in.Phone = "" // host outside RU: never store personal data (152-FZ localisation)
 	}
 	now := a.now().Unix()
 	b := &Booking{UserID: s.UserID, ClientName: in.Name, ClientPhone: in.Phone, ServiceID: svc.ID, MasterID: in.MasterID,
 		StartAt: in.Start, EndAt: in.Start + int64(svc.DurationMin)*60, HoldUntil: now + int64(a.cfg.HoldMinutes)*60,
-		Lang: a.store.UserLang(s.UserID)}
+		Lang: a.langFor(s.UserID)}
 	if err := a.store.CreatePending(b, now); err != nil {
 		if errors.Is(err, ErrSlotTaken) {
 			writeErr(w, 409, "conflict", "slot was just taken")
@@ -231,10 +231,6 @@ func (a *App) handleLang(w http.ResponseWriter, r *http.Request) {
 	if !readJSON(w, r, &in) {
 		return
 	}
-	if err := a.store.SetUserLang(sessionFrom(r).UserID, normLang(in.Lang)); err != nil {
-		a.fail(w, err)
-		return
-	}
 	writeJSON(w, 200, map[string]any{"ok": true})
 }
 
@@ -271,8 +267,9 @@ func (a *App) bookingView(b Booking) map[string]any {
 		"client_name": b.ClientName, "client_phone": b.ClientPhone, "user_id": b.UserID,
 		"pay_method": b.PayMethod, "pay_currency": b.PayCurrency, "pay_amount": b.PayAmount, "paid_at": b.PaidAt,
 		"refunded": b.Refunded, "hold_until": b.HoldUntil,
-		"price_rub": svc.PriceRub, "price_stars": svc.PriceStars,
-		"deposit_rub": a.deposit(svc.PriceRub, 100), "deposit_stars": a.deposit(svc.PriceStars, 1),
+		"price_rub": svc.PriceRub, "price_stars": svc.PriceStars, "price_usd": svc.PriceUSD,
+		"card_currency": a.cardCurrency(), "card_price": a.cardPrice(svc), "deposit_card": a.deposit(a.cardPrice(svc), 100),
+		"deposit_stars": a.deposit(svc.PriceStars, 1),
 		"cancel_refundable": b.Status == "confirmed" && b.StartAt-a.now().Unix() >= 24*3600,
 	}
 }

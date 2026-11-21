@@ -6,7 +6,7 @@ const dict = {
     time: 'Pick a date & time', noSlots: 'No free time this day. Try another date', confirm: 'Confirm booking',
     name: 'Your name', phone: 'Phone (optional)', min: 'min', with: 'with', back: 'Back', next: 'Continue',
     prepay: 'Prepayment', prepayHint: '{p}% deposit secures your slot. Free cancellation up to 24 h before.',
-    payStars: 'Pay with Telegram Stars', payCard: 'Pay by card (YooKassa)', total: 'Service price', deposit: 'Deposit now',
+    payStars: 'Pay with Telegram Stars', payCard: 'Pay by card (Stripe)', total: 'Service price', deposit: 'Deposit now',
     held: 'Slot held for {m}:{s}', holdExpired: 'The hold has expired. Pick a time again', pay: 'Pay {amount}',
     my: 'My bookings', none: 'No bookings yet', book: 'Book a visit', bookAnother: 'Book another visit',
     st_pending: 'Awaiting payment', st_confirmed: 'Confirmed', st_completed: 'Completed', st_cancelled: 'Cancelled', st_expired: 'Expired',

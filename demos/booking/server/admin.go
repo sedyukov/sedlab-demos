@@ -34,23 +34,23 @@ func (a *App) handleAdminOverview(w http.ResponseWriter, r *http.Request) {
 	}
 	// KPIs over the next 7 days and revenue (prepayments) over the last 30 days
 	now := a.now().Unix()
-	var week, rubPaid, starsPaid, pending int64
+	var week, cardPaid, starsPaid, pending int64
 	upcoming, _ := a.store.queryBookings(`status='confirmed' AND start_at>=? AND start_at<?`, now, now+7*86400)
 	week = int64(len(upcoming))
 	paid, _ := a.store.queryBookings(`paid_at>=? AND refunded=0 AND status IN ('confirmed','completed')`, now-30*86400)
 	for _, b := range paid {
 		switch b.PayCurrency {
-		case "RUB":
-			rubPaid += b.PayAmount
 		case "XTR":
 			starsPaid += b.PayAmount
+		case a.cardCurrency():
+			cardPaid += b.PayAmount
 		}
 	}
 	pend, _ := a.store.queryBookings(`status='pending' AND hold_until>?`, now)
 	pending = int64(len(pend))
 	writeJSON(w, 200, map[string]any{
 		"date": day.Format("2006-01-02"), "tz": a.cfg.TZ.String(), "masters": ms, "bookings": views,
-		"kpi": map[string]any{"week_bookings": week, "prepaid_rub_30d": rubPaid, "prepaid_stars_30d": starsPaid, "pending_holds": pending},
+		"kpi": map[string]any{"week_bookings": week, "prepaid_card_30d": cardPaid, "card_currency": a.cardCurrency(), "prepaid_stars_30d": starsPaid, "pending_holds": pending},
 	})
 }
 
@@ -144,9 +144,19 @@ func (a *App) handleAdminSaveService(w http.ResponseWriter, r *http.Request) {
 		v.NameRU = v.NameEN
 	}
 	if v.NameRU == "" || len(v.NameRU) > 120 || len(v.NameEN) > 120 || v.DurationMin < 15 || v.DurationMin > 480 || v.DurationMin%15 != 0 ||
-		v.PriceRub < 100 || v.PriceRub > 100_000_000 || v.PriceStars < 1 || v.PriceStars > 100_000 {
+		a.cardPrice(v) < 100 || a.cardPrice(v) > 100_000_000 || v.PriceStars < 0 || v.PriceStars > 100_000 ||
+		(a.cfg.Edition == "intl" && v.PriceStars < 1) {
 		writeErr(w, 400, "invalid_argument", "check name, duration (15–480, step 15) and prices")
 		return
+	}
+	if v.ID != 0 {
+		if old, err := a.store.Service(v.ID); err == nil {
+			if a.cfg.Edition == "ru" {
+				v.PriceUSD, v.PriceStars = old.PriceUSD, old.PriceStars
+			} else {
+				v.PriceRub = old.PriceRub
+			}
+		}
 	}
 	if err := a.store.SaveService(&v); err != nil {
 		a.fail(w, err)

@@ -27,7 +27,7 @@ type harness struct {
 	notify *notify.Client
 }
 
-func newHarness(t *testing.T) *harness {
+func newHarness(t *testing.T, edition string) *harness {
 	t.Helper()
 	tz, _ := time.LoadLocation("Europe/Moscow")
 	h := &harness{t: t, now: time.Date(2026, 11, 23, 9, 0, 0, 0, tz)} // Monday 09:00
@@ -42,7 +42,11 @@ func newHarness(t *testing.T) *harness {
 	h.srv.Start()
 	t.Cleanup(h.srv.Close)
 	p, _ := pay.OpenMock(pay.MockConfig{CheckoutURL: h.srv.URL + "/pay/{id}", Now: func() time.Time { return h.now }})
-	cfg := Config{PublicURL: h.srv.URL, TZ: tz, PayMethods: []string{"yookassa", "stars"}, DepositPercent: 30, HoldMinutes: 15,
+	methods, lang := []string{"stars", "card"}, "en"
+	if edition == "ru" {
+		methods, lang = []string{"card"}, "ru"
+	}
+	cfg := Config{Edition: edition, Lang: lang, PDAllowed: edition == "ru", PublicURL: h.srv.URL, TZ: tz, PayMethods: methods, DepositPercent: 30, HoldMinutes: 15,
 		LeadMinutes: 60, Emulator: true, WebhookSecret: secret, PaymentsMock: true}
 	log := slog.New(slog.NewTextHandler(io.Discard, nil))
 	// seed with the harness clock
@@ -112,7 +116,7 @@ func (h *harness) firstSlot(tok string, date string) map[string]any {
 func (h *harness) book(tok string, date string) map[string]any {
 	h.t.Helper()
 	s := h.firstSlot(tok, date)
-	code, b := h.do("POST", "/api/bookings", tok, map[string]any{"service_id": 2, "master_id": 4, "start": s["start"], "name": "Ann", "phone": "+381000"})
+	code, b := h.do("POST", "/api/bookings", tok, map[string]any{"service_id": 2, "master_id": 4, "start": s["start"], "name": "Ann", "phone": "+70000000000"})
 	if code != 201 {
 		h.t.Fatalf("book %d %v", code, b)
 	}
@@ -129,12 +133,12 @@ func (h *harness) chat(uid int64) []map[string]any {
 }
 
 func TestYooKassaFlow(t *testing.T) {
-	h := newHarness(t)
+	h := newHarness(t, "ru")
 	tok, uid := h.login("guest", 42, "ru")
 	b := h.book(tok, "2026-11-24")
 	id := int64(b["id"].(float64))
 
-	code, p := h.do("POST", fmt.Sprintf("/api/bookings/%d/pay", id), tok, map[string]any{"method": "yookassa"})
+	code, p := h.do("POST", fmt.Sprintf("/api/bookings/%d/pay", id), tok, map[string]any{"method": "card"})
 	if code != 200 || !strings.Contains(p["confirmation_url"].(string), "/pay/pay_mock_") {
 		t.Fatalf("pay %d %v", code, p)
 	}
@@ -151,8 +155,8 @@ func TestYooKassaFlow(t *testing.T) {
 		t.Fatalf("checkout %d", code)
 	}
 	_, got := h.do("GET", fmt.Sprintf("/api/bookings/%d", id), tok, nil)
-	if got["client_phone"] != "" {
-		t.Fatalf("demo stored a phone number: %v", got["client_phone"])
+	if got["client_phone"] != "+70000000000" { // ru edition runs on a RU host: phone is kept
+		t.Fatalf("phone: %v", got["client_phone"])
 	}
 	if got["status"] != "confirmed" || got["pay_currency"] != "RUB" {
 		t.Fatalf("not confirmed: %v", got)
@@ -183,7 +187,7 @@ func TestYooKassaFlow(t *testing.T) {
 }
 
 func TestStarsFlow(t *testing.T) {
-	h := newHarness(t)
+	h := newHarness(t, "intl")
 	tok, uid := h.login("guest", 7, "en")
 	b := h.book(tok, "2026-11-24")
 	id := int64(b["id"].(float64))
@@ -207,7 +211,7 @@ func TestStarsFlow(t *testing.T) {
 }
 
 func TestHoldExpiresAndFreesSlot(t *testing.T) {
-	h := newHarness(t)
+	h := newHarness(t, "ru")
 	tok, _ := h.login("guest", 1, "en")
 	b := h.book(tok, "2026-11-24")
 	tok2, _ := h.login("guest", 2, "en")
@@ -222,14 +226,14 @@ func TestHoldExpiresAndFreesSlot(t *testing.T) {
 		t.Fatalf("expired hold still blocks: %d", code)
 	}
 	// paying the expired booking is refused
-	code, _ = h.do("POST", fmt.Sprintf("/api/bookings/%v/pay", b["id"]), tok, map[string]any{"method": "yookassa"})
+	code, _ = h.do("POST", fmt.Sprintf("/api/bookings/%v/pay", b["id"]), tok, map[string]any{"method": "card"})
 	if code != 409 {
 		t.Fatalf("pay expired: %d", code)
 	}
 }
 
 func TestRemindersOnce(t *testing.T) {
-	h := newHarness(t)
+	h := newHarness(t, "intl")
 	tok, uid := h.login("guest", 3, "en")
 	b := h.book(tok, "2026-11-24") // tomorrow evening
 	id := int64(b["id"].(float64))
@@ -259,7 +263,7 @@ func TestRemindersOnce(t *testing.T) {
 }
 
 func TestAuthAndRoles(t *testing.T) {
-	h := newHarness(t)
+	h := newHarness(t, "intl")
 	code, _ := h.do("POST", "/api/auth", "", map[string]any{"init_data": "user=%7B%22id%22%3A1%7D&auth_date=1&hash=00"})
 	if code != 401 {
 		t.Fatalf("forged initData: %d", code)
@@ -283,17 +287,17 @@ func TestAuthAndRoles(t *testing.T) {
 		t.Fatalf("overview %d %v", code, ov["kpi"])
 	}
 	// owner edits a service
-	code, s := h.do("POST", "/api/admin/services", owner, map[string]any{"id": 2, "name_ru": "Мужская стрижка", "name_en": "Men's cut", "duration_min": 30, "price_rub": 120000, "price_stars": 700, "active": true})
+	code, s := h.do("POST", "/api/admin/services", owner, map[string]any{"id": 2, "name_ru": "Мужская стрижка", "name_en": "Men's cut", "duration_min": 30, "price_usd": 2800, "price_stars": 700, "active": true})
 	if code != 200 || s["duration_min"].(float64) != 30 {
 		t.Fatalf("save service %d %v", code, s)
 	}
-	if code, _ := h.do("POST", "/api/admin/services", owner, map[string]any{"name_ru": "x", "duration_min": 7, "price_rub": 1, "price_stars": 1}); code != 400 {
+	if code, _ := h.do("POST", "/api/admin/services", owner, map[string]any{"name_ru": "x", "duration_min": 7, "price_usd": 1, "price_stars": 1}); code != 400 {
 		t.Fatalf("invalid service accepted: %d", code)
 	}
 }
 
 func TestTelegramWebhook(t *testing.T) {
-	h := newHarness(t)
+	h := newHarness(t, "intl")
 	body := `{"update_id":5,"message":{"message_id":1,"date":1,"text":"/start","from":{"id":4000000000001234,"first_name":"Z"},"chat":{"id":4000000000001234,"type":"private"}}}`
 	req, _ := http.NewRequest("POST", h.srv.URL+"/tg/webhook", strings.NewReader(body))
 	res, _ := http.DefaultClient.Do(req)
@@ -317,7 +321,7 @@ func TestTelegramWebhook(t *testing.T) {
 }
 
 func TestMaxFlow(t *testing.T) {
-	h := newHarness(t)
+	h := newHarness(t, "ru")
 	code, r := h.do("POST", "/demo/initdata", "", map[string]any{"platform": "max", "guest_id": 77, "name": "Олег", "lang": "ru"})
 	if code != 200 || r["platform"] != "max" {
 		t.Fatalf("max initdata %d %v", code, r)
@@ -344,7 +348,7 @@ func TestMaxFlow(t *testing.T) {
 	if code, _ := h.do("POST", fmt.Sprintf("/api/bookings/%d/pay", id), tok, map[string]any{"method": "stars"}); code != 400 {
 		t.Fatalf("stars allowed on max: %d", code)
 	}
-	_, p := h.do("POST", fmt.Sprintf("/api/bookings/%d/pay", id), tok, map[string]any{"method": "yookassa"})
+	_, p := h.do("POST", fmt.Sprintf("/api/bookings/%d/pay", id), tok, map[string]any{"method": "card"})
 	pid := p["confirmation_url"].(string)[strings.LastIndex(p["confirmation_url"].(string), "/")+1:]
 	h.do("POST", "/demo/checkout/"+pid, "", map[string]any{"outcome": "succeeded"})
 	_, got := h.do("GET", fmt.Sprintf("/api/bookings/%d", id), tok, nil)
@@ -358,5 +362,45 @@ func TestMaxFlow(t *testing.T) {
 	}
 	if d, _ := h.notify.ListDeliveries("telegram"); len(d) != 1 { // owner alert only (owner persona is in Telegram)
 		t.Fatalf("telegram deliveries: %d", len(d))
+	}
+}
+
+func TestIntlEdition(t *testing.T) {
+	h := newHarness(t, "intl")
+	if code, _ := h.do("POST", "/demo/initdata", "", map[string]any{"platform": "max", "guest_id": 5}); code != 400 {
+		t.Fatalf("max allowed in intl: %d", code)
+	}
+	code, cfg := h.do("GET", "/api/config", "", nil)
+	if code != 200 || cfg["edition"] != "intl" || cfg["lang"] != "en" || cfg["card_currency"] != "USD" || cfg["collect_phone"] != false {
+		t.Fatalf("config: %v", cfg)
+	}
+	tok, uid := h.login("guest", 11, "ru") // asks for RU, intl answers in EN
+	b := h.book(tok, "2026-11-24")
+	id := int64(b["id"].(float64))
+	if b["client_phone"] != "" {
+		t.Fatalf("intl stored a phone: %v", b["client_phone"])
+	}
+	_, p := h.do("POST", fmt.Sprintf("/api/bookings/%d/pay", id), tok, map[string]any{"method": "card"})
+	if p["currency"] != "USD" || p["amount"].(float64) != 900 { // 30% of $30
+		t.Fatalf("card pay: %v", p)
+	}
+	pid := p["confirmation_url"].(string)[strings.LastIndex(p["confirmation_url"].(string), "/")+1:]
+	h.do("POST", "/demo/checkout/"+pid, "", map[string]any{"outcome": "succeeded"})
+	msgs := h.chat(uid)
+	if len(msgs) != 1 || !strings.Contains(msgs[0]["text"].(string), "Booked") || !strings.Contains(msgs[0]["text"].(string), "$9") {
+		t.Fatalf("chat: %v", msgs)
+	}
+}
+
+func TestRuEdition(t *testing.T) {
+	h := newHarness(t, "ru")
+	tok, _ := h.login("guest", 12, "en") // asks for EN, ru answers in RU
+	b := h.book(tok, "2026-11-24")
+	if code, _ := h.do("POST", fmt.Sprintf("/api/bookings/%v/pay", b["id"]), tok, map[string]any{"method": "stars"}); code != 400 {
+		t.Fatalf("stars allowed in ru: %d", code)
+	}
+	_, cfg := h.do("GET", "/api/config", "", nil)
+	if cfg["lang"] != "ru" || cfg["max"] != true || cfg["card_currency"] != "RUB" {
+		t.Fatalf("config: %v", cfg)
 	}
 }

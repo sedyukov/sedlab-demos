@@ -5,13 +5,13 @@ No links or contacts, so it can be pasted on Kwork, FL.ru, Habr Freelance and Up
 ---
 
 ## RU: заголовок
-Telegram-бот записи в салон + мини-апп: предоплата ЮKassa / Telegram Stars, напоминания, админка
+Бот записи в салон для Telegram и Max + мини-апп: предоплата через ЮKassa, напоминания, админка
 
 ## RU: описание
 Бот и мини-апп для онлайн-записи в салон красоты, барбершоп, клинику или студию.
 
-Клиент открывает мини-апп из чата, выбирает услугу, мастера и свободное время и вносит предоплату картой (ЮKassa) или в
-Telegram Stars. Пока он платит, время закреплено за ним 15 минут, поэтому двойных записей не бывает. Бот сразу
+Клиент открывает мини-апп из чата, выбирает услугу, мастера и свободное время и вносит предоплату картой через ЮKassa.
+Пока он платит, время закреплено за ним 15 минут, поэтому двойных записей не бывает. Бот сразу
 подтверждает запись и напоминает о визите за сутки и за 2 часа. Если клиент отменяет запись позже чем за сутки до визита,
 предоплата возвращается автоматически.
 
@@ -19,10 +19,10 @@ Telegram Stars. Пока он платит, время закреплено за
 мастерам, записи и выручку по предоплатам, редактирует услуги, цены и график мастеров.
 
 Интерфейс на русском и английском. Подпись данных мини-аппа проверяется, вебхуки идемпотентны. Сервис занимает около
-10 МБ памяти и работает на самом дешёвом VPS. Есть версия для Max: тот же бот и мини-апп, оплата
-в Max картой.
+10 МБ памяти и работает на самом дешёвом VPS. Тот же бот и мини-апп работают в Max. Данные хранятся
+на сервере в России.
 
-Стек: Go, SQLite, Svelte, Telegram Bot API / Mini Apps / Stars, ЮKassa, Docker.
+Стек: Go, SQLite, Svelte, Telegram Bot API / Mini Apps, Max, ЮKassa, Docker.
 Срок такого проекта: 7–10 дней.
 
 ---
@@ -43,7 +43,7 @@ schedule by master, bookings and deposit revenue, and lets the owner edit servic
 
 English and Russian UI. Mini App launch data is signature-checked and webhooks are idempotent. The service uses about
 10 MB of RAM and runs on the cheapest VPS. Stars invoices, pre-checkout checks and refunds are built in, which is also what
-an existing bot needs to move its payments to Stars. A version for the Max messenger runs on the same code.
+an existing bot needs to move its payments to Stars.
 
-Stack: Go, SQLite, Svelte, Telegram Bot API / Mini Apps / Stars, YooKassa / Stripe, Docker.
+Stack: Go, SQLite, Svelte, Telegram Bot API / Mini Apps / Stars, Stripe, Docker.
 Typical timeline: 7–10 days.

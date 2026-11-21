@@ -1,8 +1,25 @@
 # Salon Booking Bot + Telegram Mini App · Бот записи в салон + мини-апп
 
-**Live demo:** https://booking.demo.sedlab.dev (works in the browser, no Telegram account needed) · [EN](#en) · [RU](#ru)
+**Live demos** (work in the browser, no Telegram account needed):
+- International edition (English): https://booking-en.demo.sedlab.dev
+- Российская редакция (русский): https://booking.demo.sedlab.dev
 
-![demo](media/demo.gif)
+[EN](#en) · [RU](#ru) · [Editions / Редакции](#editions)
+
+![demo](media/demo-en.gif)
+
+<a id="editions"></a>
+### Two editions, one code base · Две редакции, один код
+The edition is picked by one env variable, `EDITION=intl|ru`. Редакция выбирается переменной `EDITION=intl|ru`.
+
+| | International (`intl`) | Российская (`ru`) |
+|---|---|---|
+| Language / язык | English | русский |
+| Messengers / мессенджеры | Telegram | Telegram + Max |
+| Deposit / предоплата | Telegram Stars + card (Stripe) | картой (ЮKassa) |
+| Personal data / ПД | none stored (phone field off) | телефон и имена, только на сервере в РФ |
+| Hosting / хостинг | EU server | российский VPS, бэкапы в РФ |
+| Sign-in / вход | Telegram launch data | данные запуска Telegram/Max, вход владельца через Max, Яндекс ID, VK ID |
 
 ---
 
@@ -18,45 +35,45 @@ runs the schedule, masters, services and bookings from an admin panel that also 
   master's working hours, service duration and a lead time. The slot is **held for 15 minutes** while the client pays, so two
   people can't book the same time.
 - **Deposit, two ways**:
-  - **Telegram Stars** (international): native invoice via `createInvoiceLink` + `WebApp.openInvoice`, pre-checkout
-    validation, refunds. This is the "move your bot to Stars" offer. Since November 2026 Telegram requires Stars for
-    digital goods; physical services like a salon may still take cards, so both options are built in.
-  - **Card via YooKassa** (Russia): hosted checkout, verified webhooks, automatic refunds. Stripe uses the same interface.
+  - **Telegram Stars**: native invoice via `createInvoiceLink` + `WebApp.openInvoice`, pre-checkout validation, refunds.
+    This is the "move your bot to Stars" offer. Since November 2026 Telegram requires Stars for digital goods; physical
+    services like a salon may still take cards, so both options are built in.
+  - **Card via Stripe**: hosted checkout, verified webhooks, automatic refunds (sandbox in the demo).
 - **Reminders**: confirmation right after payment, then **24 h and 2 h before** the visit. Each reminder is sent exactly once,
   even after a restart.
 - **Cancellation policy**: free cancellation with an automatic deposit refund until 24 h before the visit.
 - **Owner admin**: day schedule by master, KPIs (bookings this week, card and Stars deposits), bookings list with
   "done" / "cancel + refund", editable services (RU/EN names, duration, ₽ and ⭐ prices) and masters (services, weekly hours).
   The owner gets a Telegram message for every new booking.
-- **RU and EN** in the bot, the Mini App and the admin panel.
+- **English** in this edition; the Russian edition is the same code with `EDITION=ru`.
 - **Security**: Mini App `initData` HMAC check → short-lived session token; webhook secret header; idempotent webhooks
   (repeated Telegram updates and payment events are ignored); rate limits; the amount is re-checked at pre-checkout.
-- **Max (VK messenger) version**: the same bot and Mini App on Max via `max-core`. The bot talks to the messenger
-  through one interface, so all booking logic is reused. Max has no Stars, so payment there is by card (YooKassa), and
-  the Mini App opens from an `open_app` button. Switch **Telegram / Max** in the demo.
+- **Max (VK messenger)**: the Russian edition runs the same bot and Mini App on Max via `max-core` (card payment, the
+  Mini App opens from an `open_app` button). The bot talks to the messenger through one interface, so all booking logic is reused.
 
 ### Personal data (152-FZ)
-For Russian clients the bot is deployed on a Russian VPS, and backups go to Russian S3 storage. It is one Docker image
-plus SQLite, so it moves between servers in minutes. Privacy-policy and consent texts are drafted in the client's name.
-The public demo collects no personal data: no phone field, test names only, daily reset.
+The Russian edition runs on a Russian VPS with backups in Russian S3 storage. It is one Docker image plus SQLite, so it
+moves between servers in minutes. Privacy-policy and consent texts are drafted in the client's name. The international
+demo stores no personal data: no phone field, test names only, daily reset.
 
 ### Try the demo
 The page emulates the Telegram client: a bot chat on the left of the phone, the Mini App opens on top. The server signs
 launch data and turns your chat messages into real webhook updates, so it runs **the same code as the live bot**. Only
 the Telegram side and the payment provider are simulated: no real Stars or money move. Switch to **Salon owner** to get
-booking alerts and open the admin panel. Switch the language to RU to see the card (YooKassa) flow.
+booking alerts and open the admin panel. The Russian edition (link at the top of the page) shows the YooKassa and Max flows.
 
 ### Screenshots
 | | |
 |---|---|
 | ![chat](media/01-emulator-chat-en.png) | ![slots](media/02-miniapp-slots-en.png) |
 | ![stars](media/03-stars-payment-en.png) | ![booked](media/04-booked-en.png) |
-| ![card, RU](media/05-confirm-card-ru.png) | ![admin](media/06-admin-schedule-en.png) |
-| ![Max, RU](media/07-max-confirm-ru.png) | Video: [media/demo.mp4](media/demo.mp4) (~50 s) |
+| ![card](media/05-confirm-card-en.png) | ![admin](media/06-admin-schedule-en.png) |
+
+Video: [media/demo-en.mp4](media/demo-en.mp4) (~45 s).
 
 ### Stack
 Go 1.26 (net/http, one static binary) · SQLite (pure Go, WAL) · Svelte 5 + Vite (Mini App, admin and emulator, built into
-the binary) · Telegram Bot API, Mini Apps, Stars · YooKassa / Stripe · Docker (14 MB image, **~10 MB RAM**) · Caddy ·
+the binary) · Telegram Bot API, Mini Apps, Stars · Stripe (YooKassa in the RU edition) · Docker (14 MB image, **~10 MB RAM**) · Caddy ·
 GitHub Actions.
 
 Under the hood it is a thin layer over my reusable modules. Each has the same interface in Go and Python and is covered by contract tests:
@@ -77,8 +94,9 @@ Under the hood it is a thin layer over my reusable modules. Each has the same in
 ### Run locally
 ```bash
 cd web && npm ci && npm run build          # → server/static (embedded)
-cd ../server && go test ./... && DATA_DIR=../.localdata go run .   # http://localhost:8080, mock mode, no keys
-cd ../e2e && npm ci && BASE=http://localhost:8080 node flow.mjs    # browser e2e (Playwright); --media re-shoots media/
+cd ../server && go test ./... && EDITION=intl DATA_DIR=../.localdata go run .   # http://localhost:8080, mock mode, no keys
+cd ../e2e && npm ci && BASE=http://localhost:8080 EDITION=intl node flow.mjs    # browser e2e (Playwright); --media re-shoots media/
+# Russian edition: EDITION=ru (+ PD_ALLOWED=true on a RU host), e2e with EDITION=ru
 ```
 Config: [.env.example](.env.example). With `TELEGRAM_PROVIDER=telegram` and a BotFather token it runs as a live bot
 (webhook is set automatically to `PUBLIC_URL/tg/webhook`). The modules are private and come with client projects; this folder
@@ -97,40 +115,47 @@ holds the thin demo layer only.
 - **Мини-апп записи**: услуга → мастер (или «любой свободный») → лента дней со свободными слотами → подтверждение. Слоты
   считаются по графику мастера, длительности услуги и минимальному времени до записи. Пока клиент платит, время
   **закреплено на 15 минут**: двое на одно время не запишутся.
-- **Предоплата двумя способами**:
-  - **картой через ЮKassa** (РФ): страница оплаты провайдера, проверка вебхуков, автоматические возвраты. Тот же интерфейс у
-    Stripe, Т-Банка, Робокассы, CloudPayments и Prodamus;
-  - **Telegram Stars** (международный рынок): нативный счёт (`createInvoiceLink` + `openInvoice`), проверка в pre-checkout,
-    возвраты. С ноября 2026 Telegram требует Stars для цифровых товаров; для физических услуг вроде салона карты остаются
-    разрешены, поэтому есть оба варианта.
+- **Предоплата картой через ЮKassa**: страница оплаты провайдера, проверка вебхуков, автоматические возвраты. Тот же
+  интерфейс у Т-Банка, Робокассы, CloudPayments и Prodamus. В международной редакции вместо ЮKassa работают Telegram
+  Stars и Stripe.
 - **Напоминания**: подтверждение сразу после оплаты, затем **за сутки и за 2 часа** до визита. Каждое уходит ровно один раз,
   в том числе после перезапуска.
 - **Правила отмены**: бесплатно и с автоматическим возвратом предоплаты, если до визита больше 24 часов.
 - **Админка владельца**: расписание дня по мастерам, показатели (записи на неделю, предоплаты картой и в Stars), список
   записей с кнопками «пришёл» и «отменить + возврат», редактор услуг (названия RU/EN, длительность, цены в ₽ и ⭐) и мастеров
   (услуги, часы по дням недели). О каждой новой записи владельцу приходит сообщение в Telegram.
-- **Русский и английский** в боте, мини-аппе и админке.
+- **Русский язык** в боте, мини-аппе и админке. Английская версия: тот же код с `EDITION=intl`.
 - **Безопасность**: подпись `initData` проверяется по HMAC, после неё выдаётся короткий сессионный токен; секрет вебхука;
   идемпотентные вебхуки (повторы апдейтов Telegram и платёжных событий игнорируются); лимиты запросов; сумма заново
   проверяется в pre-checkout.
-- **Версия для Max (VK)**: тот же бот и мини-апп в Max через модуль `max-core`. Бот общается с мессенджером через один
-  интерфейс, поэтому вся логика записи переиспользуется. Stars в Max нет, оплата там картой (ЮKassa), мини-апп
-  открывается кнопкой `open_app`. В демо есть переключатель **Telegram / Max**.
+- **Max (VK)**: тот же бот и мини-апп в Max через модуль `max-core`, мини-апп открывается кнопкой `open_app`. Бот
+  общается с мессенджером через один интерфейс, поэтому вся логика записи переиспользуется. В демо есть переключатель
+  **Telegram / Max**.
+- **Вход через accounts** (в живом режиме): владелец входит в админку через Max, Яндекс ID или VK ID.
 
 ### Персональные данные (152-ФЗ)
-Для российских заказчиков бот разворачивается на российском VPS, бэкапы идут в российское S3-хранилище. Это один
-Docker-образ и SQLite, переезд между серверами занимает минуты. Политику обработки ПД и тексты согласий готовлю от имени
-заказчика. Публичное демо персональных данных не собирает: поля телефона нет, имена тестовые, данные сбрасываются раз в сутки.
+Российская редакция работает на российском VPS, бэкапы идут в российское S3-хранилище. Это один Docker-образ и SQLite,
+переезд между серверами занимает минуты. Политику обработки ПД и тексты согласий готовлю от имени заказчика. Данные
+демо тестовые и сбрасываются раз в сутки.
 
 ### Как попробовать демо
 Страница эмулирует Telegram: справа телефон с чатом бота, мини-апп открывается поверх. Сервер подписывает данные запуска и
 превращает ваши сообщения в настоящие вебхук-апдейты, то есть работает **тот же код, что у живого бота**. Симулируются только
 сторона Telegram и платёжный провайдер: настоящие Stars и деньги не списываются. Переключитесь на «Владелец салона», чтобы
-получать уведомления о записях и открыть админку. На русском языке доступна оплата картой (ЮKassa).
+получать уведомления о записях и открыть админку.
+
+### Скриншоты
+| | |
+|---|---|
+| ![чат](media/01-emulator-chat-ru.png) | ![слоты](media/02-miniapp-slots-ru.png) |
+| ![оплата картой](media/05-confirm-card-ru.png) | ![запись](media/04-booked-ru.png) |
+| ![Max](media/07-max-confirm-ru.png) | ![админка](media/06-admin-schedule-ru.png) |
+
+Видео: [media/demo-ru.mp4](media/demo-ru.mp4) (~50 с), GIF: [media/demo-ru.gif](media/demo-ru.gif).
 
 ### Стек
 Go 1.26 (net/http, один статический бинарник) · SQLite (pure Go, WAL) · Svelte 5 + Vite (мини-апп, админка и эмулятор
-вшиты в бинарник) · Telegram Bot API, Mini Apps, Stars · ЮKassa / Stripe · Docker (образ 14 МБ, **~10 МБ RAM**) · Caddy ·
+вшиты в бинарник) · Telegram Bot API, Mini Apps, Max · ЮKassa · Docker (образ 14 МБ, **~10 МБ RAM**) · Caddy ·
 GitHub Actions.
 
 Внутри тонкий слой над моими переиспользуемыми модулями (одинаковый интерфейс на Go и Python, контрактные тесты):

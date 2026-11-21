@@ -46,10 +46,10 @@ func (a *App) handlePay(w http.ResponseWriter, r *http.Request) {
 	hold := now + int64(a.cfg.HoldMinutes)*60 // give the payer a fresh hold window
 
 	switch in.Method {
-	case "yookassa":
-		amount := a.deposit(svc.PriceRub, 100)
+	case "card":
+		amount, cur := a.deposit(a.cardPrice(svc), 100), a.cardCurrency()
 		p, err := a.pay.CreatePayment(r.Context(), pay.CreatePaymentInput{
-			Amount:         pay.Money{Value: amount, Currency: "RUB"},
+			Amount:         pay.Money{Value: amount, Currency: cur},
 			Description:    truncate(desc, 128),
 			IdempotencyKey: fmt.Sprintf("booking-%d-%d", b.ID, b.CreatedAt),
 			ReturnURL:      fmt.Sprintf("%s/app/?booking=%d", a.cfg.PublicURL, b.ID),
@@ -60,11 +60,11 @@ func (a *App) handlePay(w http.ResponseWriter, r *http.Request) {
 			writeErr(w, 502, "provider_error", "payment provider error")
 			return
 		}
-		if err := a.store.SetPaymentStarted(b.ID, "yookassa", "RUB", amount, p.ID, hold); err != nil {
+		if err := a.store.SetPaymentStarted(b.ID, "card", cur, amount, p.ID, hold); err != nil {
 			a.fail(w, err)
 			return
 		}
-		writeJSON(w, 200, map[string]any{"method": "yookassa", "confirmation_url": p.ConfirmationURL, "amount": amount, "currency": "RUB"})
+		writeJSON(w, 200, map[string]any{"method": "card", "confirmation_url": p.ConfirmationURL, "amount": amount, "currency": cur})
 	case "stars":
 		amount := a.deposit(svc.PriceStars, 1)
 		link, err := a.msg.StarsInvoiceLink(r.Context(), StarsInvoice{
@@ -107,7 +107,7 @@ func (a *App) confirmPaid(ctx context.Context, bookingID int64, payID string) er
 	a.tell(ctx, b.UserID, "confirmed", T(b.Lang, "confirmed", svc.Name(b.Lang), m.Name(b.Lang), when, fmtMoney(b.PayCurrency, b.PayAmount)),
 		&WebAppButton{Text: T(b.Lang, "my_open"), URL: a.cfg.PublicURL + "/app/?screen=my"}, fmt.Sprintf("confirmed-%d", b.ID))
 	for _, owner := range a.ownerChats(b) {
-		lang := a.store.UserLang(owner)
+		lang := a.langFor(owner)
 		a.tell(ctx, owner, "owner_new", T(lang, "owner_new", b.ID, html.EscapeString(b.ClientName), svc.Name(lang), m.Name(lang), fmtWhen(lang, time.Unix(b.StartAt, 0).In(a.cfg.TZ)), fmtMoney(b.PayCurrency, b.PayAmount)),
 			nil, fmt.Sprintf("owner-%d-%d", owner, b.ID))
 	}
@@ -136,7 +136,7 @@ func (a *App) cancelBooking(ctx context.Context, b Booking, refund bool, by stri
 	if refund && b.PaidAt > 0 && !b.Refunded {
 		var rerr error
 		switch b.PayMethod {
-		case "yookassa":
+		case "card":
 			_, rerr = a.pay.Refund(ctx, pay.RefundInput{PaymentID: b.PayID, IdempotencyKey: fmt.Sprintf("refund-booking-%d", b.ID)})
 		case "stars":
 			if isEmulatorUser(b.UserID) {
@@ -258,7 +258,7 @@ func (a *App) processUpdateOn(ctx context.Context, m Messenger, headers map[stri
 	if u.UserID != 0 {
 		a.store.db.Exec(`INSERT OR IGNORE INTO users(id,lang,platform,created_at) VALUES(?,?,?,?)`, u.UserID, "en", m.Platform(), a.now().Unix())
 	}
-	lang := a.store.UserLang(u.UserID)
+	lang := a.langFor(u.UserID)
 	switch u.Kind {
 	case "command":
 		switch u.Command {
@@ -308,7 +308,7 @@ func (a *App) processUpdateOn(ctx context.Context, m Messenger, headers map[stri
 }
 
 func (a *App) checkStarsPayable(userID int64, p *tg.Payment) (bool, string) {
-	lang := a.store.UserLang(userID)
+	lang := a.langFor(userID)
 	if p == nil || p.Currency != "XTR" {
 		return false, "Unsupported currency"
 	}
