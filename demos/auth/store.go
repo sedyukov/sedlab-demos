@@ -311,3 +311,28 @@ func (s *Store) RecordKindConsent(ctx context.Context, userID, kind, version str
 	}
 	return j.RecordConsent(ctx, userID, kind, version, now)
 }
+
+// ---- consent proof after deletion (legal policy 4.1): anonymised remainder for 3 years -------------------------
+// The Store writes consent_proof rows (subject_ref = HMAC-SHA256(pepper, provider:provider_uid), kind, version,
+// given_at, withdrawn_at) in the same transaction as the deletion (module, s2). Checked at runtime like the journal.
+
+type proofDeleter interface {
+	DeleteUserWithProof(ctx context.Context, userID string, pepper []byte, now int64) error
+	PurgeConsentProof(ctx context.Context, withdrawnBefore int64) (int, error)
+}
+
+// DeleteAccount: with a pepper and module support → deletion + anonymised proof in one transaction;
+// otherwise plain deletion (until the module ships it).
+func (s *Store) DeleteAccount(ctx context.Context, userID string, pepper []byte, now int64) error {
+	if d, ok := any(s.st).(proofDeleter); ok && len(pepper) > 0 {
+		return d.DeleteUserWithProof(ctx, userID, pepper, now)
+	}
+	return s.st.DeleteUser(ctx, userID)
+}
+
+func (s *Store) PurgeConsentProof(ctx context.Context, before int64) (int, error) {
+	if d, ok := any(s.st).(proofDeleter); ok {
+		return d.PurgeConsentProof(ctx, before)
+	}
+	return 0, nil
+}

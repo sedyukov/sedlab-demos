@@ -17,6 +17,7 @@
 </div>
 <details class="danger"><summary>{{t .Lang "Удалить аккаунт" "Delete account"}}</summary>
 <p>{{t .Lang "Удалить аккаунт и все данные о нём? Это действие нельзя отменить. Резервные копии очистятся автоматически в течение 6 месяцев." "Delete your account and all its data? This can't be undone. Backups are purged automatically within 6 months."}}</p>
+<p class="muted small">{{t .Lang "Сохраним только обезличенную отметку о данных согласиях на 3 года на случай споров." "We keep only an anonymised record of the consents you gave, for 3 years, in case of disputes."}}</p>
 <form method="post" action="/account/delete"><input type="hidden" name="confirm" value="1"><button class="btn danger" type="submit">{{t .Lang "Удалить аккаунт" "Delete account"}}</button></form>
 </details>
 {{else}}

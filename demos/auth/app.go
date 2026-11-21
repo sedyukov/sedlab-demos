@@ -36,6 +36,7 @@ const (
 	nonceTTL      = 5 * 60
 	pendingTTL    = 15 * 60
 	inactiveTTL   = 365 * 24 * 3600
+	proofTTL      = 3 * 365 * 24 * 3600 // consent proof kept 3 years after withdrawal (policy 4.1)
 )
 
 type App struct {
@@ -425,6 +426,9 @@ func (a *App) Background(ctx context.Context) {
 		a.notifyLeads(ctx)
 		if time.Since(last) > 6*time.Hour {
 			a.store.PurgeNonces(ctx, a.now())
+			if n, err := a.store.PurgeConsentProof(ctx, a.now()-proofTTL); err == nil && n > 0 {
+				slog.Info("purged consent proof older than 3 years", "count", n)
+			}
 			if n, err := a.store.PurgeInactive(ctx, a.now()-inactiveTTL); err == nil && n > 0 {
 				slog.Info("purged inactive accounts", "count", n)
 			}

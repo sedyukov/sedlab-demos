@@ -302,7 +302,7 @@ func (a *App) accountDelete(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	lead, _ := a.store.LeadByUser(r.Context(), u.ID)
-	if err := a.store.DeleteUser(r.Context(), u.ID); err != nil {
+	if err := a.store.DeleteAccount(r.Context(), u.ID, a.cfg.ConsentPepper, a.now()); err != nil {
 		http.Error(w, "failed", 500)
 		return
 	}

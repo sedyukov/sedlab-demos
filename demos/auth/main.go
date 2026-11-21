@@ -5,6 +5,7 @@ package main
 import (
 	"context"
 	"database/sql"
+	"encoding/hex"
 	"fmt"
 	"log/slog"
 	"net/http"
@@ -19,25 +20,26 @@ import (
 )
 
 type Config struct {
-	Port         string
-	DataDir      string
-	PublicURL    string // https://auth.demo.sedlab.dev
-	Issuer       string
-	CookieDomain string // .demo.sedlab.dev
-	ReturnSuffix string // allowed return hosts: *.demo.sedlab.dev
-	SigningKey   string
-	ServiceKeys  map[string]string // service key → demo
-	InternalIPs  map[string]bool   // AUTH_INTERNAL_ALLOW_IPS: callers allowed on /internal (empty = any)
-	MaxBotUser   string
-	MaxBotLink   string          // deep-link base, default https://max.ru/<bot>
-	OwnerMaxUser string          // owner's Max user_id: lead notifications
-	Admins       map[string]bool // "max:<uid>" identities allowed into /admin
-	PrivacyURL   string          // link target for "Политика" (sedlab.dev/privacy once the storefront is live)
-	LimitsFile   string
-	Dev          bool   // http cookies, local emulator login
-	ConsentVer   string // demo-v1  (legal/consents.md §1)
-	TermsVer     string // terms-v1 (legal/terms-demo.*.md)
-	ContactVer   string // contact-v1 (legal/consents.md §3)
+	Port          string
+	DataDir       string
+	PublicURL     string // https://auth.demo.sedlab.dev
+	Issuer        string
+	CookieDomain  string // .demo.sedlab.dev
+	ReturnSuffix  string // allowed return hosts: *.demo.sedlab.dev
+	SigningKey    string
+	ServiceKeys   map[string]string // service key → demo
+	InternalIPs   map[string]bool   // AUTH_INTERNAL_ALLOW_IPS: callers allowed on /internal (empty = any)
+	MaxBotUser    string
+	MaxBotLink    string          // deep-link base, default https://max.ru/<bot>
+	OwnerMaxUser  string          // owner's Max user_id: lead notifications
+	Admins        map[string]bool // "max:<uid>" identities allowed into /admin
+	ConsentPepper []byte          // AUTH_CONSENT_PEPPER (64 hex): HMAC key for anonymised consent proof
+	PrivacyURL    string          // link target for "Политика" (sedlab.dev/privacy once the storefront is live)
+	LimitsFile    string
+	Dev           bool   // http cookies, local emulator login
+	ConsentVer    string // demo-v1  (legal/consents.md §1)
+	TermsVer      string // terms-v1 (legal/terms-demo.*.md)
+	ContactVer    string // contact-v1 (legal/consents.md §3)
 }
 
 func env(k, def string) string {
@@ -75,6 +77,13 @@ func LoadConfig() (*Config, error) {
 		if strings.HasPrefix(k, "AUTH_SVC_") && len(v) >= 24 {
 			c.ServiceKeys[v] = strings.ToLower(strings.TrimPrefix(k, "AUTH_SVC_"))
 		}
+	}
+	if p := os.Getenv("AUTH_CONSENT_PEPPER"); p != "" {
+		b, err := hex.DecodeString(strings.TrimSpace(p))
+		if err != nil || len(b) < 16 {
+			return nil, fmt.Errorf("AUTH_CONSENT_PEPPER must be hex (>=32 chars)")
+		}
+		c.ConsentPepper = b
 	}
 	for _, ip := range strings.Split(env("AUTH_INTERNAL_ALLOW_IPS", ""), ",") {
 		if ip = strings.TrimSpace(ip); ip != "" {
