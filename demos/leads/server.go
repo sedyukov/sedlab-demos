@@ -327,11 +327,11 @@ func (s *Server) submit(w http.ResponseWriter, r *http.Request) {
 	}
 	if (s.Guard.Submit != nil && !s.Guard.Submit.Allow(ip)) || (s.Guard.Global != nil && !s.Guard.Global.Allow()) {
 		w.Header().Set("Retry-After", "12")
-		reject(http.StatusTooManyRequests, "rate_limited", "rate_limit", "Rate limit: too many submissions from this IP — try again in a few seconds (HTTP 429)")
+		reject(http.StatusTooManyRequests, "rate_limited", "rate_limit", "Rate limit: too many submissions from this IP, try again in a few seconds (HTTP 429)")
 		return
 	}
 	if len(sess.Leads("")) >= s.Guard.MaxLeads {
-		reject(http.StatusTooManyRequests, "rate_limited", "session_cap", fmt.Sprintf("Demo limit: %d leads per session — press Reset", s.Guard.MaxLeads))
+		reject(http.StatusTooManyRequests, "rate_limited", "session_cap", fmt.Sprintf("Demo limit: %d leads per session. Press Reset", s.Guard.MaxLeads))
 		return
 	}
 	in := LeadInput{SubmissionID: clean(b.SubmissionID, 64), Profile: prof, Name: clean(b.Name, 80), Email: clean(b.Email, 120),
@@ -446,7 +446,7 @@ func (s *Server) sessionAction(w http.ResponseWriter, r *http.Request) {
 		sess.update(func() { sess.Chaos = b.On })
 		msg := "Failure simulation OFF"
 		if b.On {
-			msg = "Failure simulation ON: CRM 503, Sheets 429, Telegram 502/timeout on first attempts — watch the retries"
+			msg = "Failure simulation ON: CRM 503, Sheets 429, Telegram 502/timeout on first attempts. Watch the retries"
 		}
 		s.App.Hub.Publish(sess.ID, Event{Step: "settings", Service: "system", Status: "info", Message: msg})
 	case "reset":

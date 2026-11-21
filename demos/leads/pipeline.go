@@ -120,7 +120,7 @@ func (a *App) step(ctx context.Context, s *Session, lead *Lead, name, service st
 		d := p.delay(attempt, info)
 		setState(2)
 		a.emit(s, lead, Event{Step: name, Service: service, Status: "retry", Attempt: attempt, Duration: dur, Provider: label,
-			Message: fmt.Sprintf("%s: %s — retry in %d ms", info.Code, info.Message, d.Milliseconds()),
+			Message: fmt.Sprintf("%s: %s, retry in %d ms", info.Code, info.Message, d.Milliseconds()),
 			Data:    map[string]any{"error": info, "retry_in_ms": d.Milliseconds()}})
 		if serr := p.Sleep(ctx, d); serr != nil {
 			return err
@@ -167,7 +167,7 @@ func (a *App) Submit(s *Session, in LeadInput) (*Lead, bool) {
 	}
 	if dup {
 		a.emit(s, lead, Event{Step: "form.submit", Service: "form", Status: "duplicate",
-			Message: "Same submission_id received again — ignored, nothing is created twice",
+			Message: "Same submission_id received again: ignored, nothing is created twice",
 			Data:    map[string]any{"submission_id": in.SubmissionID}})
 		return lead, true
 	}
@@ -186,7 +186,7 @@ func (a *App) process(s *Session, lead *Lead) {
 	prof := a.Profiles[lead.Profile]
 	fail := func() {
 		s.update(func() { lead.Status = "failed" })
-		a.emit(s, lead, Event{Step: "pipeline", Service: "system", Status: "error", Message: "Pipeline stopped — the failed step can be retried safely (idempotency keys)"})
+		a.emit(s, lead, Event{Step: "pipeline", Service: "system", Status: "error", Message: "Pipeline stopped. The failed step can be retried safely (idempotency keys)"})
 	}
 
 	// 1. CRM: contact (dedup by email → phone)
@@ -212,7 +212,7 @@ func (a *App) process(s *Session, lead *Lead) {
 	// 2. CRM: deal (idempotency key = form submission id)
 	var deal *crm.Deal
 	if err := a.step(ctx, s, lead, "crm.create_deal", "crm", func(ctx context.Context) (string, map[string]any, error) {
-		d, err := st.CRM.CreateDeal(ctx, crm.CreateDealInput{Title: fmt.Sprintf("%s — %s (%s)", lead.ID, lead.Name, lead.Plan),
+		d, err := st.CRM.CreateDeal(ctx, crm.CreateDealInput{Title: fmt.Sprintf("%s: %s (%s)", lead.ID, lead.Name, lead.Plan),
 			ContactID: contact.ID, Amount: &crm.Money{Value: lead.Amount.Value, Currency: lead.Amount.Currency},
 			Source: "website-form", IdempotencyKey: "deal-" + lead.SubmissionID})
 		if err != nil {
@@ -234,7 +234,7 @@ func (a *App) process(s *Session, lead *Lead) {
 		}
 		r, err := st.Sheets.AppendRows(ctx, sheets.AppendRowsInput{SheetID: st.SheetID, Tab: st.SheetTab, IdempotencyKey: "row-" + lead.SubmissionID,
 			Rows: [][]any{{lead.ID, a.now().UTC().Format("2006-01-02 15:04"), lead.Name, lead.Email, lead.Phone, lead.Company,
-				lead.Plan, formatMoney(lead.Amount), deal.ID, "New", "—"}}})
+				lead.Plan, formatMoney(lead.Amount), deal.ID, "New", "-"}}})
 		if err != nil {
 			return "", nil, err
 		}
@@ -248,10 +248,10 @@ func (a *App) process(s *Session, lead *Lead) {
 	for _, ch := range prof.NotifyChans {
 		ch := ch
 		if err := a.step(ctx, s, lead, "notify."+ch, "notify", func(ctx context.Context) (string, map[string]any, error) {
-			text := fmt.Sprintf("🆕 New lead %s\n%s · contact: %s (in CRM)\nPlan: %s — %s\nDeal: %s", lead.ID, lead.Name, lead.Alias,
+			text := fmt.Sprintf("🆕 New lead %s\n%s · contact: %s (in CRM)\nPlan: %s, %s\nDeal: %s", lead.ID, lead.Name, lead.Alias,
 				lead.Plan, formatMoney(lead.Amount), deal.ID)
 			if lead.Profile == "ru" {
-				text = fmt.Sprintf("🆕 Новая заявка %s\n%s · контакт: %s (в CRM)\nТариф: %s — %s\nСделка: %s", lead.ID, lead.Name, lead.Alias,
+				text = fmt.Sprintf("🆕 Новая заявка %s\n%s · контакт: %s (в CRM)\nТариф: %s, %s\nСделка: %s", lead.ID, lead.Name, lead.Alias,
 					lead.Plan, formatMoney(lead.Amount), deal.ID)
 			}
 			r, err := st.Notify.Send(ctx, notify.SendInput{Channel: ch, To: prof.recipients[ch], Text: text, Subject: "New lead " + lead.ID, IdempotencyKey: "new-" + lead.SubmissionID, Metadata: notifyMeta(ctx, lead)})
@@ -285,7 +285,7 @@ func (a *App) process(s *Session, lead *Lead) {
 		lead.PaymentID, lead.PaymentStatus, lead.ConfirmationURL, lead.Status = pay.ID, pay.Status, pay.ConfirmationURL, "awaiting_payment"
 	})
 	a.emit(s, lead, Event{Step: "pipeline", Service: "system", Status: "ok",
-		Message: fmt.Sprintf("Lead processed in %d ms — waiting for payment", a.now().Sub(t0).Milliseconds())})
+		Message: fmt.Sprintf("Lead processed in %d ms, waiting for payment", a.now().Sub(t0).Milliseconds())})
 }
 
 func customer(l *Lead) *payments.Customer {
@@ -390,7 +390,7 @@ func (a *App) ReplayWebhook(ctx context.Context, s *Session, lead *Lead) error {
 	var w *storedWebhook
 	s.update(func() { w = lead.lastWebhook })
 	if w == nil {
-		return fmt.Errorf("no webhook yet — pay first")
+		return fmt.Errorf("no webhook yet, pay first")
 	}
 	a.emit(s, lead, Event{Step: "webhook.replay", Service: "webhook", Status: "info", Message: "Provider re-delivers the same webhook (network retry)"})
 	_, err := a.post(ctx, a.SelfURL+"/webhooks/payments/"+lead.Profile, w.Headers, []byte(w.Body))
@@ -543,9 +543,9 @@ func (a *App) onPayment(s *Session, lead *Lead, ev *payments.WebhookEvent) {
 	prof := a.Profiles[lead.Profile]
 	ch := prof.NotifyChans[0]
 	_ = a.step(ctx, s, lead, "notify."+ch, "notify", func(ctx context.Context) (string, map[string]any, error) {
-		text := fmt.Sprintf("💰 %s paid: %s — %s. Deal %s → %s", lead.ID, lead.Name, formatMoney(lead.Amount), lead.DealID, stage)
+		text := fmt.Sprintf("💰 %s paid: %s, %s. Deal %s → %s", lead.ID, lead.Name, formatMoney(lead.Amount), lead.DealID, stage)
 		if lead.Profile == "ru" {
-			text = fmt.Sprintf("💰 %s оплачена: %s — %s. Сделка %s → %s", lead.ID, lead.Name, formatMoney(lead.Amount), lead.DealID, stage)
+			text = fmt.Sprintf("💰 %s оплачена: %s, %s. Сделка %s → %s", lead.ID, lead.Name, formatMoney(lead.Amount), lead.DealID, stage)
 		}
 		if status != "paid" {
 			text = fmt.Sprintf("❌ %s: payment %s. Deal %s → lost", lead.ID, payStatus, lead.DealID)
@@ -576,7 +576,7 @@ func (a *App) HandleCRMWebhook(ctx context.Context, profile, sid string, headers
 	st2 := "ok"
 	msg := fmt.Sprintf("CRM webhook %s: %s %s (signature ✓)", ev.ID, ev.Type, ev.EntityID)
 	if ev.Duplicate {
-		st2, msg = "duplicate", fmt.Sprintf("CRM webhook %s already seen — skipped", ev.ID)
+		st2, msg = "duplicate", fmt.Sprintf("CRM webhook %s already seen, skipped", ev.ID)
 	}
 	var lead *Lead
 	s.update(func() {

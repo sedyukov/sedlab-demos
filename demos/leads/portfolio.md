@@ -1,9 +1,9 @@
 # Тексты для портфолио на биржах (без ссылок и контактов)
 
-## RU — заголовок
+## RU: заголовок
 Заявка с сайта → amoCRM → Google Таблица → Telegram + оплата ЮKassa с автообновлением сделки
 
-## RU — описание
+## RU: описание
 Демо-проект интеграции «под ключ». Форма на сайте (встраиваемый JS-виджет) создаёт контакт и сделку в amoCRM,
 добавляет строку в Google Таблицу и присылает уведомление в Telegram отделу продаж. Клиент получает ссылку на оплату ЮKassa.
 После оплаты вебхук переводит сделку в «Успешно», добавляет в неё примечание и обновляет строку в таблице.
@@ -17,13 +17,13 @@
 • второй вариант связки для зарубежных клиентов: HubSpot + Stripe + email.
 
 Стек: Go, Server-Sent Events, Docker, Caddy. Модули CRM, платежей, таблиц и уведомлений переиспользуются,
-поэтому вместо amoCRM можно подключить Битрикс24, а вместо ЮKassa — Т-Банк, Робокассу или CloudPayments.
-Срок типового проекта — 2–5 дней.
+поэтому вместо amoCRM можно подключить Битрикс24, а вместо ЮKassa подключить Т-Банк, Робокассу или CloudPayments.
+Срок типового проекта: 2–5 дней.
 
-## EN — title
+## EN: title
 Website lead form → HubSpot → Google Sheets → Telegram, plus Stripe payments that update the deal
 
-## EN — description
+## EN: description
 A demo of a turnkey integration. A website form (embeddable JS widget) creates a contact and a deal in HubSpot, appends a row to
 Google Sheets and notifies the sales team in Telegram and by email. The customer gets a Stripe payment link. When they pay, the
 webhook moves the deal to Won, adds a note and updates the sheet row.

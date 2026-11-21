@@ -21,20 +21,20 @@
     ru: {
       title: 'Оставьте заявку', sub: 'Ответим в течение часа', name: 'Имя', email: 'Email', phone: 'Телефон',
       company: 'Компания', message: 'Задача', plan: 'Тариф', send: 'Отправить заявку', sending: 'Отправляем…',
-      ok: 'Заявка {id} принята — смотрите, как она проходит по системам.', again: 'Ещё одна заявка',
-      need: 'Укажите имя и email или телефон', err: 'Не получилось отправить', rate: 'Слишком часто — подождите несколько секунд',
+      ok: 'Заявка {id} принята. Смотрите, как она проходит по системам.', again: 'Ещё одна заявка',
+      need: 'Укажите имя и email или телефон', err: 'Не получилось отправить', rate: 'Слишком часто, подождите несколько секунд',
       consent: 'Согласен на обработку данных (демо: данные удаляются раз в сутки)',
       plans: { start: 'Старт', business: 'Бизнес', pro: 'Про' }, demo: 'Заполнить тестовыми данными', testContact: 'тестовый', anyName: 'Любое вымышленное имя',
-      sandbox: 'Демо: email и телефон не запрашиваются — подставляется тестовый контакт. Не вводите реальные данные.'
+      sandbox: 'Демо: email и телефон не запрашиваются, подставляется тестовый контакт. Не вводите реальные данные.'
     },
     en: {
       title: 'Request a quote', sub: 'We reply within an hour', name: 'Name', email: 'Email', phone: 'Phone',
       company: 'Company', message: 'What do you need?', plan: 'Plan', send: 'Send request', sending: 'Sending…',
-      ok: 'Request {id} received — watch it flow through the systems.', again: 'Send another',
-      need: 'Enter a name and an email or phone', err: 'Could not send', rate: 'Too many requests — wait a few seconds',
+      ok: 'Request {id} received. Watch it flow through the systems.', again: 'Send another',
+      need: 'Enter a name and an email or phone', err: 'Could not send', rate: 'Too many requests, wait a few seconds',
       consent: 'I agree to data processing (demo: data is wiped daily)',
       plans: { start: 'Starter', business: 'Business', pro: 'Pro' }, demo: 'Fill with test data', testContact: 'test', anyName: 'Any made-up name',
-      sandbox: 'Demo: no email or phone is collected — a test contact is used. Please do not enter real data.'
+      sandbox: 'Demo: no email or phone is collected, a test contact is used. Please do not enter real data.'
     }
   };
   var DEMO = {
@@ -110,7 +110,7 @@
     var t = this.t.bind(this), self = this, pc = this.profileCfg(), lang = this.o.lang;
     var keep = this.form && this.form.elements.name ? this.values() : null;
     var plans = (pc ? pc.plans : [{ key: 'start' }, { key: 'business' }, { key: 'pro' }]).map(function (p) {
-      var price = pc ? ' — ' + money(p.amount, pc.currency, lang) : '';
+      var price = pc ? ', ' + money(p.amount, pc.currency, lang) : '';
       return '<option value="' + p.key + '"' + (p.key === 'business' ? ' selected' : '') + '>' + t('plans')[p.key] + price + '</option>';
     }).join('');
     var sandbox = !!(this.cfg && this.cfg.sandbox_contacts);
