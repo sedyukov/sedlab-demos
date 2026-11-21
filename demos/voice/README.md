@@ -19,7 +19,8 @@ and get the summary, tasks and a voice reply back).
 - **Summary**: 1–3 sentences, in the language of the recording.
 - **Action items as JSON** (`title`, `owner`, `due`), ready to send to a CRM, Notion, Jira, Trello or a Google Sheet. The model is told not to invent owners or dates.
 - **Voice reply (TTS)**: a short spoken recap. In Telegram it arrives as a voice message.
-- **Choice of LLM**: OpenAI, Anthropic (Claude), GigaChat, YandexGPT, or any OpenAI-compatible endpoint such as a local model (Ollama, vLLM). You switch it in config without code changes. RU clients can keep their data with Russian providers.
+- **Choice of LLM**: OpenAI, Anthropic (Claude), GigaChat, YandexGPT, or any OpenAI-compatible endpoint such as a local model (Ollama, vLLM). You switch it in config without code changes.
+- **Data residency**: for Russian clients the whole pipeline can run on a Russian stack (GigaChat / YandexGPT for the LLM, Yandex SpeechKit for speech, hosting and storage in Russia) to comply with Federal Law 152-FZ on personal data. For international clients it runs on OpenAI / Anthropic using the client's own keys, or on a self-hosted model.
 - **Cost control**: rate limit per visitor or Telegram user, a daily budget for all users, a maximum audio length and file size. Requests over the limits are rejected before any paid API call is made.
 - **Works without keys**: the public demo runs on three pre-computed samples (an EN stand-up, an RU video call, an RU Telegram voice note) and on mocks. The live mode starts as soon as the API keys are added.
 
@@ -74,7 +75,8 @@ The `ai` and `telegram-core` modules are private and come with client projects. 
 - **Саммари** в 1–3 предложения на языке записи.
 - **Задачи в JSON** (`title`, `owner`, `due`): их можно сразу отправить в amoCRM, Битрикс24, Notion, Jira или Google Таблицу. Модели запрещено придумывать ответственных и сроки.
 - **Ответ голосом (TTS)**: короткое резюме. В Telegram приходит голосовым сообщением.
-- **Выбор LLM**: OpenAI, Anthropic (Claude), GigaChat, YandexGPT или любая OpenAI-совместимая модель, в том числе локальная (Ollama, vLLM). Переключается конфигом, без правок кода. Данные можно оставить у российских провайдеров.
+- **Выбор LLM**: OpenAI, Anthropic (Claude), GigaChat, YandexGPT или любая OpenAI-совместимая модель, в том числе локальная (Ollama, vLLM). Переключается конфигом, без правок кода.
+- **Персональные данные и 152-ФЗ**: для российских заказчиков весь конвейер можно собрать на российском стеке: GigaChat или YandexGPT для LLM, Yandex SpeechKit для распознавания и озвучки, хостинг и хранилище в РФ. Записи граждан РФ при этом не уходят за границу. Для зарубежных заказчиков — OpenAI или Anthropic на ключах заказчика либо своя модель.
 - **Контроль расходов**: лимит запусков на посетителя или пользователя Telegram, дневной бюджет на всех, максимальная длина и размер аудио. Запрос сверх лимита отклоняется до платного вызова API.
 - **Работает без ключей**: в публичном демо три заранее посчитанных примера (стендап на EN, видеосозвон на RU, голосовое из Telegram на RU) и моки. Живой режим включается добавлением ключей.
 

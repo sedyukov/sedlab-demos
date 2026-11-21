@@ -17,6 +17,7 @@ No links or contacts here, as marketplace rules require. Attach the screenshots 
 LLM переключается конфигом: OpenAI, Claude, GigaChat, YandexGPT или локальная модель. Расходы под контролем: лимит на
 пользователя, дневной бюджет, ограничение длины аудио. Без ключей работает в демо-режиме, поэтому заказчик может посмотреть
 результат ещё до оплаты API.
+Для работы по 152-ФЗ конвейер собирается целиком на российском стеке: GigaChat или YandexGPT, Yandex SpeechKit, хостинг в РФ.
 
 Стек: Python, FastAPI, Telegram Bot API, OpenAI Whisper и TTS, Anthropic, GigaChat, YandexGPT, Docker.
 Срок похожего проекта — 5–10 дней.
