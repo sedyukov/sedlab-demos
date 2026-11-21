@@ -1,0 +1,75 @@
+# demos/voice: tests + image build to GHCR (PRIVATE package — it contains private module code).
+# Deploy is done from the owner's machine (infra/deploy.sh). Rules: SECURITY.md.
+name: build-voice
+on:
+  push:
+    branches: [main]
+    paths: ["demos/voice/**", ".github/workflows/build-voice.yml"]   # module changes → workflow_dispatch
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: build-voice-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - name: checkout private sedlab-modules (read-only deploy key)
+        uses: actions/checkout@v4
+        with:
+          repository: sedyukov/sedlab-modules
+          ssh-key: ${{ secrets.MODULES_DEPLOY_KEY }}
+          persist-credentials: false
+          path: modules-src
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'          # no pip cache: it would contain private code
+      - name: test
+        run: |
+          pip install -q ./modules-src/modules/ai/python ./modules-src/modules/telegram-core/python -e './demos/voice[test]'
+          cd demos/voice && pytest -q --tb=no
+  build:
+    needs: test
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - name: checkout private sedlab-modules (read-only deploy key)
+        uses: actions/checkout@v4
+        with:
+          repository: sedyukov/sedlab-modules
+          ssh-key: ${{ secrets.MODULES_DEPLOY_KEY }}
+          persist-credentials: false
+          path: modules-src
+      - uses: docker/setup-buildx-action@v3
+      - uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ghcr.io/${{ github.repository_owner }}/voice
+          tags: |
+            type=sha,format=short
+            type=raw,value=latest,enable={{is_default_branch}}
+      - uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: demos/voice/Dockerfile
+          platforms: linux/amd64
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          provenance: false
+          # no cache-to: type=gha — the layer cache would leak private module code (public repo)
+# After the build: ~/freelance/infra/deploy.sh voice --tag sha-<7 chars>

@@ -1,0 +1,80 @@
+{
+  "id": "standup-en",
+  "order": 0,
+  "lang": "en",
+  "kind": "meeting",
+  "title": {
+    "en": "Team stand-up (EN, 3 voices)",
+    "ru": "Стендап команды (EN, 3 голоса)"
+  },
+  "file": "input.mp3",
+  "duration_sec": 45.6,
+  "transcript": {
+    "text": "Good morning everyone, this is Emma. Quick sync on the mobile app release. Liam, where are we with the payment screen? Morning. The payment screen is done, but the Stripe webhook still fails on refunds. I will fix the refund webhook by November twenty-fifth. Great. Olivia, how is the onboarding copy? The English copy is ready. I still need the Spanish translation. I'll send it to the agency today and get it back by November twenty-seventh. Perfect. I'll update the release notes and book the App Store review for December first. Any blockers? One thing: we need test cards for the staging account. Emma, can you request them from finance? Sure, I'll do it this afternoon. Thanks everyone, that's it for today.",
+    "language": "en",
+    "segments": [
+      {
+        "start": 0.0,
+        "end": 6.73,
+        "text": "Good morning everyone, this is Emma. Quick sync on the mobile app release. Liam, where are we with the payment screen?"
+      },
+      {
+        "start": 7.18,
+        "end": 15.65,
+        "text": "Morning. The payment screen is done, but the Stripe webhook still fails on refunds. I will fix the refund webhook by November twenty-fifth."
+      },
+      {
+        "start": 16.1,
+        "end": 19.09,
+        "text": "Great. Olivia, how is the onboarding copy?"
+      },
+      {
+        "start": 19.54,
+        "end": 27.9,
+        "text": "The English copy is ready. I still need the Spanish translation. I'll send it to the agency today and get it back by November twenty-seventh."
+      },
+      {
+        "start": 28.35,
+        "end": 34.12,
+        "text": "Perfect. I'll update the release notes and book the App Store review for December first. Any blockers?"
+      },
+      {
+        "start": 34.57,
+        "end": 40.59,
+        "text": "One thing: we need test cards for the staging account. Emma, can you request them from finance?"
+      },
+      {
+        "start": 41.04,
+        "end": 45.53,
+        "text": "Sure, I'll do it this afternoon. Thanks everyone, that's it for today."
+      }
+    ]
+  },
+  "summary": "Mobile app release sync: the payment screen is done, but the Stripe refund webhook still fails. The onboarding copy is ready in English, the Spanish translation is pending. Release notes and the App Store review are planned for December 1; staging test cards must be requested from finance.",
+  "tasks": [
+    {
+      "title": "Fix the Stripe refund webhook",
+      "owner": "Liam",
+      "due": "2026-11-25"
+    },
+    {
+      "title": "Get the Spanish onboarding copy back from the agency",
+      "owner": "Olivia",
+      "due": "2026-11-27"
+    },
+    {
+      "title": "Update the release notes and book the App Store review",
+      "owner": "Emma",
+      "due": "2026-12-01"
+    },
+    {
+      "title": "Request staging test cards from finance",
+      "owner": "Emma",
+      "due": null
+    }
+  ],
+  "reply": {
+    "text": "Here's the recap. The payment screen is done; refunds still need a fix. Four action items: Liam fixes the refund webhook by November 25, Olivia brings back the Spanish copy by November 27, Emma updates the release notes and books the App Store review for December 1, and Emma also requests staging test cards from finance.",
+    "audio": "reply.mp3"
+  }
+}

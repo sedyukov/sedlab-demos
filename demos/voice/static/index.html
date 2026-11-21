@@ -1,0 +1,146 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Voice AI Assistant</title>
+<meta name="description" content="Demo: transcribe voice messages and calls, get a summary, action items (who / what / when) and a spoken reply. Switch LLM: OpenAI, Anthropic, GigaChat, YandexGPT.">
+<meta property="og:title" content="Voice AI Assistant — demo">
+<meta property="og:description" content="Voice messages and calls → transcript → summary → action items → voice reply.">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' rx='8' fill='%234f46e5'/><path d='M8 13v6M12 10v12M16 7v18M20 11v10M24 14v4' stroke='white' stroke-width='2.4' stroke-linecap='round'/></svg>">
+<link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+<header class="top">
+  <div class="wrap top-in">
+    <a class="brand" href="/"><span class="logo" aria-hidden="true"></span><span data-i18n="brand">Voice AI Assistant</span></a>
+    <div class="top-right">
+      <span id="modeBadge" class="badge" title=""></span>
+      <div class="seg small" role="group" aria-label="Language">
+        <button type="button" data-lang="en">EN</button>
+        <button type="button" data-lang="ru">RU</button>
+      </div>
+    </div>
+  </div>
+</header>
+
+<main class="wrap">
+  <section class="hero">
+    <h1 data-i18n="h1">Voice messages and calls → summary, tasks and a voice reply</h1>
+    <p class="lead" data-i18n="lead">Upload a recording or speak into the mic. The assistant transcribes it, writes a short summary, pulls out action items (who / what / when) and answers with a voice.</p>
+    <ol class="steps" id="steps">
+      <li data-step="audio"><span class="dot">1</span><span data-i18n="s_audio">Audio / video</span></li>
+      <li data-step="transcript"><span class="dot">2</span><span data-i18n="s_transcript">Transcript</span></li>
+      <li data-step="summary"><span class="dot">3</span><span data-i18n="s_summary">Summary</span></li>
+      <li data-step="tasks"><span class="dot">4</span><span data-i18n="s_tasks">Tasks</span></li>
+      <li data-step="reply"><span class="dot">5</span><span data-i18n="s_reply">Voice reply</span></li>
+    </ol>
+  </section>
+
+  <section class="card input">
+    <div class="row between wrap-gap">
+      <div class="tabs" role="tablist">
+        <button type="button" role="tab" data-tab="samples" class="on" data-i18n="t_samples">Samples</button>
+        <button type="button" role="tab" data-tab="upload" data-i18n="t_upload">Upload file</button>
+        <button type="button" role="tab" data-tab="record" data-i18n="t_record">Record</button>
+      </div>
+      <div class="llm">
+        <span class="muted" data-i18n="llm">LLM</span>
+        <div class="seg" id="llmSeg" role="radiogroup" aria-label="LLM"></div>
+      </div>
+    </div>
+
+    <div class="pane" data-pane="samples">
+      <div class="samples" id="samples"></div>
+    </div>
+
+    <div class="pane" data-pane="upload" hidden>
+      <label class="drop" id="drop">
+        <input type="file" id="fileIn" accept="audio/*,video/*,.ogg,.oga,.opus,.m4a,.mp3,.wav,.webm,.mp4,.mov">
+        <span class="drop-ico" aria-hidden="true">⇪</span>
+        <strong data-i18n="drop">Drop an audio or video file here, or click to choose</strong>
+        <span class="muted" id="dropHint"></span>
+      </label>
+    </div>
+
+    <div class="pane" data-pane="record" hidden>
+      <div class="rec">
+        <button type="button" class="mic" id="micBtn" aria-pressed="false"><span class="mic-ico" aria-hidden="true"></span><span id="micLabel" data-i18n="rec_start">Start recording</span></button>
+        <div class="rec-info">
+          <div class="timer" id="recTimer">0:00</div>
+          <canvas id="meter" width="320" height="48" aria-hidden="true"></canvas>
+          <div class="muted small-t" id="recHint" data-i18n="rec_hint">Say a few sentences, e.g. “Anna will send the report by Friday, I’ll call the client tomorrow”.</div>
+        </div>
+      </div>
+      <p class="live-cap" id="liveCap" hidden></p>
+    </div>
+
+    <p class="limits muted" id="limits"></p>
+  </section>
+
+  <section id="results" class="results" hidden>
+    <div class="notice" id="notice" hidden></div>
+    <div class="grid">
+      <article class="card" id="cardTranscript">
+        <div class="card-h">
+          <h2><span class="num">2</span><span data-i18n="s_transcript">Transcript</span></h2>
+          <div class="chips" id="trMeta"></div>
+        </div>
+        <audio id="player" controls preload="none"></audio>
+        <video id="vplayer" controls preload="none" playsinline hidden></video>
+        <div class="segments" id="segments"></div>
+        <textarea id="trEdit" rows="6" hidden></textarea>
+        <div class="row gap">
+          <button type="button" class="ghost" id="editBtn" data-i18n="edit">Edit text</button>
+          <button type="button" class="ghost" id="reBtn" hidden data-i18n="reanalyze">Re-analyze</button>
+        </div>
+      </article>
+
+      <div class="col">
+        <article class="card" id="cardSummary">
+          <div class="card-h"><h2><span class="num">3</span><span data-i18n="s_summary">Summary</span></h2><div class="chips" id="llmMeta"></div></div>
+          <p id="summary" class="summary"></p>
+        </article>
+
+        <article class="card" id="cardTasks">
+          <div class="card-h">
+            <h2><span class="num">4</span><span data-i18n="s_tasks">Tasks</span></h2>
+            <button type="button" class="ghost sm" id="copyBtn" data-i18n="copy_md">Copy as Markdown</button>
+          </div>
+          <table class="tasks">
+            <thead><tr><th data-i18n="th_what">What</th><th data-i18n="th_who">Who</th><th data-i18n="th_due">Due</th></tr></thead>
+            <tbody id="tasks"></tbody>
+          </table>
+        </article>
+
+        <article class="card" id="cardReply">
+          <div class="card-h"><h2><span class="num">5</span><span data-i18n="s_reply">Voice reply</span></h2><div class="chips" id="ttsMeta"></div></div>
+          <p id="reply" class="reply"></p>
+          <button type="button" class="primary" id="speakBtn"><span class="play" aria-hidden="true">▶</span> <span data-i18n="play_reply">Play the reply</span></button>
+          <audio id="replyAudio" preload="none" hidden></audio>
+        </article>
+      </div>
+    </div>
+  </section>
+
+  <section class="card about">
+    <h2 data-i18n="about_h">What’s inside</h2>
+    <ul class="feat">
+      <li data-i18n="f1">Speech-to-text for voice notes, calls and video files (Whisper / gpt-4o-transcribe), timestamps per segment.</li>
+      <li data-i18n="f2">Summary and action items with owner and due date as JSON — ready to push to a CRM, Notion, Jira or a Google Sheet.</li>
+      <li data-i18n="f3">One LLM interface: OpenAI, Anthropic, GigaChat, YandexGPT (or a local model) — switch by config, no code changes.</li>
+      <li data-i18n="f4">Voice reply (TTS) — in a Telegram bot it comes back as a voice message.</li>
+      <li data-i18n="f5">Cost control: rate limit per user, daily budget, maximum audio length.</li>
+    </ul>
+    <p class="muted" id="tgLine" hidden></p>
+  </section>
+</main>
+
+<footer class="foot wrap muted">
+  <span data-i18n="foot">Demo by sedlab · samples are synthetic voices, no personal data.</span>
+  <a href="https://github.com/sedyukov/sedlab-demos/tree/main/demos/voice" target="_blank" rel="noopener">GitHub</a>
+</footer>
+
+<script src="/static/app.js" defer></script>
+</body>
+</html>
