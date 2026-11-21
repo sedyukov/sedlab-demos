@@ -107,8 +107,8 @@ def test_foreign_keys_ignored_in_ru_and_russian_in_intl():
     env = {"AI_OPENAI_API_KEY": "k", "AI_ANTHROPIC_API_KEY": "a", "AI_GIGACHAT_AUTH_KEY": "g",
            "AI_YANDEX_API_KEY": "y", "AI_YANDEX_FOLDER_ID": "f", "VOICE_LIVE": "1"}
     ru = make(env, edition="ru").get("/api/config").json()["providers"]
-    assert ru == {"llm": {"gigachat": "live", "yandexgpt": "live"}, "stt": "live", "tts": "live",
-                  "speech": "yandex_speechkit"}
+    assert ru == {"llm": {"gigachat": "demo", "yandexgpt": "live"}, "stt": "live", "tts": "live",
+                  "speech": "yandex_speechkit"}  # GigaChat: no live until text is depersonalised (legal-ru)
     en = make(env, edition="intl").get("/api/config").json()["providers"]
     assert en == {"llm": {"openai": "live", "anthropic": "live"}, "stt": "live", "tts": "live", "speech": "openai"}
 
@@ -299,3 +299,10 @@ def test_guess_lang_and_template():
     assert guess_lang("Привет, мир") == "ru" and guess_lang("Hello") == "en" and guess_lang("123", "ru") == "ru"
     r = template_reply("Done.", [Task("Ship", "Liam", "2026-11-30")], "en")
     assert r == "In short: Done. Action items: 1. Liam: Ship, by 2026-11-30."
+
+
+def test_gigachat_never_live_until_anonymiser():
+    p = Providers({"AI_GIGACHAT_AUTH_KEY": "g"}, "ru")
+    assert p.llm_live("gigachat") is False and p.client("gigachat").llm.name == "mock"
+    assert default_llm(Providers({"AI_GIGACHAT_AUTH_KEY": "g", "AI_YANDEX_API_KEY": "y",
+                                  "AI_YANDEX_FOLDER_ID": "f"}, "ru")) == "yandexgpt"

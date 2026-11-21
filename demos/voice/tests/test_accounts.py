@@ -6,7 +6,7 @@ import pytest
 from sedlab_ai import Client
 from test_app import FakeLLM, FakeSpeech, make, wav
 
-RU_KEYS = {"AI_GIGACHAT_AUTH_KEY": "g", "AI_YANDEX_API_KEY": "y", "ACCOUNTS_MOCK_ALLOW_LIVE": "1"}
+RU_KEYS = {"AI_YANDEX_API_KEY": "y", "AI_YANDEX_FOLDER_ID": "f", "ACCOUNTS_MOCK_ALLOW_LIVE": "1"}  # YandexGPT + SpeechKit
 
 
 class FailingLLM(FakeLLM):
@@ -72,7 +72,7 @@ def test_provider_failure_refunds_the_unit():
     with pytest.raises(RuntimeError):
         c.post("/api/analyze", json={"text": "Обсудили релиз."}, headers=h)
     after = {r.resource: r.user_left for r in c.acc.remaining(h["Authorization"][7:]).resources}
-    assert after["gigachat"] == before["gigachat"]
+    assert after["yandex-llm"] == before["yandex-llm"]
 
 
 def test_auth_down_falls_back_to_mock():

@@ -14,6 +14,9 @@ from sedlab_ai import Client, Env, from_env
 
 EDITION_LLMS = {"ru": ("gigachat", "yandexgpt"), "intl": ("openai", "anthropic")}
 EDITION_SPEECH = {"ru": "yandex_speechkit", "intl": "openai"}
+# legal-ru: only depersonalised text may go to GigaChat. Until an anonymiser exists (ordered in the ai module),
+# GigaChat never goes live, whatever keys are set; YandexGPT is the live LLM of the RU edition.
+GIGACHAT_LIVE_ALLOWED = False
 
 
 def default_llm(p: "Providers") -> str:
@@ -44,7 +47,7 @@ class Providers:
 
     @property
     def gigachat(self) -> bool:
-        return self._has("AI_GIGACHAT_AUTH_KEY")
+        return GIGACHAT_LIVE_ALLOWED and self._has("AI_GIGACHAT_AUTH_KEY")
 
     @property
     def yandexgpt(self) -> bool:

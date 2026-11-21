@@ -188,7 +188,7 @@
       if (!document.getElementById("sl-widget")) {
         const sc = document.createElement("script");
         sc.id = "sl-widget"; sc.src = a.auth_url + "/widget.js"; sc.defer = true;
-        sc.dataset.demo = "voice"; sc.dataset.resource = "gigachat"; sc.dataset.providers = "max,yandex,vk";
+        sc.dataset.demo = "voice"; sc.dataset.resource = "yandex-llm"; sc.dataset.providers = "max,yandex,vk";
         document.head.appendChild(sc);
       }
       return;
