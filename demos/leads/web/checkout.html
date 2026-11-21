@@ -1,0 +1,46 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Sandbox checkout</title>
+<meta name="robots" content="noindex">
+<link rel="stylesheet" href="/style.css">
+<style>body{display:grid;place-items:center;min-height:100vh;padding:16px}.box{background:var(--surface);border:1px solid var(--line);border-radius:16px;width:min(380px,100%)}</style>
+</head>
+<body>
+<div class="box"><div class="co">
+  <p class="co-badge">Sandbox checkout · test mode</p>
+  <h3 id="title">…</h3>
+  <p class="co-amount" id="amount"></p>
+  <div class="card-fake"><span>4242 4242 4242 4242</span><span>12/34 · 123</span></div>
+  <div class="co-actions">
+    <button class="primary" data-o="succeeded">Pay / Оплатить</button>
+    <button class="ghost" data-o="canceled">Cancel / Отмена</button>
+  </div>
+  <p class="hint" id="msg">Simulated payment page. The provider then sends a signed webhook to the merchant.</p>
+</div></div>
+<script>
+(function () {
+  var pid = location.pathname.split('/').pop(), s = new URLSearchParams(location.search).get('s') || '';
+  var lead = null;
+  Promise.all(['ru', 'intl'].map(function (p) {
+    return fetch('/api/state?s=' + encodeURIComponent(s) + '&profile=' + p).then(function (r) { return r.json(); });
+  })).then(function (st) {
+    st.forEach(function (x) { (x.leads || []).forEach(function (l) { if (l.payment_id === pid) lead = l; }); });
+    if (!lead) { document.getElementById('title').textContent = 'Payment not found (sandbox expired?)'; return; }
+    document.getElementById('title').textContent = 'Order ' + lead.id;
+    document.getElementById('amount').textContent = new Intl.NumberFormat(undefined, { style: 'currency', currency: lead.amount.currency }).format(lead.amount.value / 100);
+  });
+  document.querySelectorAll('[data-o]').forEach(function (b) {
+    b.addEventListener('click', function () {
+      if (!lead) return;
+      fetch('/api/leads/' + lead.id + '/pay', { method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ session: s, outcome: b.dataset.o }) })
+        .then(function () { location.href = '/?stack=' + lead.profile; });
+    });
+  });
+})();
+</script>
+</body>
+</html>

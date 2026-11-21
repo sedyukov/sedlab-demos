@@ -1,0 +1,102 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Lead → CRM · live demo</title>
+<meta name="description" content="Live demo: website form → CRM (amoCRM / HubSpot) → Google Sheet → Telegram, payment (YooKassa / Stripe) moves the deal to Won. Real-time event log with retries and webhook idempotency.">
+<meta property="og:title" content="Lead → CRM · live integration demo">
+<meta property="og:description" content="Form → CRM → Google Sheet → Telegram → payment → deal won. Watch every step, retry and webhook in real time.">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='8' fill='%232f6fed'/%3E%3Cpath d='M8 11h16M8 16h11M8 21h7' stroke='white' stroke-width='3' stroke-linecap='round'/%3E%3C/svg%3E">
+<link rel="stylesheet" href="/style.css">
+</head>
+<body>
+<header class="top">
+  <div class="brand">
+    <span class="logo" aria-hidden="true"></span>
+    <div>
+      <h1 data-i18n="title">Заявка → CRM</h1>
+      <p class="tag" data-i18n="tagline">Форма → CRM → Google Таблица → Telegram → оплата → сделка «Успешно»</p>
+    </div>
+  </div>
+  <div class="controls">
+    <div class="seg" role="radiogroup" aria-label="Integration stack" id="profileSeg">
+      <button role="radio" data-profile="ru" aria-checked="true"><b data-i18n="ruStack">RU-стек</b><small>amoCRM · ЮKassa</small></button>
+      <button role="radio" data-profile="intl" aria-checked="false"><b data-i18n="intlStack">International</b><small>HubSpot · Stripe</small></button>
+    </div>
+    <div class="seg small" role="radiogroup" aria-label="Language" id="langSeg">
+      <button role="radio" data-lang="ru" aria-checked="true">RU</button>
+      <button role="radio" data-lang="en" aria-checked="false">EN</button>
+    </div>
+  </div>
+</header>
+
+<section class="flow" aria-label="Pipeline">
+  <ol id="flow"></ol>
+  <p class="flow-lead" id="flowLead"></p>
+</section>
+
+<main class="grid">
+  <section class="col form-col">
+    <div class="panel-h"><h2 data-i18n="site">Сайт клиента</h2><span class="hint" data-i18n="widgetHint">встраиваемый JS-виджет</span></div>
+    <div class="landing">
+      <div class="landing-bar"><i></i><i></i><i></i><span id="fakeUrl">your-site.ru</span></div>
+      <div id="widget"></div>
+    </div>
+    <div class="tools">
+      <label class="switch"><input type="checkbox" id="chaos"><span></span><b data-i18n="chaos">Симулировать сбои API</b></label>
+      <p class="hint" data-i18n="chaosHint">CRM 503, Sheets 429 с Retry-After, Telegram 502 — смотрите ретраи в логе</p>
+      <button class="ghost" id="reset" data-i18n="reset">Сбросить песочницу</button>
+      <p class="hint" data-i18n="retention">У каждого посетителя своя песочница. Данные удаляются раз в сутки.</p>
+    </div>
+  </section>
+
+  <section class="col log-col">
+    <div class="panel-h">
+      <h2><span class="live-dot" id="liveDot"></span> <span data-i18n="log">Лог событий</span></h2>
+      <div class="log-tools">
+        <button class="ghost xs" id="filterLead" data-i18n="onlyLead">Только выбранная</button>
+        <button class="ghost xs" id="clearLog" data-i18n="clear">Очистить</button>
+      </div>
+    </div>
+    <ol class="log" id="log" aria-live="polite"></ol>
+    <p class="empty" id="logEmpty" data-i18n="logEmpty">Отправьте форму слева — каждый шаг появится здесь в реальном времени.</p>
+  </section>
+
+  <section class="col side-col">
+    <div class="tabs" role="tablist">
+      <button role="tab" data-tab="crm" aria-selected="true">CRM</button>
+      <button role="tab" data-tab="sheet" aria-selected="false" data-i18n="sheetTab">Таблица</button>
+      <button role="tab" data-tab="inbox" aria-selected="false">Telegram</button>
+      <button role="tab" data-tab="pay" aria-selected="false" data-i18n="payTab">Оплата</button>
+    </div>
+    <div class="tabpanel" id="tab-crm"></div>
+    <div class="tabpanel" id="tab-sheet" hidden></div>
+    <div class="tabpanel" id="tab-inbox" hidden></div>
+    <div class="tabpanel" id="tab-pay" hidden></div>
+  </section>
+</main>
+
+<footer class="foot">
+  <span data-i18n="foot">Демо собрано из модулей crm · payments · sheets-storage · notify (Go). Без ключей работает на sandbox-провайдерах с подписанными вебхуками.</span>
+  <span class="modes" id="modes"></span>
+</footer>
+
+<dialog id="checkout">
+  <form method="dialog" class="co">
+    <p class="co-badge" data-i18n="sandboxCheckout">Тестовая оплата · sandbox</p>
+    <h3 id="coTitle"></h3>
+    <p class="co-amount" id="coAmount"></p>
+    <div class="card-fake"><span>4242 4242 4242 4242</span><span>12/34 · 123</span></div>
+    <div class="co-actions">
+      <button value="succeeded" class="primary" data-i18n="payBtn">Оплатить</button>
+      <button value="canceled" class="ghost" data-i18n="declineBtn">Отказаться</button>
+    </div>
+    <p class="hint" data-i18n="coHint">Это имитация страницы оплаты: провайдер пришлёт нам подписанный вебхук.</p>
+  </form>
+</dialog>
+
+<script src="/widget.js"></script>
+<script src="/app.js"></script>
+</body>
+</html>
