@@ -31,6 +31,7 @@ func newHarness(t *testing.T, g *Guard) *harness {
 	if g == nil {
 		g = DefaultGuard()
 		g.Submit, g.API, g.Global = nil, nil, nil
+		g.SandboxContacts = false // most tests exercise real-contact handling (client deployments)
 	}
 	h := &harness{t: t, app: app}
 	srv := httptest.NewServer(NewServer(app, g))
@@ -483,5 +484,29 @@ func TestPageShowsNoContacts(t *testing.T) {
 		if !strings.Contains(all, want) {
 			t.Fatalf("missing %q", want)
 		}
+	}
+}
+
+// Public demo mode: typed contacts are discarded, nothing real is stored anywhere.
+func TestSandboxContactsDiscardTypedContacts(t *testing.T) {
+	g := DefaultGuard()
+	g.Submit, g.API, g.Global = nil, nil, nil
+	h := newHarness(t, g)
+	s := sid(17)
+	lead := h.submitAndWait(s, "ru", "sbx-1")
+	if lead.Phone != "" || lead.Email != "client-1@example.com" {
+		t.Fatalf("typed contacts stored: email=%q phone=%q", lead.Email, lead.Phone)
+	}
+	f := form(s, "ru", "sbx-2")
+	f["email"], f["phone"] = "", ""
+	if c, _ := h.post("/api/leads", f); c != 202 {
+		t.Fatalf("sandbox mode must not require contacts: %d", c)
+	}
+	resp, _ := http.Get(h.srv.URL + "/api/config")
+	var cfg map[string]any
+	json.NewDecoder(resp.Body).Decode(&cfg)
+	resp.Body.Close()
+	if cfg["sandbox_contacts"] != true {
+		t.Fatal("config must announce sandbox_contacts")
 	}
 }

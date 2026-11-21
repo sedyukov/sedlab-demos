@@ -24,7 +24,8 @@
       ok: 'Заявка {id} принята — смотрите, как она проходит по системам.', again: 'Ещё одна заявка',
       need: 'Укажите имя и email или телефон', err: 'Не получилось отправить', rate: 'Слишком часто — подождите несколько секунд',
       consent: 'Согласен на обработку данных (демо: данные удаляются раз в сутки)',
-      plans: { start: 'Старт', business: 'Бизнес', pro: 'Про' }, demo: 'Заполнить тестовыми данными', testContact: 'тестовый'
+      plans: { start: 'Старт', business: 'Бизнес', pro: 'Про' }, demo: 'Заполнить тестовыми данными', testContact: 'тестовый', anyName: 'Любое вымышленное имя',
+      sandbox: 'Демо: email и телефон не запрашиваются — подставляется тестовый контакт. Не вводите реальные данные.'
     },
     en: {
       title: 'Request a quote', sub: 'We reply within an hour', name: 'Name', email: 'Email', phone: 'Phone',
@@ -32,7 +33,8 @@
       ok: 'Request {id} received — watch it flow through the systems.', again: 'Send another',
       need: 'Enter a name and an email or phone', err: 'Could not send', rate: 'Too many requests — wait a few seconds',
       consent: 'I agree to data processing (demo: data is wiped daily)',
-      plans: { start: 'Starter', business: 'Business', pro: 'Pro' }, demo: 'Fill with test data', testContact: 'test'
+      plans: { start: 'Starter', business: 'Business', pro: 'Pro' }, demo: 'Fill with test data', testContact: 'test', anyName: 'Any made-up name',
+      sandbox: 'Demo: no email or phone is collected — a test contact is used. Please do not enter real data.'
     }
   };
   var DEMO = {
@@ -80,6 +82,7 @@
     '.send{width:100%;margin-top:14px;background:var(--lw-acc);color:var(--lw-acc-fg)}.send:disabled{opacity:.6;cursor:wait}',
     '.link{background:none;color:var(--lw-acc);padding:6px 0;font-weight:500;font-size:13px}',
     '.msg{margin-top:10px;font-size:13px;min-height:1em}.msg.err{color:var(--lw-err)}',
+    '.note{margin:12px 0 0;font-size:12px;color:var(--lw-mut);background:var(--lw-field);border:1px dashed var(--lw-line);border-radius:9px;padding:8px 10px}',
     '.done{padding:8px 0}.done p{margin:0 0 10px;color:var(--lw-ok);font-weight:550}'
   ].join('');
 
@@ -110,16 +113,23 @@
       var price = pc ? ' — ' + money(p.amount, pc.currency, lang) : '';
       return '<option value="' + p.key + '"' + (p.key === 'business' ? ' selected' : '') + '>' + t('plans')[p.key] + price + '</option>';
     }).join('');
+    var sandbox = !!(this.cfg && this.cfg.sandbox_contacts);
+    this.sandbox = sandbox;
+    var contacts = sandbox
+      ? '<input type="hidden" name="email"><input type="hidden" name="phone">'
+      : '<div class="row"><div><label for="e">' + t('email') + '</label><input id="e" name="email" type="email" autocomplete="email" maxlength="120"></div>' +
+        '<div><label for="p">' + t('phone') + '</label><input id="p" name="phone" type="tel" autocomplete="tel" maxlength="32"></div></div>';
     this.root.innerHTML = '<style>' + CSS + '</style><form class="box" novalidate>' +
       '<h3>' + t('title') + '</h3><p class="sub">' + t('sub') + '</p>' +
-      '<label for="n">' + t('name') + '</label><input id="n" name="name" autocomplete="name" maxlength="80" required>' +
-      '<div class="row"><div><label for="e">' + t('email') + '</label><input id="e" name="email" type="email" autocomplete="email" maxlength="120"></div>' +
-      '<div><label for="p">' + t('phone') + '</label><input id="p" name="phone" type="tel" autocomplete="tel" maxlength="32"></div></div>' +
+      '<label for="n">' + t('name') + '</label><input id="n" name="name" autocomplete="off" maxlength="80" required' +
+        (sandbox ? ' placeholder="' + t('anyName') + '"' : '') + '>' +
+      contacts +
       '<div class="row"><div><label for="c">' + t('company') + '</label><input id="c" name="company" autocomplete="organization" maxlength="80"></div>' +
       '<div><label for="pl">' + t('plan') + '</label><select id="pl" name="plan">' + plans + '</select></div></div>' +
       '<label for="m">' + t('message') + '</label><textarea id="m" name="message" maxlength="500"></textarea>' +
       '<div class="hp" aria-hidden="true"><label>Website<input name="website" tabindex="-1" autocomplete="off"></label></div>' +
-      '<label class="consent"><input type="checkbox" name="consent" checked> <span>' + t('consent') + '</span></label>' +
+      (sandbox ? '<p class="note">' + t('sandbox') + '</p><input type="hidden" name="consent" value="">'
+               : '<label class="consent"><input type="checkbox" name="consent" checked> <span>' + t('consent') + '</span></label>') +
       '<button class="send" type="submit">' + t('send') + '</button>' +
       '<button class="link" type="button" data-demo>' + t('demo') + '</button>' +
       '<div class="msg" role="status" aria-live="polite"></div></form>';
@@ -138,7 +148,7 @@
   Widget.prototype.values = function () {
     var f = this.form, v = {};
     ['name', 'email', 'phone', 'company', 'message', 'plan', 'website'].forEach(function (k) { v[k] = f.elements[k].value.trim(); });
-    v.consent = f.elements.consent.checked;
+    v.consent = !!f.elements.consent.checked;
     return v;
   };
   Widget.prototype.fill = function (v) {
@@ -154,6 +164,7 @@
   };
   Widget.prototype.markDemoContact = function () {
     var f = this.form, t = this.t('testContact');
+    if (this.sandbox) return;
     f.elements.email.placeholder = t; f.elements.phone.placeholder = t;
   };
   Widget.prototype.msg = function (text, err) {
@@ -161,7 +172,7 @@
   };
   Widget.prototype.submit = function () {
     var v = this.values(), self = this, btn = this.root.querySelector('.send');
-    if (!v.name || (!v.email && !v.phone && !this.demoContact)) { this.msg(this.t('need'), true); return; }
+    if (!v.name || (!v.email && !v.phone && !this.demoContact && !this.sandbox)) { this.msg(this.t('need'), true); return; }
     btn.disabled = true; btn.textContent = this.t('sending'); this.msg('');
     var body = Object.assign(v, { session: this.o.session, profile: this.o.profile, lang: this.o.lang,
       submission_id: this.subId, elapsed_ms: Date.now() - this.rendered, demo_contact: !!this.demoContact && !v.email && !v.phone });

@@ -39,6 +39,13 @@ Switch between two configurations with one click:
 - **Anti-spam.** Per-IP rate limits (HTTP 429), a honeypot field, a fill-time trap for bots, and a cap on leads per session.
 - **Two-way CRM.** The CRM's own webhooks come back signed and verified (`deal.created`, `deal.updated`).
 
+## Privacy on the public demo
+
+The public demo collects no personal data. The email and phone fields are hidden, a sandbox contact is used, and anything
+typed into them is discarded on the server. Leads and logs live only in the visitor's in-memory sandbox and are wiped daily.
+A client deployment turns real contacts on with `ACCEPT_REAL_CONTACTS=1` and runs where that client's data must be stored
+(for example, a Russian server for Russian customers' data).
+
 ## Embeddable widget
 
 The form is a standalone script with no dependencies (Shadow DOM, about 6 KB, RU/EN, light/dark):

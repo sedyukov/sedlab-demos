@@ -31,15 +31,20 @@ type Guard struct {
 	MaxLeads       int                  // per session
 	MinFillTime    time.Duration
 	AllowedOrigins []string // CORS for the embeddable widget; "*" = any
+	// SandboxContacts: the public demo never accepts real email/phone (personal data of RF citizens must not be
+	// collected on a server abroad, 152-FZ). Typed contacts are discarded and a sandbox contact is used instead.
+	// Client deployments set ACCEPT_REAL_CONTACTS=1 (and run in a compliant jurisdiction with a consent/policy).
+	SandboxContacts bool
 }
 
 func DefaultGuard() *Guard {
 	return &Guard{
-		Submit:      crmkit.NewKeyedLimiter(5.0/60, 3), // 3 at once, then 1 per 12 s
-		API:         crmkit.NewKeyedLimiter(2, 30),
-		Global:      crmkit.NewLimiter(1, 30),
-		MaxLeads:    25,
-		MinFillTime: 1500 * time.Millisecond,
+		Submit:          crmkit.NewKeyedLimiter(5.0/60, 3), // 3 at once, then 1 per 12 s
+		API:             crmkit.NewKeyedLimiter(2, 30),
+		Global:          crmkit.NewLimiter(1, 30),
+		MaxLeads:        25,
+		MinFillTime:     1500 * time.Millisecond,
+		SandboxContacts: true,
 	}
 }
 
@@ -165,7 +170,7 @@ func (s *Server) profile(w http.ResponseWriter, key string) (string, bool) {
 
 func (s *Server) config(w http.ResponseWriter, r *http.Request) {
 	ps := []*Profile{s.App.Profiles["ru"], s.App.Profiles["intl"]}
-	writeJSON(w, http.StatusOK, map[string]any{"profiles": ps, "retention": "24h"})
+	writeJSON(w, http.StatusOK, map[string]any{"profiles": ps, "retention": "24h", "sandbox_contacts": s.Guard.SandboxContacts})
 }
 
 // events streams the session's log as Server-Sent Events (backlog first, then live; Last-Event-ID resumes).
@@ -333,6 +338,10 @@ func (s *Server) submit(w http.ResponseWriter, r *http.Request) {
 		Phone: clean(b.Phone, 32), Company: clean(b.Company, 80), Message: clean(b.Message, 500), Plan: clean(b.Plan, 20), Lang: b.Lang}
 	if in.SubmissionID == "" {
 		in.SubmissionID = fmt.Sprintf("srv-%d", time.Now().UnixNano())
+	}
+	if s.Guard.SandboxContacts {
+		in.Email, in.Phone = "", "" // never stored: see Guard.SandboxContacts
+		b.DemoContact = true
 	}
 	if b.DemoContact && in.Email == "" && in.Phone == "" {
 		in.Email = fmt.Sprintf("client-%d@example.com", len(sess.Leads(""))+1)

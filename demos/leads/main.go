@@ -41,6 +41,7 @@ func main() {
 	if v, err := strconv.Atoi(env("SUBMIT_PER_MIN", "")); err == nil && v > 0 {
 		guard.Submit = crmkit.NewKeyedLimiter(float64(v)/60, max(3, v/4))
 	}
+	guard.SandboxContacts = env("ACCEPT_REAL_CONTACTS", "") != "1"
 	if o := env("ALLOWED_ORIGINS", ""); o != "" {
 		guard.AllowedOrigins = strings.Split(o, ",")
 	}
