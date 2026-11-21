@@ -1,6 +1,7 @@
 # Lead → CRM: a live integration demo
 
-**[Русская версия](README.ru.md)** · Live demo: **https://leads.demo.sedlab.dev** (works without sign-up, every visitor gets an own sandbox)
+**[Русская версия](README.ru.md)** · Live demo: **https://leads-en.demo.sedlab.dev** (English edition) · Russian edition: https://leads.demo.sedlab.dev
+(no sign-up, every visitor gets an own sandbox)
 
 A website form drops a lead into the CRM, a Google Sheet and the sales team's Telegram, then sends a payment link.
 When the customer pays, the payment webhook moves the deal to **Won**. A live event log on the page shows each step
@@ -12,21 +13,28 @@ as it happens, including retries after API failures, duplicate webhooks that get
 
 1. **Form → CRM.** An embeddable JS widget posts the lead. The contact is matched by email, then by phone
    (`8 999…` and `+7 999…` count as the same number). The deal gets the amount and the source.
-2. **→ Google Sheet.** A row is appended with the lead, the deal id and the status.
-3. **→ Telegram / email.** The team gets a notification (the RU stack sends Telegram, the international stack sends Telegram and email).
+2. **→ Sheet.** A row is appended with the lead, the deal id and the status (Google Sheets, or an XLSX on Yandex Disk in the Russian edition).
+3. **→ Telegram, Max, email.** The team gets a notification (Telegram and email in the English edition, Telegram and Max in the Russian one).
 4. **→ Payment link.** YooKassa or Stripe. The customer pays and the provider calls our webhook.
 5. **Webhook → CRM.** The signature is verified and the event is deduplicated. Then the deal moves to *Won* (or *Lost*),
    a note is added, the sheet row is updated and the team gets a "paid" message.
 
-Switch between two configurations with one click:
+## Two editions
 
-| | RU stack | International |
+One code base, two deployments; the edition is picked by `EDITION=intl|ru`.
+
+| | English edition (`intl`) | Russian edition (`ru`) |
 |---|---|---|
-| CRM | amoCRM | HubSpot |
-| Payments | YooKassa | Stripe |
-| Sheet | Google Sheets | Google Sheets |
-| Notifications | Telegram | Telegram + email |
-| Currency | RUB | USD |
+| Address | https://leads-en.demo.sedlab.dev | https://leads.demo.sedlab.dev |
+| Language | English | Russian |
+| CRM | HubSpot | amoCRM or Bitrix24 (switch on the page) |
+| Payments | Stripe | YooKassa |
+| Sheet | Google Sheets | XLSX table on Yandex Disk |
+| Notifications | Telegram + email | Telegram + Max |
+| Currency | USD | RUB |
+| Hosting | EU server | Russian server (data of Russian customers stays in Russia) |
+
+Each page links to the other edition.
 
 ## Reliability features you can see in the log
 

@@ -1,8 +1,15 @@
 # STATUS: S5 «Заявка → CRM» (app: leads), 2026-11-21
 
-**Демо: https://leads.demo.sedlab.dev.** На проде тег `sha-c332e13`, e2e зелёный в обоих режимах (RU и International).
+**Демо:** RU-версия https://leads.demo.sedlab.dev (пока объединённая страница на freelance-1, до переезда на RU-хост),
+EN-версия https://leads-en.demo.sedlab.dev (EDITION=intl, freelance-1).
 
 ## Сделано
+- **Две редакции** (решение владельца): одна кодовая база, `EDITION=ru|intl` (пусто = старая объединённая страница).
+  ru: только русский язык (в т.ч. лог, бейджи, уведомления), amoCRM или Битрикс24 (переключатель, профиль `ru_b24`, env `RU_B24_*`),
+  ЮKassa, таблица с подписью «Яндекс Диск» (mock до провайдера s2), уведомления Telegram + Max, ссылка «English version».
+  intl: только английский, HubSpot + Stripe + Google Sheets + Telegram/email, ссылка «Русская версия». Чужой профиль → 400.
+  Compose: `infra/compose/leads-en` (freelance-1) и `infra/compose/leads-ru` (freelance-ru, `x-fl-pd: true`, accounts env).
+  Тесты: `TestEditionRU`, `TestEditionIntl`, `TestRUEditionLogIsRussian`; e2e: `EDITION=ru STACKS=ru,ru_b24`, `EDITION=intl STACKS=intl`.
 - **Приложение** (Go, stdlib + модули crm, payments, sheets-storage, notify). Цепочка: форма → CRM (upsert контакта + сделка) →
   Google Sheet → Telegram/email → ссылка на оплату → подписанный вебхук → сделка Won/Lost, примечание, обновлённая строка, сообщение «оплачено».
   Вебхуки CRM (deal.created, deal.updated) тоже доставляются и проверяются.
@@ -37,6 +44,10 @@
   и 2 GIF (RU и EN). Тексты без длинного тире.
 
 ## Осталось
+- Переезд RU: `infra/deploy.sh leads-ru --host freelance-ru --tag sha-<7>`, затем A-запись `leads.demo → IP freelance-ru` в Cloudflare,
+  `check-demos.sh leads-ru --host freelance-ru`, потом `deploy.sh rm leads` на freelance-1 и удалить `infra/compose/leads`.
+- Таблица RU: провайдер Яндекс Диск (XLSX) от s2 → подключить в профилях `ru` и `ru_b24` (env `RU_SHEETS_*`, `RU_B24_SHEETS_*`).
+- Битрикс24 live от s2 → env `RU_B24_CRM_*` (имена уточнить).
 - Модуль accounts (sedlab-modules a027917): интеграция позже, вместе с сессией accounts. **На проде обязательно `ACCOUNTS_PROVIDER=http`**,
   на mock живой режим принудительно выключен.
 - После подъёма RU-VPS: RU-провайдеры через ru-relay, `RU_PAYMENTS_YOOKASSA_BASE_URL=https://<relay>/yookassa/v3`,
