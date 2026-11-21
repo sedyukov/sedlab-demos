@@ -1,6 +1,9 @@
 # STATUS — S5 «Заявка → CRM» (app: leads) · 2026-11-21
 
+**Демо: https://leads.demo.sedlab.dev** — задеплоено `sha-52926b8`, e2e на проде зелёный (RU и International).
+
 ## Сделано
+- **Деплой:** `infra/deploy.sh leads --tag sha-52926b8`, контейнер ~3 МБ RAM в простое, SSE через Caddy без буферизации. e2e на проде: `BASE=https://leads.demo.sedlab.dev STACKS=ru node e2e/e2e.mjs`, затем `STACKS=intl` (лимит прода — 3 заявки сразу, дальше 1 в 12 с с одного IP, поэтому стеки гоняются по отдельности).
 - **Приложение** (Go, stdlib + модули crm / payments / sheets-storage / notify): форма → CRM (upsert контакта + сделка) →
   Google Sheet → Telegram/email → ссылка на оплату → подписанный вебхук → сделка Won/Lost + примечание + строка в таблице + «оплачено».
   Вебхуки CRM (deal.created/updated) тоже доставляются и проверяются.
@@ -25,9 +28,7 @@
 
 ## Осталось
 - Для S7: у s2-modules есть TS-часть `@sedlab/crm` (submitLead, validateLead). `widget.js` пока самостоятельный, без зависимостей; его можно перевести на неё при сборке S7.
-- **Деплой** на https://leads.demo.sedlab.dev ждёт снятия бана IP Мака на сервере и GHCR_TOKEN в sec; после этого:
-  `~/freelance/infra/deploy.sh leads --tag sha-<7>` и проверить, что пакет ghcr.io/sedyukov/leads остался **private**.
-- Повторить e2e на проде: `BASE=https://leads.demo.sedlab.dev node e2e/e2e.mjs`.
+- Проверить приватность пакета ghcr.io/sedyukov/leads (оркестратор, когда починят gh).
 - Живые sandbox-ключи (amoCRM trial, HubSpot dev, ЮKassa test, Stripe test, Google SA, TG-бот) — опционально; перечень env — в `infra/compose/leads/env.keys`.
   Для live-вебхуков Stripe/ЮKassa указать в кабинете URL `https://leads.demo.sedlab.dev/webhooks/payments/{ru|intl}`.
 - В mock-режиме состояние живёт только в памяти, рестарт контейнера = чистая песочница. Это осознанно: демо очищается раз в сутки.
