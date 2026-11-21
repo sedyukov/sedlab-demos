@@ -24,6 +24,7 @@
 - **Документы и медиа:** README.md (EN) и README.ru.md с ценами, portfolio.md (RU/EN), 12 скриншотов, 2 видео MP4 по ~40 с и 2 GIF (RU и EN).
 
 ## Осталось
+- Для S7: у s2-modules есть TS-часть `@sedlab/crm` (submitLead, validateLead). `widget.js` пока самостоятельный, без зависимостей; его можно перевести на неё при сборке S7.
 - **Деплой** на https://leads.demo.sedlab.dev ждёт снятия бана IP Мака на сервере и GHCR_TOKEN в sec; после этого:
   `~/freelance/infra/deploy.sh leads --tag sha-<7>` и проверить, что пакет ghcr.io/sedyukov/leads остался **private**.
 - Повторить e2e на проде: `BASE=https://leads.demo.sedlab.dev node e2e/e2e.mjs`.

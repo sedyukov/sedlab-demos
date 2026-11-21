@@ -251,7 +251,7 @@ func (a *App) process(s *Session, lead *Lead) {
 				text = fmt.Sprintf("🆕 Новая заявка %s\n%s · %s · %s\nТариф: %s — %s\nСделка: %s", lead.ID, lead.Name, nz(lead.Phone), nz(lead.Email),
 					lead.Plan, formatMoney(lead.Amount), deal.ID)
 			}
-			r, err := st.Notify.Send(ctx, notify.SendInput{Channel: ch, To: prof.recipients[ch], Text: text, Subject: "New lead " + lead.ID, IdempotencyKey: "new-" + ch + "-" + lead.SubmissionID, Metadata: notifyMeta(ctx, lead)})
+			r, err := st.Notify.Send(ctx, notify.SendInput{Channel: ch, To: prof.recipients[ch], Text: text, Subject: "New lead " + lead.ID, IdempotencyKey: "new-" + lead.SubmissionID, Metadata: notifyMeta(ctx, lead)})
 			if err != nil {
 				return "", nil, err
 			}
@@ -527,7 +527,7 @@ func (a *App) onPayment(s *Session, lead *Lead, ev *payments.WebhookEvent) {
 		if status != "paid" {
 			text = fmt.Sprintf("❌ %s: payment %s. Deal %s → lost", lead.ID, payStatus, lead.DealID)
 		}
-		r, err := st.Notify.Send(ctx, notify.SendInput{Channel: ch, To: prof.recipients[ch], Text: text, Subject: "Payment " + lead.ID, IdempotencyKey: "pay-" + ch + "-" + ev.ID, Metadata: notifyMeta(ctx, lead)})
+		r, err := st.Notify.Send(ctx, notify.SendInput{Channel: ch, To: prof.recipients[ch], Text: text, Subject: "Payment " + lead.ID, IdempotencyKey: "pay-" + ev.ID, Metadata: notifyMeta(ctx, lead)})
 		if err != nil {
 			return "", nil, err
 		}
