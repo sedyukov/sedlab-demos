@@ -76,6 +76,20 @@ class Accounts:
             log.warning("accounts config error: %s; live mode is off", e.code.value)
             self.client = accounts_from_env(AccountsEnv("ACCOUNTS_", {"ACCOUNTS_PROVIDER": "mock"}))
 
+    def record_consent(self, headers: Any, kind: str, version: str) -> bool:
+        """Consent log on auth for signed-in users (accounts.record_consent). Anonymous, auth down or the module
+        without the method → False: the page keeps the session mark and the upload is never blocked."""
+        fn = getattr(self.client, "record_consent", None) if self.client else None
+        token = self.client.token_from_request(headers) if self.client else ""
+        if fn is None or not token:
+            return False
+        try:
+            r = fn(token, kind, version)
+        except Exception as e:  # noqa: BLE001 — fail open for the upload, the session mark stays
+            log.warning("consent log failed: %s", getattr(e, "code", type(e).__name__))
+            return False
+        return bool(getattr(r, "ok", r))
+
     def gate(self, headers: Any) -> Gate | None:
         if not self.client:
             return None

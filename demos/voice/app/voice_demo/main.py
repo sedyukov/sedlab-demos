@@ -59,6 +59,10 @@ class AnalyzeIn(BaseModel):
     lang: str = ""
 
 
+class ConsentIn(BaseModel):
+    version: str = Field(min_length=1, max_length=32)
+
+
 class SpeakIn(BaseModel):
     text: str = Field(min_length=1, max_length=4000)
 
@@ -262,6 +266,15 @@ def create_app(settings: Settings | None = None) -> FastAPI:
 
     def account_info(g: Gate | None) -> dict[str, Any] | None:
         return None if g is None else {"user_left": g.user_left}
+
+    @app.post("/api/consent")
+    def consent_mark(req: Request, body: ConsentIn):
+        """RU: the page calls this when the consent box is ticked (before any upload); safe to repeat."""
+        if s.edition != "ru":
+            raise ApiError(404, "not_found", "no consent in this edition")
+        if body.version != CONSENT_VERSION:
+            raise ApiError(400, "invalid_argument", "unknown consent version")
+        return {"recorded": accounts.record_consent(req.headers, "voice", body.version), "version": body.version}
 
     @app.post("/api/analyze")
     def analyze(req: Request, body: AnalyzeIn):

@@ -141,3 +141,40 @@ def test_gigachat_gets_masked_names_for_samples():
                headers={"Authorization": "Bearer " + c.app.state.accounts.client.mock.issue_token("u", "s", "vk").token})
     assert r.status_code == 200 and r.json()["mode"]["llm"] == "live"
     assert spy.seen and all("Сергей" not in x and "Ольга" not in x for x in spy.seen)
+
+
+# ---------- consent log on auth (accounts.record_consent; method arrives from s2) ----------
+
+def test_consent_mark_without_module_method_is_session_only():
+    c = ru_app()
+    r = c.post("/api/consent", json={"version": "voice-v1"}, headers=token(c))
+    assert r.status_code == 200 and r.json()["version"] == "voice-v1"
+    if not hasattr(c.acc, "record_consent"):  # until s2 ships the method: session mark only
+        assert r.json()["recorded"] is False
+    assert c.post("/api/consent", json={"version": "voice-v0"}).status_code == 400
+    assert make(edition="intl").post("/api/consent", json={"version": "voice-v1"}).status_code == 404
+
+
+def test_consent_is_recorded_for_signed_in_and_never_blocks(monkeypatch):
+    c = ru_app()
+    calls = []
+
+    class OK:
+        ok = True
+
+    def record(token, kind, version):
+        calls.append((bool(token), kind, version))
+        return OK()
+
+    monkeypatch.setattr(c.acc, "record_consent", record, raising=False)
+    assert c.post("/api/consent", json={"version": "voice-v1"}, headers=token(c)).json()["recorded"] is True
+    assert calls == [(True, "voice", "voice-v1")]
+    assert c.post("/api/consent", json={"version": "voice-v1"}).json()["recorded"] is False  # anonymous: session mark
+    assert len(calls) == 1
+
+    def down(token, kind, version):
+        raise RuntimeError("auth down")
+
+    monkeypatch.setattr(c.acc, "record_consent", down, raising=False)
+    r = c.post("/api/consent", json={"version": "voice-v1"}, headers=token(c))
+    assert r.status_code == 200 and r.json()["recorded"] is False

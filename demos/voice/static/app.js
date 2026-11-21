@@ -215,7 +215,13 @@
     $("#drop").classList.toggle("locked", lock); $("#fileIn").disabled = lock;
     $("#micBtn").disabled = lock && !rec.active;
   }
-  if ($("#consentCb")) $("#consentCb").addEventListener("change", syncConsent);
+  if ($("#consentCb")) $("#consentCb").addEventListener("change", () => {
+    syncConsent();
+    if ($("#consentCb").checked) {  // consent log on auth for signed-in users; never blocks the upload
+      fetch("/api/consent", { method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ version: CONSENT_VERSION }) }).catch(() => {});
+    }
+  });
   $$("[data-tab]").forEach((b) => b.addEventListener("click", () => {
     $$("[data-tab]").forEach((x) => x.classList.toggle("on", x === b));
     $$("[data-pane]").forEach((p) => { p.hidden = p.dataset.pane !== b.dataset.tab; });
