@@ -12,7 +12,11 @@
 - Media: `media/01–06*.png`, `demo.mp4` / `demo.gif` (~50 s), `07-max-confirm-ru.png`. README (EN/RU), portfolio.md (EN/RU).
 - CI: `.github/workflows/build-booking.yml` (tests → private GHCR image). Compose: `infra/compose/booking`.
 
+- **Deployed:** https://booking.demo.sedlab.dev (sha-1c3850e, freelance-1, ~8 MB RAM, mem_limit 96m, uid 1000, read-only FS).
+  check-demos green; browser e2e against prod green twice (Telegram Stars, Telegram card, Max card, reminder, admin).
+- Personal data: the public demo stores no phone/username/real names; daily reset (DEMO_RESET). README: 152-FZ note
+  (RU clients → Russian VPS + Russian S3).
+
 ## Left
-- Deploy to booking.demo.sedlab.dev — waits for the GHCR package `booking` to be set Private (guard in CI).
 - Optional live bots: Telegram (BotFather token) and Max (token) via orchestrator / `sec`.
 - Real Max client: verify the Max bridge script for Mini Apps (window.WebApp) before a live Max launch.
