@@ -1,0 +1,73 @@
+# Tests for the PRIVATE repo sedyukov/sedlab-modules, run from this PUBLIC repo.
+# Hygiene rules (see SECURITY.md): push to main + manual only, no pull_request_target,
+# quiet test output, no caches/artifacts with private code, no `set -x`.
+name: modules
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: modules-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  discover:
+    runs-on: ubuntu-latest
+    outputs:
+      modules: ${{ steps.list.outputs.modules }}
+    steps:
+      - name: Check deploy key is configured
+        env:
+          KEY: ${{ secrets.MODULES_DEPLOY_KEY }}
+        run: '[ -n "$KEY" ] || { echo "::error::MODULES_DEPLOY_KEY secret is not set"; exit 1; }'
+      - uses: actions/checkout@v4
+        with:
+          repository: sedyukov/sedlab-modules
+          ssh-key: ${{ secrets.MODULES_DEPLOY_KEY }}
+          persist-credentials: false
+          path: src
+      - id: list
+        run: |
+          mods=$(cd src/modules 2>/dev/null && ls -d */ 2>/dev/null | tr -d / | jq -R . | jq -cs . || echo '[]')
+          echo "modules=$mods" >> "$GITHUB_OUTPUT"
+          echo "modules: $mods"
+
+  test:
+    needs: discover
+    if: needs.discover.outputs.modules != '[]'
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        module: ${{ fromJson(needs.discover.outputs.modules) }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          repository: sedyukov/sedlab-modules
+          ssh-key: ${{ secrets.MODULES_DEPLOY_KEY }}
+          persist-credentials: false
+          path: src
+      - uses: actions/setup-go@v5
+        with:
+          go-version: '1.23'
+          cache: false            # build cache would contain compiled private code
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'  # no `cache:` on purpose
+      - name: Go
+        working-directory: src/modules/${{ matrix.module }}
+        run: |
+          if [ -f go/go.mod ]; then cd go && go vet ./... && go test -count=1 ./...; else echo "no go"; fi
+      - name: Python
+        working-directory: src/modules/${{ matrix.module }}
+        run: |
+          if [ -f python/pyproject.toml ]; then
+            cd python
+            python -m pip install -q --disable-pip-version-check -e '.[test]'
+            python -m pytest -q --tb=no -p no:cacheprovider
+          else echo "no python"; fi
