@@ -23,6 +23,12 @@
 - **CI:** `.github/workflows/build-prices.yml` (копия build-leads: vet+race → образ `ghcr.io/sedyukov/prices:sha-xxxxxxx`, guard приватности).
 - **Infra:** `infra/compose/prices-ru` (compose, site.caddy, health.url, env.keys).
 
+- **CI 21.11 (1835679):** job test зелёный (vet + race на CI). Job build остановился на «GHCR visibility guard (before push)»:
+  новый пакет `ghcr.io/sedyukov/prices` создан пустым пробником и публичен по умолчанию, код модулей в него не попал.
+
 ## Осталось
-- См. отчёт оркестратору: приватность пакета GHCR и деплой, ru-only в `infra/demos.txt`, A-запись `prices.demo`.
+- **Владелец:** github.com/users/sedyukov/packages/container/prices/settings → Change visibility → Private, затем Re-run build-prices.
+- После зелёного build: `infra/deploy.sh prices-ru --host freelance-ru --tag sha-<7>`, проверка `curl --resolve prices.demo.sedlab.dev:443:5.35.4.25 …/health`.
+- `infra/demos.txt`: строке prices нужен флаг `ru-only` (зона infra), A-запись `prices.demo → 5.35.4.25`.
+- Живые ресурсы (по желанию): `yandex-llm` для prices в limits.json auth + ключи YandexGPT; виджет входа после DNS auth.
 - Живой сбор (по желанию): WB через `marketplaces.CompetitorPrices` (теперь с остатками), Ozon через scraping http; в публичном демо не включаем.
