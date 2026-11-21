@@ -439,3 +439,49 @@ func sentOnly(es []notify.LogEntry, _ error) []notify.LogEntry {
 	}
 	return out
 }
+
+// The public page must never receive anything that looks like a contact (marketplace moderation).
+func TestPageShowsNoContacts(t *testing.T) {
+	h := newHarness(t, nil)
+	s := sid(16)
+	lead := h.submitAndWait(s, "intl", "pii-1")
+	h.post("/api/leads/"+lead.ID+"/pay", map[string]any{"session": s})
+	h.waitFor(s, lead.ID, func(l *Lead) bool { return l.Status == "paid" })
+	h.waitEvent(s, "pipeline", "ok", 2)
+	f := form(s, "ru", "pii-2")
+	f["email"], f["phone"], f["demo_contact"] = "", "", true
+	if c, _ := h.post("/api/leads", f); c != 202 {
+		t.Fatalf("demo contact submit: %d", c)
+	}
+	h.waitEvent(s, "pipeline", "ok", 3)
+
+	var pages []string
+	for _, p := range []string{"ru", "intl"} {
+		resp, _ := http.Get(h.srv.URL + "/api/state?s=" + s + "&profile=" + p)
+		b := new(bytes.Buffer)
+		b.ReadFrom(resp.Body)
+		resp.Body.Close()
+		pages = append(pages, b.String())
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), time.Second)
+	defer cancel()
+	req, _ := http.NewRequestWithContext(ctx, "GET", h.srv.URL+"/api/events?s="+s, nil)
+	if resp, err := http.DefaultClient.Do(req); err == nil {
+		b := new(bytes.Buffer)
+		b.ReadFrom(resp.Body) // until ctx timeout
+		resp.Body.Close()
+		pages = append(pages, b.String())
+	}
+	all := strings.Join(pages, "\n")
+	for _, bad := range []string{"@", "example.com", "999", "+7"} {
+		if strings.Contains(all, bad) {
+			i := strings.Index(all, bad)
+			t.Fatalf("page data contains %q: …%s…", bad, all[max(0, i-60):min(len(all), i+40)])
+		}
+	}
+	for _, want := range []string{"client-1 (email)", "Sales manager (Telegram)", "client-2"} {
+		if !strings.Contains(all, want) {
+			t.Fatalf("missing %q", want)
+		}
+	}
+}

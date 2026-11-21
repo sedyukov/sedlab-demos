@@ -191,7 +191,7 @@ func (s *Server) events(w http.ResponseWriter, r *http.Request) {
 	h.Set("X-Accel-Buffering", "no")
 	send := func(ev Event) error {
 		b, _ := json.Marshal(ev)
-		_, err := fmt.Fprintf(w, "id: %d\nevent: log\ndata: %s\n\n", ev.Seq, b)
+		_, err := fmt.Fprintf(w, "id: %d\nevent: log\ndata: %s\n\n", ev.Seq, sess.Redact(b))
 		return err
 	}
 	fmt.Fprint(w, "retry: 2000\n\n")
@@ -254,7 +254,9 @@ func (s *Server) state(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 	out["messages"] = sent
-	writeJSON(w, http.StatusOK, out)
+	b, _ := json.Marshal(out)
+	w.Header().Set("Content-Type", "application/json")
+	w.Write(sess.Redact(b))
 }
 
 type submitBody struct {
@@ -271,6 +273,7 @@ type submitBody struct {
 	Website      string `json:"website"`    // honeypot: humans never see it
 	ElapsedMs    int64  `json:"elapsed_ms"` // time between widget render and submit
 	Consent      bool   `json:"consent"`
+	DemoContact  bool   `json:"demo_contact"` // "fill with test data": the server makes up a sandbox contact
 }
 
 func clean(s string, max int) string {
@@ -330,6 +333,9 @@ func (s *Server) submit(w http.ResponseWriter, r *http.Request) {
 		Phone: clean(b.Phone, 32), Company: clean(b.Company, 80), Message: clean(b.Message, 500), Plan: clean(b.Plan, 20), Lang: b.Lang}
 	if in.SubmissionID == "" {
 		in.SubmissionID = fmt.Sprintf("srv-%d", time.Now().UnixNano())
+	}
+	if b.DemoContact && in.Email == "" && in.Phone == "" {
+		in.Email = fmt.Sprintf("client-%d@example.com", len(sess.Leads(""))+1)
 	}
 	if in.Name == "" || (in.Email == "" && in.Phone == "") {
 		apiErr(w, http.StatusUnprocessableEntity, "invalid_argument", "name and email or phone are required")

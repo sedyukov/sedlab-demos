@@ -97,7 +97,7 @@ async function scenario(browser, { lang, stack, video }) {
   await shot(page, `04-checkout-${stack}.png`);
   await page.locator('#checkout button[value="succeeded"]').click();
   await waitStatus(page, id1, 'paid');
-  await page.waitForFunction(() => document.querySelectorAll('#log li').length && [...document.querySelectorAll('#log .ev-step')].some((e) => e.textContent.includes('crm.update_deal')));
+  await page.waitForFunction(() => document.querySelectorAll('#log li').length && [...document.querySelectorAll('#log .ev-step')].some((e) => e.textContent.includes('update_deal')));
   check(true, `[${stack}] ${id1} paid → deal moved`);
   await pace(1800);
   await shot(page, `05-deal-won-${stack}.png`);

@@ -19,7 +19,7 @@
       replayHint: 'Повтор — тот же вебхук ещё раз (идемпотентность). Подделка — чужая подпись (отклоняется).',
       chatName: 'Отдел продаж', bot: 'бот уведомлений', selected: 'Выбрана заявка', liveOn: 'онлайн', liveOff: 'переподключение…',
       st: { processing: 'обработка', awaiting_payment: 'ждёт оплаты', paid: 'оплачено', canceled: 'отменено', failed: 'ошибка',
-        pending: 'ожидает', succeeded: 'оплачен' }, mock: 'sandbox', live: 'live', fakeUrl: 'ваш-сайт.рф'
+        pending: 'ожидает', succeeded: 'оплачен' }, mock: 'sandbox', live: 'live', fakeUrl: 'example-shop'
     },
     en: {
       title: 'Lead → CRM', tagline: 'Form → CRM → Google Sheet → Telegram → payment → deal won',
@@ -39,7 +39,7 @@
       replayHint: 'Replay — the same webhook again (idempotency). Forged — wrong signature (rejected).',
       chatName: 'Sales team', bot: 'notification bot', selected: 'Selected lead', liveOn: 'live', liveOff: 'reconnecting…',
       st: { processing: 'processing', awaiting_payment: 'awaiting payment', paid: 'paid', canceled: 'canceled', failed: 'failed',
-        pending: 'pending', succeeded: 'succeeded' }, mock: 'sandbox', live: 'live', fakeUrl: 'your-site.com'
+        pending: 'pending', succeeded: 'succeeded' }, mock: 'sandbox', live: 'live', fakeUrl: 'example-shop'
     }
   };
 
@@ -58,6 +58,8 @@
 
   var $ = function (s) { return document.querySelector(s); };
   function t(k) { return I18N[S.lang][k]; }
+  // "crm.create_deal" → "crm › create_deal": dotted ids read like web addresses in screenshots
+  function undot(s) { return String(s == null ? '' : s).replace(/([A-Za-z_]+)\.([A-Za-z_]+)/g, '$1 › $2'); }
   function esc(s) { return String(s == null ? '' : s).replace(/[&<>"']/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]; }); }
   function money(m) {
     if (!m) return '';
@@ -144,9 +146,9 @@
     if (ev.attempt > 1 || ev.status === 'retry') meta.push('attempt ' + ev.attempt);
     if (ev.duration_ms) meta.push(ev.duration_ms + ' ms');
     li.innerHTML = '<time>' + time + '</time><span class="badge b-' + esc(ev.status) + '">' + esc(ev.status) + '</span>' +
-      '<div class="ev-main"><div class="ev-step">' + (ev.lead_id ? '<span class="lid">' + esc(ev.lead_id) + '</span>' : '') + esc(ev.step) +
+      '<div class="ev-main"><div class="ev-step">' + (ev.lead_id ? '<span class="lid">' + esc(ev.lead_id) + '</span>' : '') + esc(undot(ev.step)) +
       (ev.provider ? '<span class="prov">· ' + esc(ev.provider) + '</span>' : '') + '</div>' +
-      '<div class="ev-msg">' + esc(ev.message) + '</div>' +
+      '<div class="ev-msg">' + esc(undot(ev.message)) + '</div>' +
       (meta.length ? '<div class="ev-meta">' + esc(meta.join(' · ')) + '</div>' : '') +
       (ev.data ? '<details class="ev-data"><summary>payload</summary><pre>' + esc(JSON.stringify(ev.data, null, 2)) + '</pre></details>' : '') + '</div>';
     if (S.onlyLead && S.selected && ev.lead_id && ev.lead_id !== S.selected) li.classList.add('dim');
@@ -184,7 +186,7 @@
     if (!p) return;
     var notifyName = p.notify.map(function (c) { return c === 'telegram' ? 'Telegram' : 'Email'; }).join(' + ');
     var nodes = [
-      ['form.submit', steps['form.submit'], 'widget.js'],
+      ['form.submit', steps['form.submit'], S.lang === 'ru' ? 'JS-виджет' : 'JS widget'],
       ['crm.upsert_contact', steps['crm.upsert_contact'], p.crm],
       ['crm.create_deal', steps['crm.create_deal'], p.crm],
       ['sheets.append_rows', steps['sheets.append_rows'], p.sheets],

@@ -3,6 +3,7 @@ package main
 import (
 	"regexp"
 	"sort"
+	"strings"
 	"sync"
 	"time"
 )
@@ -28,6 +29,8 @@ type Lead struct {
 	PaymentID       string         `json:"payment_id,omitempty"`
 	PaymentStatus   string         `json:"payment_status,omitempty"`
 	ConfirmationURL string         `json:"confirmation_url,omitempty"`
+	Alias           string         `json:"alias"` // client-N: shown instead of email/phone on the public page
+	Lang            string         `json:"lang"`
 	Steps           map[string]int `json:"steps"` // step → 0 pending, 1 ok, 2 retrying, 3 failed
 	lastWebhook     *storedWebhook
 }
@@ -52,6 +55,7 @@ type Session struct {
 	order    []string
 	nLead    int
 	Chaos    bool
+	redact   []string // raw → display pairs (contacts, recipients), applied to everything the page receives
 	created  time.Time
 	lastSeen time.Time
 }
@@ -181,4 +185,38 @@ func (ss *Sessions) Remove(id string) {
 	if ss.drop != nil {
 		ss.drop(id)
 	}
+}
+
+// addRedaction registers raw → display; empty raw values are ignored.
+func (s *Session) addRedaction(pairs ...string) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	for i := 0; i+1 < len(pairs); i += 2 {
+		if strings.TrimSpace(pairs[i]) != "" {
+			s.redact = append(s.redact, pairs[i], pairs[i+1])
+		}
+	}
+}
+
+// Redact replaces contacts and recipient handles in page-bound bytes (JSON / SSE). The public demo never
+// shows anything that looks like a contact: portfolio screenshots go to marketplaces with strict moderation.
+func (s *Session) Redact(b []byte) []byte {
+	s.mu.Lock()
+	pairs := append([]string(nil), s.redact...)
+	s.mu.Unlock()
+	if len(pairs) == 0 {
+		return b
+	}
+	// longest raw values first so a substring never wins over the full value
+	type kv struct{ k, v string }
+	kvs := make([]kv, 0, len(pairs)/2)
+	for i := 0; i+1 < len(pairs); i += 2 {
+		kvs = append(kvs, kv{pairs[i], pairs[i+1]})
+	}
+	sort.SliceStable(kvs, func(i, j int) bool { return len(kvs[i].k) > len(kvs[j].k) })
+	flat := make([]string, 0, len(pairs))
+	for _, p := range kvs {
+		flat = append(flat, p.k, p.v)
+	}
+	return []byte(strings.NewReplacer(flat...).Replace(string(b)))
 }

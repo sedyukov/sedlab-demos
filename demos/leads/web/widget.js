@@ -24,7 +24,7 @@
       ok: 'Заявка {id} принята — смотрите, как она проходит по системам.', again: 'Ещё одна заявка',
       need: 'Укажите имя и email или телефон', err: 'Не получилось отправить', rate: 'Слишком часто — подождите несколько секунд',
       consent: 'Согласен на обработку данных (демо: данные удаляются раз в сутки)',
-      plans: { start: 'Старт', business: 'Бизнес', pro: 'Про' }, demo: 'Заполнить тестовыми данными'
+      plans: { start: 'Старт', business: 'Бизнес', pro: 'Про' }, demo: 'Заполнить тестовыми данными', testContact: 'тестовый'
     },
     en: {
       title: 'Request a quote', sub: 'We reply within an hour', name: 'Name', email: 'Email', phone: 'Phone',
@@ -32,16 +32,17 @@
       ok: 'Request {id} received — watch it flow through the systems.', again: 'Send another',
       need: 'Enter a name and an email or phone', err: 'Could not send', rate: 'Too many requests — wait a few seconds',
       consent: 'I agree to data processing (demo: data is wiped daily)',
-      plans: { start: 'Starter', business: 'Business', pro: 'Pro' }, demo: 'Fill with test data'
+      plans: { start: 'Starter', business: 'Business', pro: 'Pro' }, demo: 'Fill with test data', testContact: 'test'
     }
   };
   var DEMO = {
-    ru: [['Анна Смирнова', 'anna@example.com', '+7 999 123-45-67', 'Цветочная лавка', 'Нужна интеграция сайта с amoCRM'],
-         ['Иван Петров', 'ivan@example.com', '8 (912) 555-01-02', 'Автосервис «Мотор»', 'Заявки теряются, нужен учёт'],
-         ['Ольга Ким', 'olga@example.com', '+7 921 700-80-90', 'Школа английского', 'Оплата курсов онлайн']],
-    en: [['Emma Clark', 'emma@example.com', '+1 415 555 0134', 'Bloom & Co', 'Connect our site form to HubSpot'],
-         ['Lucas Meyer', 'lucas@example.com', '+49 30 901820', 'Meyer Fitness', 'Online payments for memberships'],
-         ['Sofia Rossi', 'sofia@example.com', '+39 06 555 0199', 'Rossi Design', 'Leads into a Google Sheet + Telegram']]
+    // no emails/phones: the server makes up a sandbox contact (demo_contact) — nothing contact-like on screen
+    ru: [['Анна (тест)', 'example-shop', 'Нужна интеграция сайта с amoCRM'],
+         ['Иван (тест)', 'example-service', 'Заявки теряются, нужен учёт'],
+         ['Ольга (тест)', 'example-school', 'Оплата курсов онлайн']],
+    en: [['Emma (test)', 'example-shop', 'Connect our site form to HubSpot'],
+         ['Lucas (test)', 'example-gym', 'Online payments for memberships'],
+         ['Sofia (test)', 'example-studio', 'Leads into a Google Sheet + Telegram']]
   };
 
   function uid() {
@@ -126,8 +127,12 @@
     this.rendered = Date.now();
     this.subId = uid();
     if (keep) this.fill(keep);
+    if (this.demoContact) this.markDemoContact();
     this.form.addEventListener('submit', function (e) { e.preventDefault(); self.submit(); });
-    this.form.addEventListener('input', function () { self.subId = self.subId || uid(); });
+    this.form.addEventListener('input', function (e) {
+      self.subId = self.subId || uid();
+      if (e.target.name === 'email' || e.target.name === 'phone') self.demoContact = false;
+    });
     this.root.querySelector('[data-demo]').addEventListener('click', function () { self.fillDemo(); });
   };
   Widget.prototype.values = function () {
@@ -142,18 +147,24 @@
   };
   Widget.prototype.fillDemo = function () {
     var list = DEMO[this.o.lang] || DEMO.en, d = list[this.demoIdx++ % list.length];
-    this.fill({ name: d[0], email: d[1], phone: d[2], company: d[3], message: d[4] });
+    this.fill({ name: d[0], email: '', phone: '', company: d[1], message: d[2] });
+    this.demoContact = true;
+    this.markDemoContact();
     this.rendered = Math.min(this.rendered, Date.now() - 3000); // a human did "type" it
+  };
+  Widget.prototype.markDemoContact = function () {
+    var f = this.form, t = this.t('testContact');
+    f.elements.email.placeholder = t; f.elements.phone.placeholder = t;
   };
   Widget.prototype.msg = function (text, err) {
     var m = this.root.querySelector('.msg'); m.textContent = text || ''; m.className = 'msg' + (err ? ' err' : '');
   };
   Widget.prototype.submit = function () {
     var v = this.values(), self = this, btn = this.root.querySelector('.send');
-    if (!v.name || (!v.email && !v.phone)) { this.msg(this.t('need'), true); return; }
+    if (!v.name || (!v.email && !v.phone && !this.demoContact)) { this.msg(this.t('need'), true); return; }
     btn.disabled = true; btn.textContent = this.t('sending'); this.msg('');
     var body = Object.assign(v, { session: this.o.session, profile: this.o.profile, lang: this.o.lang,
-      submission_id: this.subId, elapsed_ms: Date.now() - this.rendered });
+      submission_id: this.subId, elapsed_ms: Date.now() - this.rendered, demo_contact: !!this.demoContact && !v.email && !v.phone });
     var attempt = 0;
     (function go() {
       attempt++;
@@ -174,6 +185,7 @@
   Widget.prototype.done = function (j) {
     var self = this;
     this.subId = null;
+    this.demoContact = false;
     this.form.innerHTML = '<div class="done"><h3>✓</h3><p>' + this.t('ok').replace('{id}', j.lead_id) + '</p>' +
       '<button class="link" type="button">' + this.t('again') + '</button></div>';
     this.form.querySelector('button').addEventListener('click', function () { self.render(); });

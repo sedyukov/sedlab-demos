@@ -26,6 +26,8 @@
 - **Infra:** `~/freelance/infra/compose/leads/` (compose, site.caddy с `flush_interval -1` для SSE, health.url, env.keys с перечнем live-ключей).
 - **Документы и медиа:** README.md (EN) и README.ru.md с ценами, portfolio.md (RU/EN), 12 скриншотов, 2 видео MP4 по ~40 с и 2 GIF (RU и EN).
 
+- **Без «контактов» на экране** (модерация Kwork/FL.ru): страница и SSE получают email/телефоны только как псевдонимы `client-N (email|тел.)`, получатели уведомлений — «Менеджер (Telegram)»; «Заполнить тестовыми данными» не вставляет email/телефон (сервер сам заводит sandbox-контакт, `demo_contact`); заглушка сайта — `example-shop`; точечные id шагов показаны как `crm › create_deal`; тестовая карта — `•••• 4242`. Тест `TestPageShowsNoContacts`. Медиа пересняты.
+
 ## Осталось
 - Для S7: у s2-modules есть TS-часть `@sedlab/crm` (submitLead, validateLead). `widget.js` пока самостоятельный, без зависимостей; его можно перевести на неё при сборке S7.
 - Проверить приватность пакета ghcr.io/sedyukov/leads (оркестратор, когда починят gh).

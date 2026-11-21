@@ -117,7 +117,7 @@ func LoadProfiles(getenv func(string) (string, bool)) (map[string]*Profile, erro
 			}
 			p.shared.Sheets = c
 		}
-		p.recipients = map[string]string{"telegram": "@sales_team_demo", "email": "sales@example.com"}
+		p.recipients = map[string]string{"telegram": "100200300", "email": "manager@example.com"} // demo sandbox; shown as labels
 		if tg, em := strings.ToLower(get("NOTIFY_TELEGRAM_PROVIDER")), strings.ToLower(get("NOTIFY_EMAIL_PROVIDER")); (tg != "" && tg != "mock") || (em != "" && em != "mock") {
 			c, err := notify.FromEnv(notifykit.Env{Prefix: p.env + "NOTIFY_", Lookup: getenv})
 			if err != nil {
