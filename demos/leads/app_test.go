@@ -528,7 +528,8 @@ func TestEditionRU(t *testing.T) {
 			t.Fatalf("%s: lang %q currency %q", prof, lead.Lang, lead.Amount.Currency)
 		}
 		msgs := sentOnly(h.app.stack(h.app.Sessions.Peek(s), prof).Notify.ListDeliveries(""))
-		if len(msgs) != 2 || msgs[0].Channel != "telegram" || msgs[1].Channel != "max" || !strings.Contains(msgs[1].Text, "Новая заявка") {
+		if len(msgs) != 2 || msgs[0].Channel != "telegram" || msgs[1].Channel != "max" || !strings.Contains(msgs[1].Text, "Новая заявка") ||
+			strings.Contains(msgs[0].Text, "Ivan") {
 			t.Fatalf("%s deliveries: %+v", prof, msgs)
 		}
 	}

@@ -320,10 +320,10 @@ func (a *App) process(s *Session, lead *Lead) error {
 	for _, ch := range prof.NotifyChans {
 		ch := ch
 		if err := a.step(ctx, s, lead, "notify."+ch, "notify", func(ctx context.Context) (string, map[string]any, error) {
-			text := fmt.Sprintf("🆕 New lead %s\n%s · contact: %s (in CRM)\nPlan: %s, %s\nDeal: %s", lead.ID, lead.Name, lead.Alias,
+			text := fmt.Sprintf("🆕 New lead %s\n%s · contact: %s (in CRM)\nPlan: %s, %s\nDeal: %s", lead.ID, a.notifyName(lead), lead.Alias,
 				lead.Plan, formatMoney(lead.Amount), deal.ID)
 			if lead.Lang == "ru" {
-				text = fmt.Sprintf("🆕 Новая заявка %s\n%s · контакт: %s (в CRM)\nТариф: %s, %s\nСделка: %s", lead.ID, lead.Name, lead.Alias,
+				text = fmt.Sprintf("🆕 Новая заявка %s\n%s · контакт: %s (в CRM)\nТариф: %s, %s\nСделка: %s", lead.ID, a.notifyName(lead), lead.Alias,
 					planRU(lead.Plan), formatMoney(lead.Amount), deal.ID)
 			}
 			r, err := st.Notify.Send(ctx, notify.SendInput{Channel: ch, To: prof.recipients[ch], Text: text, Subject: "New lead " + lead.ID, IdempotencyKey: "new-" + lead.SubmissionID, Metadata: notifyMeta(ctx, lead)})
@@ -628,9 +628,9 @@ func (a *App) onPayment(s *Session, lead *Lead, ev *payments.WebhookEvent) {
 	prof := a.Profiles[lead.Profile]
 	ch := prof.NotifyChans[0]
 	_ = a.step(ctx, s, lead, "notify."+ch, "notify", func(ctx context.Context) (string, map[string]any, error) {
-		text := fmt.Sprintf("💰 %s paid: %s, %s. Deal %s → %s", lead.ID, lead.Name, formatMoney(lead.Amount), lead.DealID, stage)
+		text := fmt.Sprintf("💰 %s paid: %s, %s. Deal %s → %s", lead.ID, a.notifyName(lead), formatMoney(lead.Amount), lead.DealID, stage)
 		if lead.Lang == "ru" {
-			text = fmt.Sprintf("💰 %s оплачена: %s, %s. Сделка %s → %s", lead.ID, lead.Name, formatMoney(lead.Amount), lead.DealID, stage)
+			text = fmt.Sprintf("💰 %s оплачена: %s, %s. Сделка %s → %s", lead.ID, a.notifyName(lead), formatMoney(lead.Amount), lead.DealID, stage)
 		}
 		if status != "paid" {
 			text = fmt.Sprintf("❌ %s: payment %s. Deal %s → lost", lead.ID, payStatus, lead.DealID)
@@ -751,4 +751,13 @@ func header(h map[string]string, name string) string {
 		}
 	}
 	return ""
+}
+
+// notifyName: RU edition messengers carry test data only (legal v2, ui-texts §4а): no visitor-typed name,
+// the alias stands in. Other editions keep the name (it is the visitor's own sandbox).
+func (a *App) notifyName(lead *Lead) string {
+	if a.Edition == EditionRU {
+		return lead.Alias
+	}
+	return lead.Name
 }
