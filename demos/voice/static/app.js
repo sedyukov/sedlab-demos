@@ -86,7 +86,7 @@
   const params = new URLSearchParams(location.search);
   const state = {
     lang: params.get("lang") || store.get("voice.lang") || ((navigator.language || "en").startsWith("ru") ? "ru" : "en"),
-    llm: store.get("voice.llm") || "openai",
+    llm: store.get("voice.llm") || "",
     cfg: null, result: null, mediaUrl: null, busy: false,
   };
   const t = (k, vars) => {
@@ -120,7 +120,7 @@
     const r = await fetch("/api/config");
     state.cfg = await r.json();
     const llm = state.cfg.providers.llm;
-    if (!llm[state.llm] || (llm[state.llm] !== "live" && Object.values(llm).includes("live"))) state.llm = Object.keys(llm).find((k) => llm[k] === "live") || "openai";
+    if (!llm[state.llm] || (llm[state.llm] !== "live" && Object.values(llm).includes("live"))) state.llm = state.cfg.default_llm || Object.keys(llm)[0];
     renderConfig();
   }
 

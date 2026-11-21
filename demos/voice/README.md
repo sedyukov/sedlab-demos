@@ -54,7 +54,7 @@ API usage is billed separately at the provider's price. Typical cost: about $0.0
 ```bash
 pip install -e ../../path/to/modules/ai/python -e ../../path/to/modules/telegram-core/python -e '.[test]'
 uvicorn voice_demo.main:app --port 8080     # demo mode, no keys needed
-pytest -q                                    # 25 tests: demo mode, live mode with fakes, limits, Telegram bot
+pytest -q                                    # 27 tests: demo mode, live mode with fakes, limits, Telegram bot
 ```
 Config: see [.env.example](.env.example). `AI_OPENAI_API_KEY` turns on live STT/TTS. Each LLM goes live once its key is set.
 `VOICE_TELEGRAM_TOKEN` starts the bot (long polling).

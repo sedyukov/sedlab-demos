@@ -1,6 +1,8 @@
 """Spend control for live mode: per-IP token bucket, a daily cap for everyone, audio length from the WAV header."""
 from __future__ import annotations
 
+import hashlib
+import os
 import struct
 import threading
 import time
@@ -11,10 +13,15 @@ from sedlab_ai.kit.ratelimit import KeyedLimiter
 
 
 class Limits:
+    """Keys (IP, Telegram chat id) are kept only as salted hashes, in memory, and all buckets are dropped at the
+    daily reset — no personal data is stored (the demo host is outside Russia)."""
+
     def __init__(self, ip_per_hour: int, daily: int, clock: Callable[[], float] = time.monotonic,
                  today: Callable[[], str] = lambda: datetime.now(timezone.utc).strftime("%Y-%m-%d")) -> None:
         n = max(1, ip_per_hour)
-        self._ip = KeyedLimiter(n / 3600.0, n, clock)
+        self._mk = lambda: KeyedLimiter(n / 3600.0, n, clock)
+        self._ip = self._mk()
+        self._salt = os.urandom(16)  # per process: hashes can't be linked across restarts
         self.daily = daily
         self._today = today
         self._day = ""
@@ -26,14 +33,18 @@ class Limits:
         with self._lock:
             d = self._today()
             if d != self._day:
-                self._day, self._used = d, 0
+                self._day, self._used, self._ip = d, 0, self._mk()  # TTL: forget every key daily
             if self._used >= self.daily:
                 return "daily"
-        if not self._ip.allow(ip):
+            buckets = self._ip
+        if not buckets.allow(self.key(ip)):
             return "ip"
         with self._lock:
             self._used += 1
         return None
+
+    def key(self, raw: str) -> str:
+        return hashlib.sha256(self._salt + raw.encode()).hexdigest()[:20]
 
     def remaining_today(self) -> int:
         with self._lock:

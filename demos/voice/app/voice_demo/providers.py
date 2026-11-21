@@ -7,7 +7,12 @@ from typing import Mapping
 
 from sedlab_ai import Client, Env, from_env
 
-LLMS = ("openai", "anthropic", "gigachat", "yandexgpt")
+LLMS = ("gigachat", "yandexgpt", "openai", "anthropic")  # RU providers first: they are the default (152-FZ)
+
+
+def default_llm(p: "Providers") -> str:
+    """First live provider, Russian ones preferred; gigachat when nothing is live."""
+    return next((n for n in LLMS if p.llm_live(n)), LLMS[0])
 
 
 @dataclass

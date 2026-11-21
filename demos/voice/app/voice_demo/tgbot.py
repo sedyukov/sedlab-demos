@@ -16,7 +16,7 @@ from sedlab_telegram_core.api import HTTPAPI
 
 from . import pipeline
 from .limits import Limits
-from .providers import Providers
+from .providers import Providers, default_llm
 from .settings import Settings
 
 log = logging.getLogger("voice.tg")
@@ -71,7 +71,7 @@ class VoiceBot:
     def __init__(self, s: Settings, prov: Providers, limits: Limits, bot: Bot | None = None) -> None:
         self.s, self.prov, self.limits = s, prov, limits
         self.bot = bot or Bot(HTTPAPI(s.telegram_token), token=s.telegram_token)
-        self.llm = s.environ.get("VOICE_TG_LLM") or ("anthropic" if prov.anthropic else "openai")
+        self.llm = s.environ.get("VOICE_TG_LLM") or default_llm(prov)
         self.max_bytes = s.max_upload_mb * 1024 * 1024
         self._stop = threading.Event()
         self.offset = 0

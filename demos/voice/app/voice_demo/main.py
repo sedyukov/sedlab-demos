@@ -20,7 +20,7 @@ from sedlab_ai import Code, ModuleError
 
 from . import pipeline
 from .limits import Limits, wav_duration
-from .providers import LLMS, Providers
+from .providers import LLMS, Providers, default_llm
 from .settings import Settings
 
 log = logging.getLogger("voice")
@@ -36,7 +36,7 @@ class ApiError(Exception):
 
 class AnalyzeIn(BaseModel):
     text: str = Field(min_length=1, max_length=20000)
-    llm: str = "openai"
+    llm: str = "gigachat"
     lang: str = ""
 
 
@@ -108,6 +108,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     def config():
         return {
             "providers": prov.status(),
+            "default_llm": default_llm(prov),
             "limits": {"max_audio_sec": s.max_audio_sec, "max_upload_mb": s.max_upload_mb,
                        "ip_per_hour": s.ip_per_hour, "daily_left": limits.remaining_today()},
             "samples": [{"id": r["id"], "title": r["title"], "lang": r["lang"], "kind": r["kind"],
@@ -134,7 +135,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
 
     @app.post("/api/process")
     async def process(req: Request, file: UploadFile | None = File(None), sample: str = Form(""),
-                      llm: str = Form("openai"), lang: str = Form(""), browser_transcript: str = Form("")):
+                      llm: str = Form("gigachat"), lang: str = Form(""), browser_transcript: str = Form("")):
         llm = check_llm(llm)
         if sample:
             r = samples.get(sample)
@@ -206,7 +207,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         if not prov.tts_live:
             raise ApiError(409, "tts_demo", "Live TTS is off in demo mode; the page uses the browser voice.")
         spend(req)
-        return pipeline.speak(prov.client("openai"), body.text)
+        return pipeline.speak(prov.client(default_llm(prov)), body.text)
 
     app.mount("/samples", StaticFiles(directory=s.samples_dir), name="samples")
     app.mount("/static", StaticFiles(directory=s.static_dir), name="static")

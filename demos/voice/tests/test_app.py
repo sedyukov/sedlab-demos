@@ -222,3 +222,28 @@ def test_guess_lang_and_template():
     assert guess_lang("Привет, мир") == "ru" and guess_lang("Hello") == "en" and guess_lang("123", "ru") == "ru"
     r = template_reply("Done.", [Task("Ship", "Liam", "2026-11-30")], "en")
     assert r == "In short: Done. Action items: 1. Liam: Ship — by 2026-11-30."
+
+
+# ---------- legal: no raw personal data in memory (R9), RU providers by default (R2) ----------
+
+def test_limiter_keeps_only_hashed_keys_and_forgets_daily():
+    day = ["2026-11-21"]
+    lim = Limits(ip_per_hour=5, daily=100, today=lambda: day[0])
+    lim.check("203.0.113.7")
+    lim.check("tg:123456789")
+    keys = list(lim._ip._m)
+    assert len(keys) == 2
+    assert all("203.0.113.7" not in k and "123456789" not in k for k in keys)
+    assert lim.key("203.0.113.7") in keys
+    day[0] = "2026-11-22"
+    lim.check("x")
+    assert lim.key("203.0.113.7") not in lim._ip._m and len(lim._ip._m) == 1
+
+
+def test_default_llm_prefers_russian_providers():
+    from voice_demo.providers import Providers, default_llm
+    assert default_llm(Providers({})) == "gigachat"
+    assert default_llm(Providers({"AI_OPENAI_API_KEY": "k", "AI_YANDEX_API_KEY": "y", "AI_YANDEX_FOLDER_ID": "f"})) == "yandexgpt"
+    assert default_llm(Providers({"AI_OPENAI_API_KEY": "k"})) == "openai"
+    assert make().get("/api/config").json()["default_llm"] == "gigachat"
+    assert list(make().get("/api/config").json()["providers"]["llm"])[:2] == ["gigachat", "yandexgpt"]
