@@ -103,6 +103,9 @@ if (ED === 'intl') {
   await closeApp()
   await page.locator('.bubble', { hasText: T.chatBooked }).last().waitFor(); await pause(800)
   await page.getByRole('button', { name: 'Telegram', exact: true }).click(); await pause(500)
+  // accounts: until the auth service is up the sign-in button is a stub that explains it
+  await page.getByRole('button', { name: 'Войти и попробовать вживую' }).click()
+  await page.locator('.notice', { hasText: 'сервиса аккаунтов' }).waitFor(); step('accounts sign-in stub')
 }
 
 await page.getByRole('button', { name: T.remind }).click()

@@ -17,6 +17,8 @@ import (
 	"time"
 	_ "time/tzdata"
 
+	acc "github.com/sedyukov/sedlab-modules/modules/accounts/go"
+	acckit "github.com/sedyukov/sedlab-modules/modules/accounts/go/kit"
 	mx "github.com/sedyukov/sedlab-modules/modules/max-core/go"
 	mxkit "github.com/sedyukov/sedlab-modules/modules/max-core/go/kit"
 	notify "github.com/sedyukov/sedlab-modules/modules/notify/go"
@@ -175,11 +177,37 @@ func NewAppFromEnv(log *slog.Logger) (*App, error) {
 		os.Setenv("NOTIFY_TELEGRAM_PROVIDER", "telegram")
 		os.Setenv("NOTIFY_TELEGRAM_BOT_TOKEN", os.Getenv("TELEGRAM_BOT_TOKEN"))
 	}
+	// RU edition: accounts (live mode + limits) and the real YooKassa TEST shop for live runs
+	var accClient *acc.Client
+	var livePay pay.Provider
+	if edition == "ru" {
+		if accClient, err = acc.FromEnv(acckit.Env{Prefix: "ACCOUNTS_"}); err != nil {
+			return nil, err
+		}
+		if env("PAYMENTS_YOOKASSA_SHOP_ID", "") != "" && env("PAYMENTS_YOOKASSA_SECRET_KEY", "") != "" {
+			livePay, err = pay.FromEnv(paykit.Env{Prefix: "PAYMENTS_", Lookup: func(k string) (string, bool) {
+				if k == "PAYMENTS_PROVIDER" {
+					return "yookassa", true
+				}
+				return os.LookupEnv(k)
+			}})
+			if err != nil {
+				return nil, err
+			}
+		}
+	}
+	cfg.AccountsUI = env("ACCOUNTS_UI", "stub")
+	cfg.WidgetURL = env("ACCOUNTS_WIDGET_URL", "https://auth.demo.sedlab.dev/widget.js")
 	nc, err := notify.FromEnv(notifykit.Env{Prefix: "NOTIFY_"})
 	if err != nil {
 		return nil, err
 	}
-	return NewApp(cfg, st, bot, maxm, p, nc, log)
+	app, err := NewApp(cfg, st, bot, maxm, p, nc, log)
+	if err != nil {
+		return nil, err
+	}
+	app.acc, app.livePay = accClient, livePay
+	return app, nil
 }
 
 // NewApp wires the app (also used by tests).

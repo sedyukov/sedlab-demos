@@ -29,7 +29,9 @@ Until the RU host exists, `infra/compose/booking` (DO) serves the RU edition wit
 
 ## Left
 - RU edition move: `deploy.sh booking-ru --tag sha-…` on freelance-ru + A record `booking.demo` → RU host; then `deploy.sh rm booking` on DO.
-- accounts (RU): owner sign-in to the admin (Max / Yandex ID / VK ID), live client sign-in via auth;
-  env `ACCOUNTS_PROVIDER=http`, `ACCOUNTS_AUTH_URL=http://auth:8080`, `ACCOUNTS_SERVICE_KEY` (sec AUTH_SVC_BOOKING), `ACCOUNTS_DEMO`.
+- accounts (RU) is wired: `server/accounts.go` (mode → consume → live YooKassa TEST shop, refund on failure, fail-closed to
+  the mock; webhook/refund routed by `pay_live`), stub sign-in button now (`ACCOUNTS_UI=stub`). To go live when auth is up:
+  `ACCOUNTS_UI=widget`, `ACCOUNTS_PROVIDER=http`, keys `AUTH_PUBLIC_KEY`, `AUTH_SVC_BOOKING`, `YOOKASSA_TEST_SHOP_ID/SECRET_KEY`
+  (see `infra/compose/booking-ru/env.keys`). Test: `TestRuLiveModeViaAccounts`.
 - Optional live bots: Telegram (BotFather token) and Max (token) via orchestrator / `sec`.
 - Real Max client: verify the Max bridge script for Mini Apps (window.WebApp) before a live Max launch.

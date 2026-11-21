@@ -48,23 +48,32 @@ func (a *App) handlePay(w http.ResponseWriter, r *http.Request) {
 	switch in.Method {
 	case "card":
 		amount, cur := a.deposit(a.cardPrice(svc), 100), a.cardCurrency()
-		p, err := a.pay.CreatePayment(r.Context(), pay.CreatePaymentInput{
+		prov, consumption, mode := a.cardProviderFor(r.Context(), r, b)
+		in := pay.CreatePaymentInput{
 			Amount:         pay.Money{Value: amount, Currency: cur},
 			Description:    truncate(desc, 128),
 			IdempotencyKey: fmt.Sprintf("booking-%d-%d", b.ID, b.CreatedAt),
 			ReturnURL:      fmt.Sprintf("%s/app/?booking=%d", a.cfg.PublicURL, b.ID),
 			Metadata:       map[string]string{"booking_id": strconv.FormatInt(b.ID, 10)},
-		})
+		}
+		p, err := prov.CreatePayment(r.Context(), in)
+		if err != nil && prov != a.pay { // live provider failed: give the unit back, continue on the mock
+			a.log.Warn("live payment failed, falling back to mock", "err", err)
+			a.refundLiveUnit(r.Context(), consumption)
+			mode.Live, mode.Reason = false, "unavailable"
+			p, err = a.pay.CreatePayment(r.Context(), in)
+		}
 		if err != nil {
 			a.log.Error("create payment", "err", err)
 			writeErr(w, 502, "provider_error", "payment provider error")
 			return
 		}
-		if err := a.store.SetPaymentStarted(b.ID, "card", cur, amount, p.ID, hold); err != nil {
+		if err := a.store.SetPaymentStarted(b.ID, "card", cur, amount, p.ID, mode.Live, hold); err != nil {
 			a.fail(w, err)
 			return
 		}
-		writeJSON(w, 200, map[string]any{"method": "card", "confirmation_url": p.ConfirmationURL, "amount": amount, "currency": cur})
+		writeJSON(w, 200, map[string]any{"method": "card", "confirmation_url": p.ConfirmationURL, "amount": amount, "currency": cur,
+			"live": mode.Live, "live_reason": mode.Reason, "live_left": mode.UserLeft})
 	case "stars":
 		amount := a.deposit(svc.PriceStars, 1)
 		link, err := a.msg.StarsInvoiceLink(r.Context(), StarsInvoice{
@@ -76,7 +85,7 @@ func (a *App) handlePay(w http.ResponseWriter, r *http.Request) {
 			writeErr(w, 502, "provider_error", "telegram error")
 			return
 		}
-		if err := a.store.SetPaymentStarted(b.ID, "stars", "XTR", amount, "", hold); err != nil {
+		if err := a.store.SetPaymentStarted(b.ID, "stars", "XTR", amount, "", false, hold); err != nil {
 			a.fail(w, err)
 			return
 		}
@@ -137,7 +146,7 @@ func (a *App) cancelBooking(ctx context.Context, b Booking, refund bool, by stri
 		var rerr error
 		switch b.PayMethod {
 		case "card":
-			_, rerr = a.pay.Refund(ctx, pay.RefundInput{PaymentID: b.PayID, IdempotencyKey: fmt.Sprintf("refund-booking-%d", b.ID)})
+			_, rerr = a.payFor(b).Refund(ctx, pay.RefundInput{PaymentID: b.PayID, IdempotencyKey: fmt.Sprintf("refund-booking-%d", b.ID)})
 		case "stars":
 			if isEmulatorUser(b.UserID) {
 				rerr = nil // emulator payment: nothing was charged in Telegram
@@ -182,7 +191,8 @@ func (a *App) handlePaymentsWebhook(w http.ResponseWriter, r *http.Request) {
 }
 
 func (a *App) processPaymentWebhook(ctx context.Context, headers map[string]string, body []byte) error {
-	ev, err := a.pay.ParseWebhook(ctx, headers, body)
+	prov := a.webhookProvider(headers)
+	ev, err := prov.ParseWebhook(ctx, headers, body)
 	if err != nil {
 		return err
 	}
@@ -201,7 +211,7 @@ func (a *App) processPaymentWebhook(ctx context.Context, headers map[string]stri
 		}
 		if b.Status == "expired" || b.Status == "cancelled" {
 			// paid after the hold expired: refund automatically
-			_, err := a.pay.Refund(ctx, pay.RefundInput{PaymentID: ev.PaymentID, IdempotencyKey: fmt.Sprintf("late-refund-%d", b.ID)})
+			_, err := prov.Refund(ctx, pay.RefundInput{PaymentID: ev.PaymentID, IdempotencyKey: fmt.Sprintf("late-refund-%d", b.ID)})
 			if err == nil {
 				a.store.MarkRefunded(b.ID)
 			}

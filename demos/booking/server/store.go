@@ -61,6 +61,7 @@ CREATE TABLE IF NOT EXISTS bookings (
   pay_currency TEXT NOT NULL DEFAULT '',
   pay_amount INTEGER NOT NULL DEFAULT 0, -- minor units (kopecks) or stars
   pay_id TEXT NOT NULL DEFAULT '',       -- payments id or telegram_payment_charge_id
+  pay_live INTEGER NOT NULL DEFAULT 0,   -- 1 = real test shop (accounts live mode), 0 = demo mock
   paid_at INTEGER NOT NULL DEFAULT 0,
   refunded INTEGER NOT NULL DEFAULT 0,
   hold_until INTEGER NOT NULL DEFAULT 0, -- pending slot hold expiry
@@ -89,6 +90,7 @@ func OpenStore(path string) (*Store, error) {
 	if _, err := db.Exec(schema); err != nil {
 		return nil, fmt.Errorf("schema: %w", err)
 	}
+	db.Exec(`ALTER TABLE bookings ADD COLUMN pay_live INTEGER NOT NULL DEFAULT 0`)
 	db.Exec(`ALTER TABLE services ADD COLUMN price_usd INTEGER NOT NULL DEFAULT 0`) // older DBs; error = already there
 	return &Store{db: db}, nil
 }
@@ -157,6 +159,7 @@ type Booking struct {
 	PayCurrency string `json:"pay_currency"`
 	PayAmount   int64  `json:"pay_amount"`
 	PayID       string `json:"pay_id"`
+	PayLive     bool   `json:"pay_live"`
 	PaidAt      int64  `json:"paid_at"`
 	Refunded    bool   `json:"refunded"`
 	HoldUntil   int64  `json:"hold_until"`
@@ -354,12 +357,12 @@ func (s *Store) SetUserLang(id int64, lang string) error {
 
 // ---- bookings ----
 
-const bookingCols = `id,user_id,client_name,client_phone,service_id,master_id,start_at,end_at,status,pay_method,pay_currency,pay_amount,pay_id,paid_at,refunded,hold_until,reminded_24h,reminded_2h,lang,created_at`
+const bookingCols = `id,user_id,client_name,client_phone,service_id,master_id,start_at,end_at,status,pay_method,pay_currency,pay_amount,pay_id,pay_live,paid_at,refunded,hold_until,reminded_24h,reminded_2h,lang,created_at`
 
 func scanBooking(sc interface{ Scan(...any) error }) (Booking, error) {
 	var b Booking
 	err := sc.Scan(&b.ID, &b.UserID, &b.ClientName, &b.ClientPhone, &b.ServiceID, &b.MasterID, &b.StartAt, &b.EndAt, &b.Status,
-		&b.PayMethod, &b.PayCurrency, &b.PayAmount, &b.PayID, &b.PaidAt, &b.Refunded, &b.HoldUntil, &b.Reminded24h, &b.Reminded2h, &b.Lang, &b.CreatedAt)
+		&b.PayMethod, &b.PayCurrency, &b.PayAmount, &b.PayID, &b.PayLive, &b.PaidAt, &b.Refunded, &b.HoldUntil, &b.Reminded24h, &b.Reminded2h, &b.Lang, &b.CreatedAt)
 	return b, err
 }
 
@@ -453,9 +456,9 @@ func (s *Store) InsertBooking(b *Booking) error {
 	return nil
 }
 
-func (s *Store) SetPaymentStarted(id int64, method, currency string, amount int64, payID string, holdUntil int64) error {
-	res, err := s.db.Exec(`UPDATE bookings SET pay_method=?,pay_currency=?,pay_amount=?,pay_id=?,hold_until=? WHERE id=? AND status='pending'`,
-		method, currency, amount, payID, holdUntil, id)
+func (s *Store) SetPaymentStarted(id int64, method, currency string, amount int64, payID string, live bool, holdUntil int64) error {
+	res, err := s.db.Exec(`UPDATE bookings SET pay_method=?,pay_currency=?,pay_amount=?,pay_id=?,pay_live=?,hold_until=? WHERE id=? AND status='pending'`,
+		method, currency, amount, payID, live, holdUntil, id)
 	return mustAffect(res, err)
 }
 

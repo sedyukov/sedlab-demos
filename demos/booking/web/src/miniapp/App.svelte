@@ -108,12 +108,15 @@
       }
       const p = await api('POST', `/api/bookings/${booking.id}/pay`, { method })
       booking = { ...booking, pay_amount: p.amount, pay_currency: p.currency }
+      if (p.live) flash(L('liveOn', { n: p.live_left }))
+      else if (['user_daily', 'global_daily', 'budget_month'].includes(p.live_reason)) flash(L('liveOff'))
       if (p.method === 'stars') {
         const status = await tg.openInvoice(p.invoice_link)
         if (status === 'paid') { tg.haptic('success'); await openBooking(booking.id, true) }
         else if (status === 'failed') flash(L('err'))
       } else {
-        const r = await tg.openCheckout(p.confirmation_url)
+        // live test shop is a real external page: open it outside the emulator overlay
+        const r = p.live && tg.isEmulator ? (window.open(p.confirmation_url, '_blank', 'noopener'), 'opened') : await tg.openCheckout(p.confirmation_url)
         await openBooking(booking.id, true)
         if (r === 'canceled') flash(L('st_pending'))
       }

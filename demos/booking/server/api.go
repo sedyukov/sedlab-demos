@@ -206,9 +206,18 @@ func (a *App) ownBooking(w http.ResponseWriter, r *http.Request) (Booking, bool)
 }
 
 func (a *App) handleGetBooking(w http.ResponseWriter, r *http.Request) {
-	if b, ok := a.ownBooking(w, r); ok {
-		writeJSON(w, 200, a.bookingView(b))
+	b, ok := a.ownBooking(w, r)
+	if !ok {
+		return
 	}
+	// live payment (real YooKassa test shop): if its webhook is not configured, confirm by polling the provider
+	if b.Status == "pending" && b.PayMethod == "card" && b.PayID != "" && b.PayLive && a.livePay != nil {
+		if p, err := a.livePay.GetPayment(r.Context(), b.PayID); err == nil && p.Status == "succeeded" {
+			a.confirmPaid(r.Context(), b.ID, b.PayID)
+			b, _ = a.store.Booking(b.ID)
+		}
+	}
+	writeJSON(w, 200, a.bookingView(b))
 }
 
 func (a *App) handleMyBookings(w http.ResponseWriter, r *http.Request) {

@@ -14,6 +14,7 @@ import (
 	"sync"
 	"time"
 
+	acc "github.com/sedyukov/sedlab-modules/modules/accounts/go"
 	pay "github.com/sedyukov/sedlab-modules/modules/payments/go"
 )
 
@@ -22,6 +23,8 @@ type Config struct {
 	Lang           string // ru for the ru edition, en for intl
 	OtherURL       string // link to the other edition
 	PDAllowed      bool   // host may store personal data (RU host, 152-FZ); false on the public intl host
+	AccountsUI     string // ru: stub (until auth is up) | widget | off
+	WidgetURL      string // auth widget.js
 	PublicURL      string // https://booking.demo.sedlab.dev
 	TZ             *time.Location
 	PayMethods     []string // card, stars
@@ -39,15 +42,17 @@ type Config struct {
 }
 
 type App struct {
-	cfg    Config
-	store  *Store
-	msg    Messenger          // Telegram (telegram-core)
-	tgm    *telegramMessenger // same object as msg (emulator helpers)
-	max    *maxMessenger      // Max (max-core)
-	pay    pay.Provider
-	notify Notifier
-	log    *slog.Logger
-	now    func() time.Time
+	cfg     Config
+	store   *Store
+	msg     Messenger          // Telegram (telegram-core)
+	tgm     *telegramMessenger // same object as msg (emulator helpers)
+	max     *maxMessenger      // Max (max-core)
+	pay     pay.Provider       // mock card payments (demo)
+	livePay pay.Provider       // real YooKassa TEST shop (ru, keys set); only in accounts live mode
+	acc     *acc.Client        // accounts (ru edition); nil in intl
+	notify  Notifier
+	log     *slog.Logger
+	now     func() time.Time
 
 	updSeq  int64 // simulated update ids (emulator)
 	mu      sync.Mutex
@@ -277,6 +282,7 @@ func (a *App) handleConfig(w http.ResponseWriter, r *http.Request) {
 		"pay_methods": a.cfg.PayMethods, "deposit_percent": a.cfg.DepositPercent, "tz": a.cfg.TZ.String(),
 		"edition": a.cfg.Edition, "lang": a.cfg.Lang, "other_url": a.cfg.OtherURL, "max": a.maxEnabled(),
 		"card_provider": a.cardProvider(), "card_currency": a.cardCurrency(), "collect_phone": a.cfg.PDAllowed,
+		"accounts_ui": a.accountsUI(), "widget_url": a.cfg.WidgetURL, "live_resource": liveResource, "live_available": a.livePay != nil,
 		"emulator": a.cfg.Emulator, "payments_mock": a.cfg.PaymentsMock, "telegram_live": a.cfg.TelegramLive,
 		"platform": a.msg.Platform(), "hold_minutes": a.cfg.HoldMinutes,
 	})

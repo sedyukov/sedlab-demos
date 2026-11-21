@@ -13,6 +13,7 @@ import (
 	"testing"
 	"time"
 
+	accounts "github.com/sedyukov/sedlab-modules/modules/accounts/go"
 	mx "github.com/sedyukov/sedlab-modules/modules/max-core/go"
 	notify "github.com/sedyukov/sedlab-modules/modules/notify/go"
 	pay "github.com/sedyukov/sedlab-modules/modules/payments/go"
@@ -66,6 +67,10 @@ func newHarness(t *testing.T, edition string) *harness {
 }
 
 func (h *harness) do(method, path, token string, body any) (int, map[string]any) {
+	return h.doC(method, path, token, "", body)
+}
+
+func (h *harness) doC(method, path, token, cookie string, body any) (int, map[string]any) {
 	h.t.Helper()
 	var rd io.Reader
 	if body != nil {
@@ -75,6 +80,9 @@ func (h *harness) do(method, path, token string, body any) (int, map[string]any)
 	req, _ := http.NewRequest(method, h.srv.URL+path, rd)
 	if token != "" {
 		req.Header.Set("Authorization", "Bearer "+token)
+	}
+	if cookie != "" {
+		req.Header.Set("Cookie", "sl_auth="+cookie)
 	}
 	res, err := http.DefaultClient.Do(req)
 	if err != nil {
@@ -402,5 +410,53 @@ func TestRuEdition(t *testing.T) {
 	_, cfg := h.do("GET", "/api/config", "", nil)
 	if cfg["lang"] != "ru" || cfg["max"] != true || cfg["card_currency"] != "RUB" {
 		t.Fatalf("config: %v", cfg)
+	}
+}
+
+// RU edition live mode: a signed-in visitor (accounts) pays the deposit in the real YooKassa TEST shop
+// (here a second mock stands in for it); the limit is consumed once per booking; over the limit → mock.
+func TestRuLiveModeViaAccounts(t *testing.T) {
+	h := newHarness(t, "ru")
+	lim := accounts.DefaultLimits()
+	lim.Resources["yookassa-test"] = accounts.ResourceLimit{Kind: accounts.KindFree, Unit: accounts.UnitRun, PerUserDay: 3}
+	ac, err := accounts.New(accounts.Config{Provider: "mock", Demo: "booking", MockAllowLive: true, MockLimits: lim})
+	if err != nil {
+		t.Fatal(err)
+	}
+	live, _ := pay.OpenMock(pay.MockConfig{CheckoutURL: "https://yookassa.test.invalid/{id}"})
+	h.app.acc, h.app.livePay = ac, live
+	if _, cfg := h.do("GET", "/api/config", "", nil); cfg["accounts_ui"] != "stub" || cfg["live_available"] != true {
+		t.Fatalf("config: %v", cfg)
+	}
+	it, _ := ac.Mock().IssueToken(accounts.IssueTokenInput{UserID: "u1", SID: "s1", Prov: "yandex"})
+	var tok string
+	guest := int64(20)
+	payOnce := func(cookie string) map[string]any {
+		guest++ // a fresh demo guest per payment (one guest may hold at most 3 unpaid bookings)
+		tok, _ = h.login("guest", guest, "ru")
+		b := h.book(tok, "2026-11-24")
+		_, p := h.doC("POST", fmt.Sprintf("/api/bookings/%v/pay", b["id"]), tok, cookie, map[string]any{"method": "card"})
+		p["booking_id"] = b["id"]
+		return p
+	}
+	// not signed in → mock
+	if p := payOnce(""); p["live"] != false || p["live_reason"] != "unauthenticated" || !strings.Contains(p["confirmation_url"].(string), "/pay/") {
+		t.Fatalf("anonymous: %v", p)
+	}
+	// signed in → live test shop; webhook not configured → confirmed by polling the provider
+	p := payOnce(it.Token)
+	if p["live"] != true || !strings.HasPrefix(p["confirmation_url"].(string), "https://yookassa.test.invalid/") {
+		t.Fatalf("live: %v", p)
+	}
+	pid := p["confirmation_url"].(string)[strings.LastIndex(p["confirmation_url"].(string), "/")+1:]
+	live.MockComplete(t.Context(), pid, "succeeded")
+	if _, got := h.do("GET", fmt.Sprintf("/api/bookings/%v", p["booking_id"]), tok, nil); got["status"] != "confirmed" {
+		t.Fatalf("live booking not confirmed: %v", got)
+	}
+	// limit of 3 live runs a day: two more, then the 4th falls back to the mock
+	payOnce(it.Token)
+	payOnce(it.Token)
+	if p := payOnce(it.Token); p["live"] != false || p["live_reason"] != "user_daily" {
+		t.Fatalf("over limit: %v", p)
 	}
 }

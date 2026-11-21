@@ -44,6 +44,8 @@
       bot: 'Bloom Salon Bot', online: 'бот', placeholder: 'Сообщение', open: 'Открыть', start: 'Старт',
       built: 'Стек', more: 'Тот же код работает как настоящий Telegram-бот, нужен только токен от BotFather.', noRem: 'Сначала запишитесь: напоминание приходит о ближайшем визите.',
       variants: 'Российская редакция: Telegram и Max, оплата через ЮKassa, данные хранятся в России.', messenger: 'Мессенджер', other: 'English version',
+      live: 'Живой режим', liveText: 'Войдите через Max, Яндекс ID или VK ID: предоплата пройдёт через настоящий тестовый магазин ЮKassa (несколько раз в день). Без входа работает демо-режим.',
+      signIn: 'Войти и попробовать вживую', stubNote: 'Вход через Max, Яндекс ID и VK ID включится после запуска сервиса аккаунтов. Пока работает демо-режим.',
       chips: ['Go', 'SQLite', 'Svelte', 'Telegram Mini App', 'Max', 'ЮKassa', 'Docker'],
     },
   }
@@ -116,6 +118,12 @@
     document.title = L.h1 + (lang === 'ru' ? ': живое демо' : ': live demo')
     if (!cfg.max) platform = 'telegram'
     ready = true
+    if (cfg.accounts_ui === 'widget' && cfg.widget_url) {
+      const s = document.createElement('script')
+      s.src = cfg.widget_url; s.defer = true
+      Object.assign(s.dataset, { demo: 'booking', resource: cfg.live_resource, providers: 'ЮKassa' })
+      document.head.appendChild(s)
+    }
     await signIn()
     poll = setInterval(loadChat, 2000)
   })
@@ -164,6 +172,14 @@
       <div class="block">
         <p>{L.ownerSteps}</p>
         <div class="row"><button class="btn" onclick={openAdmin}>{L.admin}</button><button class="btn ghost" onclick={resetDemo}>{L.reset}</button></div>
+      </div>
+    {/if}
+    {#if cfg.accounts_ui === 'stub' || cfg.accounts_ui === 'widget'}
+      <div class="block live">
+        <div class="label">{L.live}</div>
+        <p>{L.liveText}</p>
+        {#if cfg.accounts_ui === 'widget'}<div id="sl-account"></div>
+        {:else}<button class="btn" onclick={() => flash(L.stubNote)}>{L.signIn}</button>{/if}
       </div>
     {/if}
     <p class="hint">{L.variants}</p>
@@ -224,6 +240,8 @@
   .lang button { padding: 5px 10px; font-size: 13px; }
   .seg button.on, .lang button.on { background: #6b4eff; color: #fff; }
   .label.sp { margin-top: 12px; }
+  .live p { margin: 0 0 10px; color: #4b4b57; }
+  .live .btn { width: auto; display: inline-block; }
   .phone.max .chat { background: #eef1f7; }
   .phone.max .bot-ava { background: linear-gradient(135deg, #3a7bff, #8a4dff); }
   .phone.max .inline-btn, .phone.max .chip, .phone.max .send { color: #3a6cf4; }
