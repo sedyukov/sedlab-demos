@@ -402,7 +402,7 @@ func TestConsentRequiresBothBoxesAndCancelStoresNothing(t *testing.T) {
 	r.Body.Close()
 	id, _ := app.store.FindIdentity(context.Background(), "max", "51")
 	u, _ := app.store.GetUser(context.Background(), id)
-	if u.ConsentVersion != "demo-v2" || u.ConsentAt == 0 || u.TermsVersion != "terms-v2" || u.TermsAt == 0 || !u.ContactOK || u.ContactConsentAt == 0 {
+	if u.ConsentVersion != "demo-v2" || u.ConsentAt == 0 || u.TermsVersion != "terms-v3" || u.TermsAt == 0 || !u.ContactOK || u.ContactConsentAt == 0 {
 		t.Fatalf("consents not stored: %+v", u)
 	}
 	r, _ = c.PostForm(srv.URL+"/account/contact", url.Values{}) // withdraw
@@ -414,7 +414,7 @@ func TestConsentRequiresBothBoxesAndCancelStoresNothing(t *testing.T) {
 
 func TestLegalPagesFilledFromEnvOnly(t *testing.T) {
 	_, srv := newTestApp(t, map[string]string{"AUTH_PD_EMAIL": "pd@example.test", "AUTH_OPERATOR_OGRNIP": "<b>1</b>"})
-	for _, p := range []string{"/privacy", "/privacy?lang=en", "/terms", "/terms?lang=en", "/consent/demo", "/consent/demo?lang=en", "/consent/contact", "/consent/contact?lang=en"} {
+	for _, p := range []string{"/privacy", "/privacy?lang=en", "/terms", "/terms?lang=en", "/consent/demo", "/consent/demo?lang=en", "/consent/contact", "/consent/contact?lang=en", "/consent/voice", "/consent/prices"} {
 		r, err := http.Get(srv.URL + p)
 		if err != nil || r.StatusCode != 200 {
 			t.Fatalf("%s: %v %v", p, err, r.StatusCode)

@@ -61,7 +61,7 @@ func LoadConfig() (*Config, error) {
 		LimitsFile:   env("AUTH_LIMITS_FILE", ""),
 		Dev:          env("AUTH_DEV", "") == "1",
 		ConsentVer:   env("AUTH_CONSENT_VERSION", "demo-v2"),
-		TermsVer:     env("AUTH_TERMS_VERSION", "terms-v2"),
+		TermsVer:     env("AUTH_TERMS_VERSION", "terms-v3"),
 		ContactVer:   env("AUTH_CONTACT_VERSION", "contact-v1"),
 		PrivacyURL:   env("AUTH_PRIVACY_URL", "/privacy"),
 		ServiceKeys:  map[string]string{},

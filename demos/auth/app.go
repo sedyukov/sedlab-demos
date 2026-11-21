@@ -140,6 +140,8 @@ func (a *App) Routes() http.Handler {
 	m.HandleFunc("GET /terms", a.legalPage("terms"))
 	m.HandleFunc("GET /consent/demo", a.legalPage("consent-demo"))
 	m.HandleFunc("GET /consent/contact", a.legalPage("consent-contact"))
+	m.HandleFunc("GET /consent/voice", a.legalPage("consent-voice"))   // legal §1а (основной адрес: sedlab.dev/consent/voice)
+	m.HandleFunc("GET /consent/prices", a.legalPage("consent-prices")) // legal §1б
 
 	m.HandleFunc("GET /api/v1/me", a.cors(a.apiMe))
 	m.HandleFunc("GET /api/v1/me/limits", a.cors(a.apiMeLimits))
