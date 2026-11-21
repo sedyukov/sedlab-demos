@@ -73,9 +73,10 @@ await page.locator('.ma-head button').click(); await pause(800)
 
 // ---- Max (RU): same booking logic, card only ----
 await page.getByRole('button', { name: 'Max', exact: true }).click()
+await page.locator('.chat-head', { hasText: 'Max' }).waitFor()
 await page.getByRole('button', { name: '📅 Записаться' }).last().waitFor(); await pause(1000)
 await page.getByRole('button', { name: '📅 Записаться' }).last().click()
-await app().getByText('Мужская стрижка').click(); await pause(400)
+await app().getByText('Мужская стрижка').click({ timeout: 10000 }).catch(async (e) => { await page.screenshot({ path: TMP + '../fail.png' }); throw e }); await pause(400)
 await app().getByText('Любой свободный мастер').click()
 await app().locator('.slot').first().waitFor(); await pause(400)
 await app().locator('.slot').first().click()

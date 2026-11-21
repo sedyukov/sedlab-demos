@@ -82,6 +82,7 @@
   }
 
   function openApp(url) {
+    if (!initData) return
     const u = new URL(url, location.origin)
     if (u.origin !== location.origin) return
     if (platform === 'max' && persona === 'guest') u.searchParams.set('platform', 'max')
@@ -110,8 +111,8 @@
   })
   onDestroy(() => { clearInterval(poll); window.removeEventListener('message', onMsg) })
 
-  async function switchPersona(p) { persona = p; appUrl = ''; await signIn() }
-  async function switchPlatform(p) { platform = p; if (p === 'max' && lang === 'en') lang = 'ru'; appUrl = ''; await signIn() }
+  async function switchPersona(p) { persona = p; appUrl = ''; messages = []; initData = ''; await signIn() }
+  async function switchPlatform(p) { platform = p; if (p === 'max' && lang === 'en') lang = 'ru'; appUrl = ''; messages = []; initData = ''; await signIn() }
   const onMax = $derived(platform === 'max' && persona === 'guest')
   async function switchLang(l) { lang = l; appUrl = ''; await signIn(); await send('/start') }
 </script>

@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"net/url"
 	"strconv"
 
 	notify "github.com/sedyukov/sedlab-modules/modules/notify/go"
@@ -25,19 +26,21 @@ func (a *App) tell(ctx context.Context, userID int64, kind, text string, btn *We
 	if err := a.store.AddMessage(m); err != nil {
 		a.log.Error("outbox", "err", err)
 	}
-	if a.platformOf(userID) == "max" { // notify has no Max channel yet → max-core directly
-		if err := a.max.SendText(ctx, userID, text, btn); err != nil {
-			a.log.Warn("max message not delivered", "kind", kind, "err", err)
-		}
-		return
-	}
-	if a.cfg.TelegramLive && isEmulatorUser(userID) {
-		return
+	platform := a.platformOf(userID)
+	if isEmulatorUser(userID) && ((platform == "telegram" && a.cfg.TelegramLive) || (platform == "max" && a.cfg.MaxLive)) {
+		return // emulator users don't exist in the live messenger
 	}
 	in := notify.SendInput{Channel: "telegram", To: strconv.FormatInt(userID, 10), HTML: text,
 		IdempotencyKey: idemKey, Metadata: map[string]string{"kind": kind}}
+	if platform == "max" {
+		in.Channel, in.To = "max", "user:"+strconv.FormatInt(userID, 10)
+	}
 	if btn != nil {
-		rm, err := notify.InlineKeyboard([][]notify.Button{{{Text: btn.Text, WebApp: btn.URL}}})
+		b := notify.Button{Text: btn.Text, WebApp: btn.URL}
+		if platform == "max" { // open_app targets the bot; the screen goes in the payload → start_param
+			b.WebApp, b.Payload = a.max.botName, screenOf(btn.URL)
+		}
+		rm, err := notify.InlineKeyboard([][]notify.Button{{b}})
 		if err != nil {
 			a.log.Warn("bad keyboard", "err", err)
 		} else {
@@ -47,4 +50,11 @@ func (a *App) tell(ctx context.Context, userID int64, kind, text string, btn *We
 	if _, err := a.notify.Send(ctx, in); err != nil {
 		a.log.Warn("message not delivered", "kind", kind, "err", err)
 	}
+}
+
+func screenOf(u string) string {
+	if p, err := url.Parse(u); err == nil {
+		return p.Query().Get("screen")
+	}
+	return ""
 }

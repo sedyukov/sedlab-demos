@@ -348,10 +348,10 @@ func TestMaxFlow(t *testing.T) {
 	if got["status"] != "confirmed" {
 		t.Fatalf("max booking: %v", got)
 	}
-	// confirmation went to Max via max-core (open_app button), not to the Telegram notify channel
-	calls := h.app.max.emu.API.(*mx.MockAPI).Calls("POST /messages")
-	if len(calls) == 0 {
-		t.Fatal("no max-core sendMessage")
+	// confirmation went to the notify "max" channel (open_app button), not to Telegram
+	md, _ := h.notify.ListDeliveries("max")
+	if len(md) != 2 { // welcome + confirmation
+		t.Fatalf("max deliveries: %d", len(md))
 	}
 	if d, _ := h.notify.ListDeliveries("telegram"); len(d) != 1 { // owner alert only (owner persona is in Telegram)
 		t.Fatalf("telegram deliveries: %d", len(d))

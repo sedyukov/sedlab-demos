@@ -146,6 +146,10 @@ func NewAppFromEnv(log *slog.Logger) (*App, error) {
 	}
 	maxm := newMaxMessenger(mbot, cfg.MaxLive, cfg.Emulator, cfg.MaxSecret, env("MAX_BOT_USERNAME", "bloom_salon_bot"))
 	// notify: NOTIFY_TELEGRAM_PROVIDER=telegram + NOTIFY_TELEGRAM_BOT_TOKEN for a live bot (default mock)
+	if env("MAX_PROVIDER", "mock") == "max" && env("NOTIFY_MAX_PROVIDER", "") == "" {
+		os.Setenv("NOTIFY_MAX_PROVIDER", "max")
+		os.Setenv("NOTIFY_MAX_BOT_TOKEN", os.Getenv("MAX_BOT_TOKEN"))
+	}
 	if live && env("NOTIFY_TELEGRAM_PROVIDER", "") == "" {
 		os.Setenv("NOTIFY_TELEGRAM_PROVIDER", "telegram")
 		os.Setenv("NOTIFY_TELEGRAM_BOT_TOKEN", os.Getenv("TELEGRAM_BOT_TOKEN"))
