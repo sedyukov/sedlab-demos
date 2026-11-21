@@ -487,3 +487,13 @@ func TestUnknownDemoGetsNoLiveResources(t *testing.T) {
 		}
 	}
 }
+
+func TestPricesGetsYandexLLMOnly(t *testing.T) {
+	app, _ := newTestApp(t, nil)
+	if r, ok := app.limits.For("prices", "yandex-llm"); !ok || r.PerUserDay != 3 {
+		t.Fatalf("prices yandex-llm: %+v %v", r, ok)
+	}
+	if _, ok := app.limits.For("prices", "gigachat"); ok {
+		t.Fatal("prices must not get gigachat")
+	}
+}

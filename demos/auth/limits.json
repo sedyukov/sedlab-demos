@@ -106,7 +106,9 @@
       "max"
     ],
     "*": [],
-    "prices": [],
+    "prices": [
+      "yandex-llm"
+    ],
     "api": []
   }
 }
