@@ -465,3 +465,16 @@ func TestIntlEditionNotServed(t *testing.T) {
 		t.Fatal("RU voice must not get live OpenAI")
 	}
 }
+
+func TestStartsWithoutMaxTokenAndHidesMax(t *testing.T) {
+	app, srv := newTestApp(t, map[string]string{"MAX_PROVIDER": "max", "MAX_BOT_TOKEN": "", "NOTIFY_MAX_PROVIDER": "max", "NOTIFY_MAX_BOT_TOKEN": ""})
+	if app.providers.Enabled("max") {
+		t.Fatal("max must be off without a token")
+	}
+	r, _ := http.Get(srv.URL + "/login")
+	b, _ := io.ReadAll(r.Body)
+	r.Body.Close()
+	if strings.Contains(string(b), `id="max-login"`) {
+		t.Fatal("login page shows Max without a token")
+	}
+}

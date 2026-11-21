@@ -74,6 +74,7 @@ func parseProviderList(s string) []string {
 type Providers struct {
 	byLang map[string][]string
 	oauth  map[string]oauth.Provider
+	maxOff bool // Max requested live but no bot token yet
 }
 
 func NewProviders(cfg *Config) *Providers {
@@ -88,7 +89,7 @@ func NewProviders(cfg *Config) *Providers {
 }
 
 func (p *Providers) usable(id string) bool {
-	return id == "max" || p.oauth[id] != nil
+	return (id == "max" && !p.maxOff) || p.oauth[id] != nil
 }
 
 // Enabled: shown in at least one locale (and implemented).

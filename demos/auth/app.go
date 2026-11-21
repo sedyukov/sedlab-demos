@@ -74,6 +74,18 @@ func newAppWithStore(cfg *Config, st *Store) (*App, error) {
 		return nil, err
 	}
 	// MAX_* / NOTIFY_* — module env (mock by default). Telegram is not used for login (149-ФЗ, owner's decision).
+	// Live provider requested but no token yet (bot not created): start anyway on mock and hide Max sign-in,
+	// so the service can be deployed before the owner creates the bot.
+	maxLive := true
+	if os.Getenv("MAX_PROVIDER") == "max" && os.Getenv("MAX_BOT_TOKEN") == "" {
+		slog.Warn("MAX_BOT_TOKEN not set: Max sign-in disabled until the bot token is configured")
+		os.Setenv("MAX_PROVIDER", "mock")
+		maxLive = false
+	}
+	if os.Getenv("NOTIFY_MAX_PROVIDER") == "max" && os.Getenv("NOTIFY_MAX_BOT_TOKEN") == "" {
+		slog.Warn("NOTIFY_MAX_BOT_TOKEN not set: lead notifications go to the mock journal")
+		os.Setenv("NOTIFY_MAX_PROVIDER", "mock")
+	}
 	maxBot, err := maxcore.FromEnv(mkit.Env{Prefix: "MAX_"})
 	if err != nil {
 		return nil, err
@@ -95,7 +107,9 @@ func newAppWithStore(cfg *Config, st *Store) (*App, error) {
 	}
 	pk := hmac.New(sha256.New, []byte(cfg.SigningKey))
 	pk.Write([]byte("sedlab-auth-pending"))
-	return &App{cfg: cfg, store: st, signer: signer, limits: lim, providers: NewProviders(cfg), max: maxBot, notify: nc, tpl: tpl,
+	prov := NewProviders(cfg)
+	prov.maxOff = !maxLive
+	return &App{cfg: cfg, store: st, signer: signer, limits: lim, providers: prov, max: maxBot, notify: nc, tpl: tpl,
 		pendKey: pk.Sum(nil), now: func() int64 { return time.Now().Unix() }, rl: newRateLimiter(20, time.Minute)}, nil
 }
 
