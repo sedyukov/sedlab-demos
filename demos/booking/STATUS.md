@@ -31,6 +31,10 @@ Until the RU host exists, `infra/compose/booking` (DO) serves the RU edition wit
   API returns 403 consent_required until then; /delete wipes the chat's data; background purge ≤ 7 days (both editions);
   real Telegram users' names are never stored; INTL welcome carries "Demo: use test data only…". Tests: TestConsentDeleteRetention.
 
+- 2026-11-21 night: sha-74ce01a deployed. booking-ru on freelance-ru (5.35.4.25), checked from inside (pre-dns): /health 200,
+  config ru, consent 403 → 200, /delete, ~4 MB RAM; accounts http to auth on the host. booking (DO) = interim RU edition.
+  booking-en stays as deployed (sha-214b615): the owner decided not to spend effort on INTL editions.
+
 ## Left
 - RU edition move: `deploy.sh booking-ru --tag sha-…` on freelance-ru + A record `booking.demo` → RU host; then `deploy.sh rm booking` on DO.
 - accounts (RU) is wired: `server/accounts.go` (mode → consume → live YooKassa TEST shop, refund on failure, fail-closed to
