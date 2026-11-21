@@ -84,6 +84,13 @@
       "per_user_day": 50,
       "per_day_global": 0,
       "monthly_budget": 0
+    },
+    "bitrix24": {
+      "kind": "free",
+      "unit": "run",
+      "per_user_day": 50,
+      "per_day_global": 2000,
+      "monthly_budget": 0
     }
   },
   "demos": {
@@ -103,7 +110,8 @@
     "leads": [
       "amocrm",
       "telegram",
-      "max"
+      "max",
+      "bitrix24"
     ],
     "*": [],
     "prices": [

@@ -48,7 +48,7 @@ var providerLabels = map[string][2]string{
 	"gigachat": {"GigaChat (Россия)", "GigaChat (Russia)"}, "yandex-llm": {"YandexGPT (Россия)", "YandexGPT (Russia)"},
 	"yandex-stt": {"Yandex SpeechKit (Россия)", "Yandex SpeechKit (Russia)"}, "yandex-tts": {"Yandex SpeechKit TTS (Россия)", "Yandex SpeechKit TTS (Russia)"},
 	"yookassa-test": {"ЮKassa, тест (Россия)", "YooKassa test (Russia)"}, "stripe-test": {"Stripe, тест (США)", "Stripe test (USA)"},
-	"amocrm": {"amoCRM (Россия)", "amoCRM (Russia)"}, "hubspot-dev": {"HubSpot, dev (США)", "HubSpot dev (USA)"},
+	"amocrm": {"amoCRM (Россия)", "amoCRM (Russia)"}, "bitrix24": {"Битрикс24 (Россия)", "Bitrix24 (Russia)"}, "hubspot-dev": {"HubSpot, dev (США)", "HubSpot dev (USA)"},
 	"telegram": {"Telegram (ОАЭ)", "Telegram (UAE)"}, "max": {"Max (Россия)", "Max (Russia)"},
 }
 

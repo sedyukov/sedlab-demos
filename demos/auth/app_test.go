@@ -497,3 +497,12 @@ func TestPricesGetsYandexLLMOnly(t *testing.T) {
 		t.Fatal("prices must not get gigachat")
 	}
 }
+
+func TestLeadsGetsBitrix24(t *testing.T) {
+	app, _ := newTestApp(t, nil)
+	b, ok1 := app.limits.For("leads", "bitrix24")
+	a, ok2 := app.limits.For("leads", "amocrm")
+	if !ok1 || !ok2 || b.PerUserDay != a.PerUserDay || b.Kind != "free" {
+		t.Fatalf("bitrix24: %+v %v", b, ok1)
+	}
+}
