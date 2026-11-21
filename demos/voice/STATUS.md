@@ -14,7 +14,10 @@
 | Примеры | planning-ru (mp4), voice-note-ru (ogg) | standup-en (mp3), client-call-en (mp4), voice-note-en (ogg) |
 | Вход и лимиты | accounts: живой вызов только после входа, `live_call` (списание → вызов → возврат при ошибке); ресурсы gigachat, yandex-llm, yandex-stt (секунды, до 60), yandex-tts. Кнопка входа: заглушка, пока `VOICE_ACCOUNTS_WIDGET=0`; `1` подключает `widget.js` с auth | нет (локальный лимитер по IP, если включить `VOICE_LIVE=1`) |
 
-Сейчас на freelance-1 работает прежний `compose/voice` (смешанная RU/EN-сборка, voice.demo) до переезда RU-версии.
+Состояние на 2026-11-21, ночь:
+- **voice-en**: https://voice-en.demo.sedlab.dev, freelance-1, `sha-82bb5aa`, check-demos зелёный.
+- **voice-ru**: задеплоен на freelance-ru (5.35.4.25), `sha-82bb5aa`, healthy, около 48 МБ. Проверено изнутри хоста: конфиг RU, оба примера проходят цепочку, TLS до GigaChat/OAuth Сбера и SpeechKit/YandexGPT работает (CA-бандл хоста), auth доступен по сети edge. Снаружи HTTPS появится после A-записи `voice.demo → 5.35.4.25`: до неё сертификат на RU-хосте не выпускается.
+- **voice** (старая смешанная сборка): работает на freelance-1 на voice.demo до переключения DNS; потом `deploy.sh rm voice` и удалить `infra/compose/voice`.
 
 ## Сделано
 - **Веб-демо** (FastAPI + чистый JS, светлая и тёмная тема, адаптив). Три способа подать запись: заготовленный пример, свой файл (аудио или видео) или микрофон. Дальше конвейер: расшифровка → саммари → задачи (кто / что / срок) → ответ голосом. Переключатель LLM в рамках редакции, правка текста с пересчётом, копирование задач в Markdown.
