@@ -62,3 +62,5 @@ func providerLabel2(res, lang string) string {
 	}
 	return l[0]
 }
+
+func rfc3339(unix int64) string { return time.Unix(unix, 0).UTC().Format(time.RFC3339) }

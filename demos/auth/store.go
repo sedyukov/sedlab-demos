@@ -51,7 +51,7 @@ type Decision struct {
 	UserLeft      int64  `json:"user_left"`
 	UserLimit     int64  `json:"user_limit"`
 	BudgetLeft    int64  `json:"budget_left"`
-	ResetsAt      int64  `json:"resets_at"`
+	ResetsAt      string `json:"resets_at"` // RFC3339 UTC (module contract); "" for unauthenticated / disabled
 	ConsumptionID string `json:"consumption_id,omitempty"`
 }
 
@@ -203,7 +203,7 @@ func (s *Store) ExportUser(ctx context.Context, userID string) (*store.UserExpor
 
 func toDecision(r *store.Result, lim accounts.ResourceLimit, now int64) *Decision {
 	d := &Decision{Allowed: r.Allowed, Reason: r.Reason, UserLeft: r.UserLeft, UserLimit: lim.PerUserDay, BudgetLeft: r.BudgetLeft,
-		ResetsAt: nextDay(now), ConsumptionID: r.ConsumptionID}
+		ResetsAt: rfc3339(nextDay(now)), ConsumptionID: r.ConsumptionID}
 	if d.Reason == "" {
 		d.Reason = "ok"
 	}
