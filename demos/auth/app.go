@@ -40,17 +40,18 @@ const (
 )
 
 type App struct {
-	cfg       *Config
-	store     *Store
-	signer    *Signer
-	limits    *Limits
-	providers *Providers
-	max       *maxcore.Bot
-	notify    *notify.Client
-	tpl       *template.Template
-	pendKey   []byte
-	now       func() int64
-	rl        *rateLimiter
+	cfg          *Config
+	store        *Store
+	signer       *Signer
+	limits       *Limits
+	providers    *Providers
+	max          *maxcore.Bot
+	notify       *notify.Client
+	tpl          *template.Template
+	pendKey      []byte
+	now          func() int64
+	rl           *rateLimiter
+	consentDedup *dedup
 }
 
 func NewApp(cfg *Config) (*App, error) {
@@ -58,7 +59,7 @@ func NewApp(cfg *Config) (*App, error) {
 	if err != nil {
 		return nil, err
 	}
-	st := NewStore(db, "sqlite")
+	st := NewStore(db, "sqlite", cfg.ConsentPepper)
 	if err := st.Migrate(context.Background()); err != nil {
 		return nil, err
 	}
@@ -111,7 +112,7 @@ func newAppWithStore(cfg *Config, st *Store) (*App, error) {
 	prov := NewProviders(cfg)
 	prov.maxOff = !maxLive
 	return &App{cfg: cfg, store: st, signer: signer, limits: lim, providers: prov, max: maxBot, notify: nc, tpl: tpl,
-		pendKey: pk.Sum(nil), now: func() int64 { return time.Now().Unix() }, rl: newRateLimiter(20, time.Minute)}, nil
+		pendKey: pk.Sum(nil), now: func() int64 { return time.Now().Unix() }, rl: newRateLimiter(20, time.Minute), consentDedup: newDedup(15 * time.Minute)}, nil
 }
 
 func (a *App) Routes() http.Handler {
@@ -429,7 +430,7 @@ func (a *App) Background(ctx context.Context) {
 			if n, err := a.store.PurgeConsentProof(ctx, a.now()-proofTTL); err == nil && n > 0 {
 				slog.Info("purged consent proof older than 3 years", "count", n)
 			}
-			if n, err := a.store.PurgeInactive(ctx, a.now()-inactiveTTL); err == nil && n > 0 {
+			if n, err := a.store.PurgeInactive(ctx, a.now()-inactiveTTL, a.now()); err == nil && n > 0 {
 				slog.Info("purged inactive accounts", "count", n)
 			}
 			last = time.Now()

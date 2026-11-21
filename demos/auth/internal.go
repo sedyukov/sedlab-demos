@@ -10,6 +10,8 @@ import (
 	"net/http"
 	"regexp"
 	"strconv"
+	"sync"
+	"time"
 )
 
 func (a *App) serviceDemo(r *http.Request) (string, bool) {
@@ -213,14 +215,60 @@ func (a *App) internalConsent(w http.ResponseWriter, r *http.Request, demo strin
 		writeJSON(w, 200, map[string]any{"ok": false, "reason": "unauthenticated"})
 		return
 	}
-	now := a.now()
-	if err := a.store.RecordKindConsent(r.Context(), u.ID, in.Kind, in.Version, now); err != nil {
-		if errors.Is(err, errNotSupported) {
-			moduleErr(w, 503, "unavailable", "consent journal not deployed yet")
+	// The module client retries once on network/5xx errors with the same idempotency_key: answer the repeat
+	// from memory instead of writing a second journal row.
+	dk := demo + "|" + u.ID + "|" + in.IdempotencyKey
+	if in.IdempotencyKey != "" {
+		if prev, ok := a.consentDedup.get(dk); ok {
+			writeJSON(w, 200, prev)
 			return
 		}
+	}
+	now := a.now()
+	if err := a.store.RecordKindConsent(r.Context(), u.ID, in.Kind, in.Version, now); err != nil {
 		moduleErr(w, 503, "unavailable", "storage")
 		return
 	}
-	writeJSON(w, 200, map[string]any{"ok": true, "kind": in.Kind, "version": in.Version, "recorded_at": rfc3339(now)})
+	resp := map[string]any{"ok": true, "kind": in.Kind, "version": in.Version, "recorded_at": rfc3339(now)}
+	if in.IdempotencyKey != "" {
+		a.consentDedup.put(dk, resp)
+	}
+	writeJSON(w, 200, resp)
+}
+
+// dedup: short-lived memory of answered idempotency keys (retries arrive within seconds).
+type dedup struct {
+	mu  sync.Mutex
+	m   map[string]dedupEntry
+	ttl time.Duration
+}
+
+type dedupEntry struct {
+	v  map[string]any
+	at time.Time
+}
+
+func newDedup(ttl time.Duration) *dedup { return &dedup{m: map[string]dedupEntry{}, ttl: ttl} }
+
+func (d *dedup) get(k string) (map[string]any, bool) {
+	d.mu.Lock()
+	defer d.mu.Unlock()
+	e, ok := d.m[k]
+	if !ok || time.Since(e.at) > d.ttl {
+		return nil, false
+	}
+	return e.v, true
+}
+
+func (d *dedup) put(k string, v map[string]any) {
+	d.mu.Lock()
+	defer d.mu.Unlock()
+	if len(d.m) > 10000 {
+		for key, e := range d.m {
+			if time.Since(e.at) > d.ttl {
+				delete(d.m, key)
+			}
+		}
+	}
+	d.m[k] = dedupEntry{v: v, at: time.Now()}
 }

@@ -5,7 +5,6 @@ package main
 import (
 	"context"
 	"database/sql"
-	"encoding/hex"
 	"fmt"
 	"log/slog"
 	"net/http"
@@ -16,6 +15,7 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/sedyukov/sedlab-modules/modules/accounts/go/store"
 	_ "modernc.org/sqlite"
 )
 
@@ -79,11 +79,15 @@ func LoadConfig() (*Config, error) {
 		}
 	}
 	if p := os.Getenv("AUTH_CONSENT_PEPPER"); p != "" {
-		b, err := hex.DecodeString(strings.TrimSpace(p))
-		if err != nil || len(b) < 16 {
-			return nil, fmt.Errorf("AUTH_CONSENT_PEPPER must be hex (>=32 chars)")
+		b, err := store.ParsePepper(p)
+		if err != nil {
+			return nil, fmt.Errorf("AUTH_CONSENT_PEPPER: %v", err)
 		}
 		c.ConsentPepper = b
+	} else if !c.Dev {
+		return nil, fmt.Errorf("AUTH_CONSENT_PEPPER is required (account deletion keeps an anonymised consent proof)")
+	} else {
+		c.ConsentPepper = make([]byte, 32) // dev only
 	}
 	for _, ip := range strings.Split(env("AUTH_INTERNAL_ALLOW_IPS", ""), ",") {
 		if ip = strings.TrimSpace(ip); ip != "" {
@@ -143,7 +147,7 @@ func main() {
 			db, err := openDB(env("DATA_DIR", "./data"))
 			if err == nil {
 				_ = os.Remove(os.Args[2])
-				err = NewStore(db, "sqlite").Snapshot(context.Background(), os.Args[2])
+				err = NewStore(db, "sqlite", nil).Snapshot(context.Background(), os.Args[2])
 			}
 			if err != nil {
 				fmt.Fprintln(os.Stderr, "backup:", err)

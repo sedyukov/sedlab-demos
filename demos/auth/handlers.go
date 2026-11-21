@@ -176,7 +176,7 @@ func (a *App) consentPage(w http.ResponseWriter, r *http.Request) {
 }
 
 func (a *App) createFromPending(r *http.Request, p *pending, contact bool) (string, error) {
-	c := &Consent{Demo: a.cfg.ConsentVer, Terms: a.cfg.TermsVer, Contact: contact && contactChannel(p.Prov) != ""}
+	c := &Consent{Demo: a.cfg.ConsentVer, Terms: a.cfg.TermsVer, Contact: contact && contactChannel(p.Prov) != "", ContactVer: a.cfg.ContactVer}
 	u, _, err := a.store.UpsertUser(r.Context(), Profile{Provider: p.Prov, ProviderUID: p.UID, DisplayName: p.Name, Username: p.User, Lang: p.Lang}, c, p.Demo, a.now())
 	if err != nil {
 		return "", err
@@ -275,7 +275,7 @@ func (a *App) accountPage(w http.ResponseWriter, r *http.Request) {
 
 func (a *App) accountContact(w http.ResponseWriter, r *http.Request) {
 	if u, _ := a.authUser(r.Context(), tokenFromRequest(r)); u != nil {
-		_ = a.store.SetContact(r.Context(), u.ID, r.FormValue("contact_ok") == "1", a.now())
+		_ = a.store.SetContact(r.Context(), u.ID, r.FormValue("contact_ok") == "1", a.cfg.ContactVer, a.now())
 	}
 	http.Redirect(w, r, "/account", http.StatusSeeOther)
 }
@@ -302,7 +302,7 @@ func (a *App) accountDelete(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	lead, _ := a.store.LeadByUser(r.Context(), u.ID)
-	if err := a.store.DeleteAccount(r.Context(), u.ID, a.cfg.ConsentPepper, a.now()); err != nil {
+	if err := a.store.DeleteUser(r.Context(), u.ID, a.now()); err != nil {
 		http.Error(w, "failed", 500)
 		return
 	}

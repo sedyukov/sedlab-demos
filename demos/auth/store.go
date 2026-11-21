@@ -40,9 +40,10 @@ type Profile struct {
 
 // Consent: what the person ticked on the consent screen (separate checkboxes, 152-ФЗ ч.1 ст.9 в ред. 156-ФЗ).
 type Consent struct {
-	Demo    string // PD consent version, e.g. demo-v1 (required)
-	Terms   string // Demo Terms version, e.g. terms-v1 (required)
-	Contact bool   // optional "you may message me" (contact-v1)
+	Demo       string // PD consent version, e.g. demo-v1 (required)
+	Terms      string // Demo Terms version, e.g. terms-v1 (required)
+	Contact    bool   // optional "you may message me"
+	ContactVer string // contact-v1
 }
 
 type Decision struct {
@@ -74,8 +75,9 @@ type Store struct {
 	db *sql.DB
 }
 
-func NewStore(db *sql.DB, dialect string) *Store {
-	return &Store{st: &store.SQLStore{DB: db, Dialect: dialect}, db: db}
+// NewStore: pepper = AUTH_CONSENT_PEPPER (32 bytes); without it account deletion fails by design (module).
+func NewStore(db *sql.DB, dialect string, pepper []byte) *Store {
+	return &Store{st: &store.SQLStore{DB: db, Dialect: dialect, ConsentPepper: pepper}, db: db}
 }
 
 func (s *Store) Migrate(ctx context.Context) error { return store.Migrate(ctx, s.db, "sqlite") }
@@ -101,7 +103,11 @@ func (s *Store) UpsertUser(ctx context.Context, p Profile, c *Consent, firstDemo
 		return nil, false, err
 	}
 	if c != nil {
-		if err := s.st.RecordConsents(ctx, u.ID, store.Consents{PD: c.Demo, Terms: c.Terms, Contact: c.Contact, FromDemo: firstDemo}, now); err != nil {
+		cs := store.Consents{PD: c.Demo, Terms: c.Terms, Contact: c.Contact, FromDemo: firstDemo, Source: "consent_screen"}
+		if c.Contact {
+			cs.ContactVersion = c.ContactVer
+		}
+		if err := s.st.RecordConsents(ctx, u.ID, cs, now); err != nil {
 			return nil, false, err
 		}
 		if created {
@@ -119,12 +125,16 @@ func (s *Store) GetUser(ctx context.Context, id string) (*User, error) {
 	return u, mapErr(err)
 }
 
-func (s *Store) SetContact(ctx context.Context, id string, ok bool, now int64) error {
-	return s.st.SetContact(ctx, id, ok, now)
+func (s *Store) SetContact(ctx context.Context, id string, ok bool, version string, now int64) error {
+	return s.st.SetContact(ctx, id, ok, version, now)
 }
-func (s *Store) DeleteUser(ctx context.Context, id string) error { return s.st.DeleteUser(ctx, id) }
-func (s *Store) PurgeInactive(ctx context.Context, before int64) (int, error) {
-	return s.st.PurgeInactive(ctx, before)
+
+// DeleteUser: hard delete + anonymised consent proof in one transaction (module).
+func (s *Store) DeleteUser(ctx context.Context, id string, now int64) error {
+	return s.st.DeleteUser(ctx, id, now)
+}
+func (s *Store) PurgeInactive(ctx context.Context, before, now int64) (int, error) {
+	return s.st.PurgeInactive(ctx, before, now)
 }
 func (s *Store) Touch(ctx context.Context, u *User, now int64) {
 	if u.LastSeenAt < now-300 {
@@ -294,45 +304,12 @@ func (s *Store) MarkLeadNotified(ctx context.Context, id string, now int64) erro
 	return s.st.MarkLeadNotified(ctx, id, now)
 }
 
-// ---- consent journal (152-ФЗ ч.3 ст.9: the operator proves consent) ------------------------------------------
-
-// consentJournal: the module Store's journal API (s2). Checked at runtime so the service builds against both the
-// current and the next module version; until the module has it, RecordKindConsent reports errNotSupported.
-type consentJournal interface {
-	RecordConsent(ctx context.Context, userID, kind, version string, now int64) error
-}
-
-var errNotSupported = errors.New("consent journal not available in this module version")
+// ---- consent journal and anonymised proof (module, s2) ------------------------------------------------------
 
 func (s *Store) RecordKindConsent(ctx context.Context, userID, kind, version string, now int64) error {
-	j, ok := any(s.st).(consentJournal)
-	if !ok {
-		return errNotSupported
-	}
-	return j.RecordConsent(ctx, userID, kind, version, now)
+	return s.st.RecordConsent(ctx, userID, kind, version, now)
 }
 
-// ---- consent proof after deletion (legal policy 4.1): anonymised remainder for 3 years -------------------------
-// The Store writes consent_proof rows (subject_ref = HMAC-SHA256(pepper, provider:provider_uid), kind, version,
-// given_at, withdrawn_at) in the same transaction as the deletion (module, s2). Checked at runtime like the journal.
-
-type proofDeleter interface {
-	DeleteUserWithProof(ctx context.Context, userID string, pepper []byte, now int64) error
-	PurgeConsentProof(ctx context.Context, withdrawnBefore int64) (int, error)
-}
-
-// DeleteAccount: with a pepper and module support → deletion + anonymised proof in one transaction;
-// otherwise plain deletion (until the module ships it).
-func (s *Store) DeleteAccount(ctx context.Context, userID string, pepper []byte, now int64) error {
-	if d, ok := any(s.st).(proofDeleter); ok && len(pepper) > 0 {
-		return d.DeleteUserWithProof(ctx, userID, pepper, now)
-	}
-	return s.st.DeleteUser(ctx, userID)
-}
-
-func (s *Store) PurgeConsentProof(ctx context.Context, before int64) (int, error) {
-	if d, ok := any(s.st).(proofDeleter); ok {
-		return d.PurgeConsentProof(ctx, before)
-	}
-	return 0, nil
+func (s *Store) PurgeConsentProof(ctx context.Context, olderThan int64) (int, error) {
+	return s.st.PurgeConsentProof(ctx, olderThan)
 }

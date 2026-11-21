@@ -519,14 +519,50 @@ func TestInternalConsent(t *testing.T) {
 	if _, d := internalCall(t, srv, svcKey, "consent", map[string]any{"token": "", "kind": "voice", "version": "voice-v1"}); d["reason"] != "unauthenticated" {
 		t.Fatalf("anonymous: %v", d)
 	}
-	code, d := internalCall(t, srv, svcKey, "consent", map[string]any{"token": tok, "kind": "voice", "version": "voice-v1"})
-	if _, ok := any(app.store.st).(consentJournal); !ok {
-		if code != 503 {
-			t.Fatalf("without journal: %d %v", code, d)
-		}
-		t.Skip("module has no consent journal yet (s2)")
-	}
+	body := map[string]any{"token": tok, "kind": "voice", "version": "voice-v1", "idempotency_key": "c1"}
+	code, d := internalCall(t, srv, svcKey, "consent", body)
 	if code != 200 || d["ok"] != true {
 		t.Fatalf("record: %d %v", code, d)
+	}
+	internalCall(t, srv, svcKey, "consent", body) // client retry: same key
+	c2, _ := app.signer.Verify(tok, app.now())
+	recs, err := app.store.st.ListConsents(context.Background(), c2.Sub)
+	if err != nil {
+		t.Fatal(err)
+	}
+	n := 0
+	for _, r := range recs {
+		if r.Kind == "voice" {
+			n++
+		}
+	}
+	if n != 1 {
+		t.Fatalf("voice consent rows = %d, want 1 (retry deduplicated)", n)
+	}
+}
+
+func TestDeletionLeavesAnonymisedProof(t *testing.T) {
+	app, srv := newTestApp(t, nil)
+	c := client()
+	devSignup(t, srv, c, "90")
+	r, _ := c.PostForm(srv.URL+"/account/delete", url.Values{"confirm": {"1"}})
+	r.Body.Close()
+	proofs, err := app.store.st.FindConsentProof(context.Background(), "max", "90")
+	if err != nil || len(proofs) == 0 {
+		t.Fatalf("no consent proof after deletion: %v", err)
+	}
+	b, _ := json.Marshal(proofs)
+	if strings.Contains(string(b), "Dev 90") || strings.Contains(string(b), `"90"`) {
+		t.Fatalf("proof must be anonymised: %s", b)
+	}
+	kinds := map[string]bool{}
+	for _, p := range proofs {
+		kinds[p.Kind] = true
+		if p.WithdrawnAt == 0 {
+			t.Fatal("withdrawn_at not set")
+		}
+	}
+	if !kinds["pd"] || !kinds["terms"] {
+		t.Fatalf("proof kinds: %v", kinds)
 	}
 }
