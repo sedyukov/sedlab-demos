@@ -32,10 +32,18 @@
       send: 'Отправить в {c}', sentTitle: 'Отправленные', noSent: 'Пока ничего не отправляли.', sent: 'Отчёт отправлен в {c} (тестовый режим)',
       sheetTitle: 'Таблица: {s}', sheetHint: 'Каждый сбор дописывает строки: дата, товар, площадка, конкурент, цена, наличие, ваша цена, разница. Всего строк: {n}, ниже последние 20.',
       csv: 'Скачать CSV', xlsx: 'Скачать XLSX',
-      reviewsHint: 'Отзывы покупателей из кабинета продавца. Черновик ответа пишет нейросеть ({llm}), вы правите и публикуете. В демо модель работает в тестовом режиме.',
+      reviewsHint: 'Отзывы покупателей из кабинета продавца, имена покупателей не загружаются. Черновик ответа пишет нейросеть, вы правите и публикуете.',
       draft: 'Черновик ответа', redraft: 'Ещё вариант', publish: 'Опубликовать ответ', published: 'Ответ опубликован',
       needLogin: 'Войдите, чтобы черновик писала настоящая нейросеть. Сейчас показан тестовый вариант.',
       liveLimit: 'Живой лимит на сегодня исчерпан: показываем демо-режим.',
+      ownTitle: 'Вставить свой отзыв', ownAdd: 'Добавить отзыв', ownPh: 'Текст отзыва покупателя (тестовый или обезличенный)',
+      ownAdded: 'Отзыв добавлен, личные данные скрыты', ownNeedConsent: 'Отметьте согласие, чтобы добавить текст.', ownMany: 'В демо можно добавить до 10 отзывов.',
+      ownBad: 'Выберите товар и вставьте текст до 1000 знаков.',
+      consentLinesLive: 'Демо не для персональных данных: загружайте тестовые или обезличенные отзывы. Ответы готовит {p} (РФ), запросы не журналируются.',
+      consentLinesMock: 'Демо не для персональных данных: загружайте тестовые или обезличенные отзывы. Сейчас ответы готовит тестовая модель демо, тексты не уходят внешним сервисам.',
+      consentLabel: 'Даю <a href="https://sedlab.dev/consent/prices" target="_blank" rel="noopener">согласие</a> и подтверждаю, что вправе передавать данные из загружаемых текстов (<a href="https://sedlab.dev/terms#3a" target="_blank" rel="noopener">условия</a>).',
+      buyer: 'Покупатель', ownTag: 'ваш текст', maskedN: 'скрыто личных данных: {n}',
+      mockModel: 'тестовая модель демо', saveAnswer: 'Сохранить ответ',
       yourAnswer: 'Ответ магазина', draftBy: 'Черновик: {p}', testMode: 'тестовый режим',
       logTitle: 'Последний сбор',
       logSummary: 'Собрано {ok} из {all} карточек за {s} с · повторов после ошибок: {r} · не ответили: {f} · лимит {rate} запросов в секунду на сайт, robots.txt соблюдается.',
@@ -80,10 +88,18 @@
       send: 'Send to {c}', sentTitle: 'Sent', noSent: 'Nothing sent yet.', sent: 'Report sent to {c} (test mode)',
       sheetTitle: 'Sheet: {s}', sheetHint: 'Every collection appends rows: date, product, marketplace, rival, price, availability, your price, difference. Rows: {n}, the last 20 below.',
       csv: 'Download CSV', xlsx: 'Download XLSX',
-      reviewsHint: 'Buyer reviews from the seller account. An AI model ({llm}) drafts the reply, you edit and publish it. In the demo the model runs in test mode.',
+      reviewsHint: 'Buyer reviews from the seller account; buyer names are not loaded. An AI model drafts the reply, you edit and publish it.',
       draft: 'Draft a reply', redraft: 'Another draft', publish: 'Publish reply', published: 'Reply published',
       needLogin: 'Sign in to get a draft from the real model. A test draft is shown.',
       liveLimit: 'Today\u2019s live limit is used up: showing the demo mode.',
+      ownTitle: 'Paste a review', ownAdd: 'Add review', ownPh: 'Buyer review text (test or anonymised)',
+      ownAdded: 'Review added, personal data hidden', ownNeedConsent: 'Tick the consent to add a text.', ownMany: 'The demo allows up to 10 reviews.',
+      ownBad: 'Pick a product and paste up to 1000 characters.',
+      consentLinesLive: 'The demo is not for personal data: paste test or anonymised reviews. Replies are drafted by {p} (Russia), requests are not logged.',
+      consentLinesMock: 'The demo is not for personal data: paste test or anonymised reviews. Replies are drafted by the demo test model, texts never leave the server.',
+      consentLabel: 'I give my <a href="https://sedlab.dev/consent/prices" target="_blank" rel="noopener">consent</a> and confirm I may share the data in the texts (<a href="https://sedlab.dev/terms#3a" target="_blank" rel="noopener">terms</a>).',
+      buyer: 'Buyer', ownTag: 'your text', maskedN: 'personal data hidden: {n}',
+      mockModel: 'demo test model', saveAnswer: 'Save reply',
       yourAnswer: 'Store reply', draftBy: 'Draft: {p}', testMode: 'test mode',
       logTitle: 'Last collection',
       logSummary: 'Collected {ok} of {all} cards in {s} s · retries after errors: {r} · no response: {f} · limit {rate} requests per second per site, robots.txt respected.',
@@ -325,22 +341,39 @@
 
   function stars(n) { var s = ''; for (var i = 1; i <= 5; i++) s += i <= n ? '★' : '<span class="off">★</span>'; return '<span class="stars" aria-label="' + n + '/5">' + s + '</span>'; }
 
+  var PROVIDERS = { yandexgpt: 'YandexGPT', gigachat: 'GigaChat', openai: 'OpenAI', anthropic: 'Anthropic' };
+  function providerName(p) { return p === 'mock' ? t('mockModel') : (PROVIDERS[p] || p); }
+
+  function renderOwnForm() {
+    var sel = $('ownProduct'), cur = sel.value;
+    sel.innerHTML = S.st.products.map(function (p) { return '<option value="' + p.id + '">' + esc(p.name) + '</option>'; }).join('');
+    if (cur) sel.value = cur;
+    $('ownText').placeholder = t('ownPh');
+    $('consentLines').textContent = S.cfg.llm_mode === 'live' ? t('consentLinesLive', { p: S.cfg.llm }) : t('consentLinesMock');
+    $('consentLabel').innerHTML = t('consentLabel');
+    $('ownBtn').disabled = !$('ownConsent').checked;
+  }
+
   function renderReviews() {
-    $('reviewsHint').textContent = t('reviewsHint', { llm: S.cfg.llm || 'AI' });
+    $('reviewsHint').textContent = t('reviewsHint');
+    renderOwnForm();
     $('reviews').innerHTML = S.st.reviews.map(function (r) {
       var d = r.draft;
       var body = '';
       if (r.answered) {
         body = '<div class="answer"><small>' + esc(t('yourAnswer')) + '</small>' + esc(r.answer_text) + '</div>';
       } else if (d) {
-        body = '<div class="draft"><div class="draft-h"><span>' + esc(t('draftBy', { p: (S.cfg.llm || 'AI') + (d.provider === 'mock' ? ' · ' + t('testMode') : '') })) + '</span></div>' +
+        body = '<div class="draft"><div class="draft-h"><span>' + esc(t('draftBy', { p: providerName(d.provider) })) + '</span></div>' +
           '<textarea id="dt-' + r.id + '" maxlength="1000">' + esc(S.drafts[r.id] != null ? S.drafts[r.id] : d.text) + '</textarea>' +
-          '<div class="rev-actions"><button class="primary sm" data-publish="' + r.id + '">' + esc(t('publish')) + '</button>' +
+          '<div class="rev-actions"><button class="primary sm" data-publish="' + r.id + '">' + esc(r.own ? t('saveAnswer') : t('publish')) + '</button>' +
           '<button class="ghost sm" data-draft="' + r.id + '">' + esc(t('redraft')) + '</button></div></div>';
       } else {
-        body = '<div class="rev-actions"><button class="ghost sm" data-draft="' + r.id + '">✨ ' + esc(t('draft')) + '</button></div>';
+        body = '<div class="rev-actions"><button class="ghost sm" data-draft="' + r.id + '">\u2728 ' + esc(t('draft')) + '</button></div>';
       }
-      return '<article class="card rev"><div class="rev-h"><div>' + stars(r.rating) + ' <b>' + esc(r.author) + '</b> <span class="hint">' + esc(fmtDate(r.created_at.slice(0, 10))) + '</span></div>' +
+      return '<article class="card rev"><div class="rev-h"><div>' + stars(r.rating) + ' <b>' + esc(t('buyer')) + '</b> ' +
+        (r.own ? '<span class="own-tag">' + esc(t('ownTag')) + '</span> ' : '') +
+        '<span class="hint">' + esc(fmtDate(r.created_at.slice(0, 10))) + '</span>' +
+        (r.masked ? '<span class="masked">' + esc(t('maskedN', { n: r.masked })) + '</span>' : '') + '</div>' +
         '<span class="hint">' + esc(r.product_name) + '</span></div><p>' + esc(r.text) + '</p>' + body + '</article>';
     }).join('');
   }
@@ -448,7 +481,23 @@
     if (ev.target.id && ev.target.id.indexOf('dt-') === 0) S.drafts[ev.target.id.slice(3)] = ev.target.value;
   });
 
+  document.addEventListener('change', function (ev) {
+    if (ev.target.id === 'ownConsent') $('ownBtn').disabled = !ev.target.checked;
+  });
+
   document.addEventListener('submit', function (ev) {
+    if (ev.target.id === 'ownForm') {
+      ev.preventDefault();
+      var fm = ev.target, er = $('ownErr');
+      er.textContent = '';
+      if (!$('ownConsent').checked) { er.textContent = t('ownNeedConsent'); return; }
+      api('POST', '/api/reviews', { product_id: fm.product.value, rating: Number(fm.rating.value), text: fm.text.value, consent: 'prices-v1' }).then(function (j) {
+        if (j.__status === 200) { fm.text.value = ''; setState(j); toast(t('ownAdded')); return; }
+        var c = j.error && j.error.code;
+        er.textContent = c === 'consent_required' ? t('ownNeedConsent') : c === 'too_many' ? t('ownMany') : c === 'invalid_argument' ? t('ownBad') : t('err');
+      });
+      return;
+    }
     var f = ev.target.closest('form[data-add]');
     if (!f) return;
     ev.preventDefault();

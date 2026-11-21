@@ -84,6 +84,17 @@
 
   <section class="panel" data-panel="reviews" hidden>
     <p class="hint lead" id="reviewsHint"></p>
+    <form class="card own" id="ownForm">
+      <h2 data-i18n="ownTitle">Вставить свой отзыв</h2>
+      <div class="own-row">
+        <select name="product" id="ownProduct" aria-label="Товар"></select>
+        <select name="rating" aria-label="Оценка"><option value="5">★★★★★</option><option value="4">★★★★</option><option value="3">★★★</option><option value="2">★★</option><option value="1" selected>★</option></select>
+      </div>
+      <textarea name="text" id="ownText" maxlength="1000" rows="3"></textarea>
+      <p class="consent-lines" id="consentLines"></p>
+      <label class="consent"><input type="checkbox" id="ownConsent"> <span id="consentLabel"></span></label>
+      <div><button class="primary sm" type="submit" id="ownBtn" disabled data-i18n="ownAdd">Добавить отзыв</button> <span class="add-err" id="ownErr"></span></div>
+    </form>
     <div id="reviews"></div>
   </section>
 

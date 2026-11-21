@@ -6,8 +6,6 @@ import (
 	"strings"
 	"time"
 
-	ai "github.com/sedyukov/sedlab-modules/modules/ai/go"
-	marketplaces "github.com/sedyukov/sedlab-modules/modules/marketplaces/go"
 	notify "github.com/sedyukov/sedlab-modules/modules/notify/go"
 )
 
@@ -202,101 +200,4 @@ func (s *Session) SendReport(ctx context.Context, channel, lang string) (*Messag
 		s.messages = s.messages[len(s.messages)-MaxMessages:]
 	}
 	return &m, nil
-}
-
-// ---- reviews ----
-
-// ReviewView is a buyer review with our product name and the current draft.
-type ReviewView struct {
-	marketplaces.Review
-	ProductName string `json:"product_name"`
-	Draft       *Draft `json:"draft,omitempty"`
-}
-
-func (s *Session) Reviews(ctx context.Context, lang string) ([]ReviewView, error) {
-	rs, err := s.mp.ListReviews(ctx, marketplaces.ListReviewsInput{Limit: 100})
-	if err != nil {
-		return nil, err
-	}
-	out := []ReviewView{}
-	for _, r := range rs {
-		v := ReviewView{Review: r}
-		if p := s.product(r.ProductID); p != nil {
-			v.ProductName = p.Name(lang)
-		}
-		if d, ok := s.drafts[r.ID]; ok && !r.Answered {
-			dd := d
-			v.Draft = &dd
-		}
-		out = append(out, v)
-	}
-	// unanswered first, newest first
-	for i := 1; i < len(out); i++ {
-		for j := i; j > 0 && less(out[j], out[j-1]); j-- {
-			out[j], out[j-1] = out[j-1], out[j]
-		}
-	}
-	return out, nil
-}
-
-func less(a, b ReviewView) bool {
-	if a.Answered != b.Answered {
-		return !a.Answered
-	}
-	return a.CreatedAt > b.CreatedAt
-}
-
-func isCyrillic(s string) bool {
-	for _, r := range s {
-		if r >= 'А' && r <= 'я' || r == 'ё' || r == 'Ё' {
-			return true
-		}
-	}
-	return false
-}
-
-// ReplyGen produces a reply draft (ai.Client.ReplyToReview, possibly wrapped in an accounts live call).
-type ReplyGen func(ctx context.Context, in ai.ReviewReplyInput) (*ai.ReviewReply, error)
-
-// DraftReply asks the ai module (reply_to_review) for a draft: YandexGPT in the RU edition when the visitor
-// is signed in and has live calls left, otherwise the deterministic mock.
-func (s *Session) DraftReply(ctx context.Context, gen ReplyGen, reviewID string) (*Draft, error) {
-	rs, err := s.mp.ListReviews(ctx, marketplaces.ListReviewsInput{Limit: 100})
-	if err != nil {
-		return nil, err
-	}
-	for _, r := range rs {
-		if r.ID != reviewID {
-			continue
-		}
-		lang, product, shop := "ru", "", "Домашняя лавка" // the demo seller's store name
-		if !isCyrillic(r.Text) {
-			lang, shop = "en", "Home Goods Shop"
-		}
-		if p := s.product(r.ProductID); p != nil {
-			product = p.Name(lang)
-		}
-		if gen == nil {
-			gen = ai.NewMock().ReplyToReview
-		}
-		res, err := gen(ctx, ai.ReviewReplyInput{Text: r.Text, Rating: r.Rating, Product: product, Shop: shop,
-			Language: lang, Tone: "friendly", MaxChars: 600})
-		if err != nil {
-			return nil, err
-		}
-		d := Draft{Text: strings.TrimSpace(res.Text), Provider: res.Provider, Model: res.Model}
-		s.drafts[r.ID] = d
-		return &d, nil
-	}
-	return nil, errNotFound
-}
-
-// Answer publishes the reply through the marketplaces module (mock).
-func (s *Session) Answer(ctx context.Context, reviewID, text string) (*marketplaces.AnswerResult, error) {
-	res, err := s.mp.AnswerReview(ctx, marketplaces.AnswerReviewInput{ReviewID: reviewID, Text: text})
-	if err != nil {
-		return nil, err
-	}
-	delete(s.drafts, reviewID)
-	return res, nil
 }

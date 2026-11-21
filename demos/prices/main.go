@@ -38,11 +38,14 @@ func main() {
 		os.Exit(1)
 	}
 	// AI: AI_LLM_PROVIDER (+ the module's AI_* keys); default mock. The INTL edition never goes live.
-	// legal-ru: only depersonalised text may go to GigaChat; reviews are buyers' texts, so GigaChat never goes live here
-	// (no anonymiser yet). YandexGPT is the live LLM of the RU edition.
-	if strings.EqualFold(env("AI_LLM_PROVIDER", ""), "gigachat") {
-		logger.Warn("config", "msg", "GigaChat is never live in this demo (legal-ru): using the mock")
-		os.Setenv("AI_LLM_PROVIDER", "mock")
+	// legal-ru: buyer texts go to a model only de-identified. The demo masks them itself (reviews.go) and the ai module
+	// masks every request too; GigaChat (no data-processing assignment) only with its masking on.
+	if os.Getenv("AI_PII_MASKING") == "" {
+		os.Setenv("AI_PII_MASKING", "on")
+	}
+	if strings.EqualFold(env("AI_LLM_PROVIDER", ""), "gigachat") && strings.EqualFold(env("AI_GIGACHAT_PII_MASKING", "on"), "off") {
+		logger.Error("config", "err", "GigaChat needs PII masking (legal-ru): unset AI_GIGACHAT_PII_MASKING=off")
+		os.Exit(1)
 	}
 	llm, err := ai.FromEnv(aikit.Env{Prefix: "AI_"})
 	if err != nil {
@@ -58,7 +61,7 @@ func main() {
 	}
 	maxSessions, _ := strconv.Atoi(env("MAX_SESSIONS", "2000"))
 	app := &App{Edition: edition, OtherURL: env("OTHER_EDITION_URL", ""), Sessions: NewSessions(max(10, maxSessions)),
-		LLM: llm, LLMName: llmName, Collector: DefaultCollector(), Schedule: env("DAILY_AT", "09:00")}
+		LLM: llm, LLMName: llmName, Collector: DefaultCollector(), Log: logger, Schedule: env("DAILY_AT", "09:00")}
 	if edition == EditionIntl {
 		app.Sessions.Lang = "en"
 		if llmMode(llm) == "live" { // International edition: mock only (owner's decision)
@@ -74,6 +77,9 @@ func main() {
 		}
 		app.Acc, app.AuthWidgetURL = acc, env("AUTH_WIDGET_URL", "")
 		app.LLMResource = "yandex-llm"
+		if strings.EqualFold(env("AI_LLM_PROVIDER", ""), "gigachat") {
+			app.LLMResource = "gigachat"
+		}
 		logger.Info("accounts", "provider", acc.ProviderName(), "demo", acc.Demo(), "widget", app.AuthWidgetURL != "")
 	}
 	if d := os.Getenv("DEMO_DOMAIN"); d != "" && app.OtherURL == "" {

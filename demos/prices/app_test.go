@@ -3,6 +3,8 @@ package main
 import (
 	"context"
 	"encoding/json"
+	"io"
+	"log/slog"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -282,7 +284,7 @@ func TestReviewDraftAndAnswer(t *testing.T) {
 			t.Fatalf("draft language differs from review: %q → %q", r.Text, d.Text)
 		}
 	}
-	if _, err := s.Answer(ctx, rs[0].ID, "Спасибо!"); err != nil {
+	if err := s.Answer(ctx, rs[0].ID, "Спасибо!"); err != nil {
 		t.Fatal(err)
 	}
 	rs2, _ := s.Reviews(ctx, "ru")
@@ -329,7 +331,7 @@ func newTestServer(t *testing.T, edition string) *client {
 	if edition == EditionIntl {
 		ss.Lang = "en"
 	}
-	app := &App{Edition: edition, Sessions: ss, LLM: ai.NewMock(), LLMName: "GigaChat", Collector: fastCollector(), Schedule: "09:00"}
+	app := &App{Edition: edition, Sessions: ss, Log: slog.New(slog.NewTextHandler(io.Discard, nil)), LLM: ai.NewMock(), LLMName: "GigaChat", Collector: fastCollector(), Schedule: "09:00"}
 	g := DefaultGuard()
 	srv := httptest.NewServer(NewServer(app, g))
 	t.Cleanup(srv.Close)
@@ -465,5 +467,63 @@ func TestStaticAndHealth(t *testing.T) {
 			t.Fatalf("%s: %v %v", p, err, resp.StatusCode)
 		}
 		resp.Body.Close()
+	}
+}
+
+// legal-ru: buyer names never reach the page or the model; pasted texts need prices-v1 and are de-identified.
+func TestReviewsDeidentified(t *testing.T) {
+	s := newSess(t)
+	ctx := context.Background()
+	rs, _ := s.Reviews(ctx, "ru")
+	raw, _ := s.mp.ListReviews(ctx, marketplaces.ListReviewsInput{Limit: 100})
+	b, _ := json.Marshal(rs)
+	for _, r := range raw {
+		if r.Author != "" && strings.Contains(string(b), r.Author) {
+			t.Fatalf("author name %q leaked", r.Author)
+		}
+	}
+	if _, err := s.AddOwnReview("prod_2", 2, "Отзыв", "", time.Now()); err != errConsent {
+		t.Fatalf("no consent: %v", err)
+	}
+	r, err := s.AddOwnReview("prod_2", 2, "Иван Петров, звоните +7 913 123-45-67: кружка с трещиной", ConsentPrices, time.Now())
+	if err != nil {
+		t.Fatal(err)
+	}
+	if strings.Contains(r.Text, "913") || strings.Contains(r.Text, "Петров") || r.Masked < 2 {
+		t.Fatalf("not de-identified: %q (%d)", r.Text, r.Masked)
+	}
+	if s.consent == nil || s.consent.Version != ConsentPrices || s.consent.At == "" {
+		t.Fatal("consent not recorded")
+	}
+	var got ai.ReviewReplyInput
+	gen := func(ctx context.Context, in ai.ReviewReplyInput) (*ai.ReviewReply, error) {
+		got = in
+		return ai.NewMock().ReplyToReview(ctx, in)
+	}
+	if _, err := s.DraftReply(ctx, gen, r.ID); err != nil {
+		t.Fatal(err)
+	}
+	if strings.Contains(got.Text, "913") || strings.Contains(got.Text, "Петров") {
+		t.Fatal("personal data sent to the model")
+	}
+	if err := s.Answer(ctx, r.ID, "Здравствуйте! Заменим."); err != nil {
+		t.Fatal(err)
+	}
+	for i := 0; i < MaxOwnReviews; i++ {
+		s.AddOwnReview("prod_1", 5, "ok", ConsentPrices, time.Now())
+	}
+	if _, err := s.AddOwnReview("prod_1", 5, "ok", ConsentPrices, time.Now()); err != errOwnLimit {
+		t.Fatalf("limit: %v", err)
+	}
+}
+
+func TestHTTPOwnReviewNeedsConsent(t *testing.T) {
+	c := newTestServer(t, EditionRU)
+	if code, m := c.do("POST", "/api/reviews", `{"product_id":"prod_1","rating":4,"text":"Хороший чай"}`); code != 400 || m["error"].(map[string]any)["code"] != "consent_required" {
+		t.Fatalf("no consent: %d", code)
+	}
+	code, st := c.do("POST", "/api/reviews", `{"product_id":"prod_1","rating":4,"text":"Хороший чай","consent":"prices-v1"}`)
+	if code != 200 || st["consent"] == nil || st["unanswered"].(float64) != 5 {
+		t.Fatalf("own review: %d %v", code, st["unanswered"])
 	}
 }

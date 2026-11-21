@@ -1,7 +1,7 @@
 # Портфолио: мониторинг цен WB и Ozon (для бирж, без ссылок и контактов)
 
 Медиа: `media/01-dashboard-ru.png` (обложка), `02-after-update-ru.png`, `03-report-ru.png`, `04-sheet-ru.png`,
-`05-collection-log-ru.png`, `06-reviews-ru.png`, `07-mobile-ru.png`; видео `media/demo-ru.mp4` (около 30 с), `media/demo-ru.gif`.
+`05-collection-log-ru.png`, `06-reviews-ru.png`, `07-mobile-ru.png`, `08-own-review-ru.png`; видео `media/demo-ru.mp4` (около 35 с), `media/demo-ru.gif`.
 
 ## Kwork / FL.ru / Хабр Фриланс: короткий вариант
 

@@ -8,6 +8,7 @@ import (
 	"errors"
 	"io"
 	"io/fs"
+	"log/slog"
 	"net"
 	"net/http"
 	"strconv"
@@ -41,6 +42,7 @@ type App struct {
 	LLMName   string // shown in the UI: GigaChat, YandexGPT, OpenAI, Anthropic
 	Collector CollectorConfig
 	Schedule  string // daily collection time shown in the UI, e.g. 09:00
+	Log       *slog.Logger
 	// RU edition: sign-in and daily live limits (service accounts). nil = always mock.
 	Acc           *accounts.Client
 	AuthWidgetURL string
@@ -93,6 +95,7 @@ func NewServer(app *App, g *Guard) *Server {
 	s.mux.HandleFunc("POST /api/competitors", s.with(s.addCompetitor))
 	s.mux.HandleFunc("POST /api/competitors/remove", s.with(s.removeCompetitor))
 	s.mux.HandleFunc("POST /api/report/send", s.with(s.sendReport))
+	s.mux.HandleFunc("POST /api/reviews", s.with(s.addReview))
 	s.mux.HandleFunc("POST /api/reviews/{id}/draft", s.with(s.draft))
 	s.mux.HandleFunc("POST /api/reviews/{id}/answer", s.with(s.answer))
 	s.mux.HandleFunc("GET /api/export.csv", s.with(s.exportCSV))
@@ -287,7 +290,7 @@ func (s *Server) buildState(ctx context.Context, sess *Session, lang string) map
 		"day": d, "date": sess.Date(d).Format("2006-01-02"), "runs": sess.Runs, "dates": dates,
 		"products": products, "changes": changes, "expensive": len(rep.Expensive), "competitors": len(sess.Competitors()),
 		"report": rep, "messages": sess.messages, "last_run": sess.lastRun,
-		"reviews": reviews, "unanswered": unanswered,
+		"reviews": reviews, "unanswered": unanswered, "consent": sess.consent,
 		"sheet": map[string]any{"rows": rows, "total": max(0, total-1)},
 	}
 }
@@ -424,6 +427,34 @@ func (s *Server) sendReport(w http.ResponseWriter, r *http.Request, sess *Sessio
 	writeJSON(w, http.StatusOK, map[string]any{"message": m, "messages": sess.messages})
 }
 
+// addReview: the visitor pastes a review (RU edition: prices-v1 consent checkbox is required).
+func (s *Server) addReview(w http.ResponseWriter, r *http.Request, sess *Session, lang string) {
+	var in struct {
+		ProductID string `json:"product_id"`
+		Rating    int    `json:"rating"`
+		Text      string `json:"text"`
+		Consent   string `json:"consent"`
+	}
+	if err := readJSON(r, &in); err != nil {
+		apiErr(w, http.StatusBadRequest, "invalid_argument", "bad request")
+		return
+	}
+	_, err := sess.AddOwnReview(in.ProductID, in.Rating, in.Text, in.Consent, time.Now())
+	switch {
+	case errors.Is(err, errConsent):
+		apiErr(w, http.StatusBadRequest, "consent_required", "the prices-v1 consent is required")
+		return
+	case errors.Is(err, errOwnLimit):
+		apiErr(w, http.StatusConflict, "too_many", "demo limit of pasted reviews reached")
+		return
+	case err != nil:
+		apiErr(w, http.StatusBadRequest, "invalid_argument", "product, rating 1..5 and text up to 1000 characters are required")
+		return
+	}
+	s.App.Log.Info("consent", "version", ConsentPrices, "session", sess.ID[:8]) // never the text
+	writeJSON(w, http.StatusOK, s.buildState(r.Context(), sess, lang))
+}
+
 func (s *Server) draft(w http.ResponseWriter, r *http.Request, sess *Session, lang string) {
 	ctx, cancel := context.WithTimeout(r.Context(), 30*time.Second)
 	defer cancel()
@@ -463,7 +494,7 @@ func (s *Server) answer(w http.ResponseWriter, r *http.Request, sess *Session, l
 		apiErr(w, http.StatusBadRequest, "invalid_argument", "reply text is required (up to 1000 characters)")
 		return
 	}
-	if _, err := sess.Answer(r.Context(), r.PathValue("id"), strings.TrimSpace(in.Text)); err != nil {
+	if err := sess.Answer(r.Context(), r.PathValue("id"), strings.TrimSpace(in.Text)); err != nil {
 		e := mkit.As(err)
 		if e != nil && e.Code == mkit.NotFound {
 			apiErr(w, http.StatusNotFound, "not_found", "unknown review")

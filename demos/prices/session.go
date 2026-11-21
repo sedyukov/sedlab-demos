@@ -103,6 +103,9 @@ type Session struct {
 	lastRun  *Run
 	drafts   map[string]Draft
 	answered map[string]string
+	own      []*Review // reviews pasted by the visitor (de-identified)
+	nOwn     int
+	consent  *Consent // prices-v1, given when pasting own texts
 }
 
 // Draft is an AI reply draft for a review.

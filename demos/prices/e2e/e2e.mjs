@@ -134,7 +134,22 @@ await shot('06-reviews');
 await page.locator('#reviews [data-publish]').first().click();
 check(await toastHas(T.published), 'reply published through the marketplaces API');
 check(Number((await page.textContent('#revCount')) || 0) === before - 1, 'unanswered counter decreased');
-await pause(2000);
+await pause(1500);
+// own review: prices-v1 consent is required, personal data is hidden (legal-ru)
+check(!(await page.locator('#reviews').textContent()).match(/Сергей|Анна|Игорь|Мария|John/), 'buyer names are not shown');
+check(await page.isDisabled('#ownBtn'), 'add button disabled until the consent is ticked');
+await page.locator('#ownText').scrollIntoViewIfNeeded();
+await page.selectOption('#ownProduct', 'prod_2');
+await page.locator('#ownText').pressSequentially(ed === 'en' ? 'John Smith, call +7 913 123-45-67: the mug arrived cracked' : 'Иван Петров, звоните +7 913 123-45-67: кружка пришла с трещиной', { delay: MEDIA ? 15 : 0 });
+await page.check('#ownConsent');
+await pause(600);
+await page.click('#ownBtn');
+await page.waitForSelector('#reviews .own-tag');
+const ownText = await page.locator('#reviews .rev', { has: page.locator('.own-tag') }).first().textContent();
+check(!ownText.includes('913') && !/Петров|Smith/.test(ownText), 'pasted review is de-identified');
+check((await page.locator('#consentLabel a[href="https://sedlab.dev/consent/prices"]').count()) === 1, 'consent link to prices-v1');
+await pause(1800);
+await shot('08-own-review');
 
 // 9. text hygiene
 const body = await page.evaluate(() => document.body.innerText);
