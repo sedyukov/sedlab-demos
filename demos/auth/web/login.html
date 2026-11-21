@@ -1,0 +1,34 @@
+{{define "login.html"}}{{template "head" .}}
+<section class="card">
+<h1>{{t .Lang "Вход в живой режим демо" "Sign in to live demo mode"}}</h1>
+<p class="muted">{{t .Lang "Без входа демо работает в демо-режиме на тестовых данных." "Without signing in, demos run in demo mode on test data."}}</p>
+{{if .Error}}<p class="err">{{t .Lang "Не получилось войти, попробуйте ещё раз." "Sign-in failed, please try again."}}</p>{{end}}
+<div class="methods">
+{{range .Methods}}
+  {{if eq .ID "max"}}<button class="btn primary" id="max-login" type="button">{{index .Label $.Lang}}</button>
+  {{else}}<a class="btn" href="/login/oauth/{{.ID}}/start">{{index .Label $.Lang}}</a>{{end}}
+{{else}}<p class="muted">{{t .Lang "Вход временно недоступен." "Sign-in is temporarily unavailable."}}</p>
+{{end}}
+{{if .Dev}}<a class="btn ghost" href="/dev/login?provider=max&id=1000001">DEV: {{t .Lang "войти как тестовый пользователь" "sign in as a test user"}}</a>{{end}}
+</div>
+<div id="max-step" hidden>
+  <p>{{t .Lang "Откройте бота в Max и нажмите «Подтвердить вход». Эта страница войдёт сама." "Open the bot in Max and press “Confirm”. This page signs in by itself."}}</p>
+  <p><a class="btn primary" id="max-link" target="_blank" rel="noopener">{{t .Lang "Открыть Max" "Open Max"}}</a></p>
+  <p class="muted small" id="max-status">{{t .Lang "Ждём подтверждения…" "Waiting for confirmation…"}}</p>
+</div>
+
+</section>
+<script>
+(function(){var b=document.getElementById('max-login');if(!b)return;
+var expired={{t .Lang "Ссылка устарела — начните заново." "Link expired — start again."}};
+b.addEventListener('click',function(){b.disabled=true;
+fetch('/api/login/start',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({provider:'max'})})
+.then(function(r){return r.json()}).then(function(d){if(!d.link){b.disabled=false;return}
+var s=document.getElementById('max-step');s.hidden=false;var a=document.getElementById('max-link');a.href=d.link;window.open(d.link,'_blank','noopener');
+var t0=Date.now();(function poll(){fetch('/api/login/poll?nonce='+encodeURIComponent(d.nonce)).then(function(r){return r.json()}).then(function(p){
+if(p.redirect){location.href=p.redirect;return}
+if(p.status==='pending'&&Date.now()-t0<300000){setTimeout(poll,2000);return}
+document.getElementById('max-status').textContent=expired;b.disabled=false})
+.catch(function(){setTimeout(poll,4000)})})()})})})();
+</script>
+{{template "foot" .}}{{end}}

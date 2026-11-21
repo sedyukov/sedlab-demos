@@ -1,0 +1,27 @@
+{{define "account.html"}}{{template "head" .}}
+<section class="card">
+{{if .User}}
+<h1>{{.User.DisplayName}}</h1>
+<p class="muted">{{t .Lang "Аккаунт sedlab demo — один на все демо." "Your sedlab demo account — one for all demos."}}</p>
+<h2>{{t .Lang "Живые лимиты на сегодня" "Today's live limits"}}</h2>
+{{range .Demos}}<div class="demo"><a href="https://{{.Demo}}.demo.sedlab.dev">{{.Demo}}</a>
+<ul class="limits">{{range .Items}}<li><span>{{index . "label"}}</span> <b>{{if lt (index . "user_left") 0}}∞{{else}}{{index . "user_left"}} / {{index . "user_limit"}}{{end}}</b></li>{{end}}</ul></div>
+{{else}}<p class="muted">{{t .Lang "Вы ещё не запускали демо вживую." "You haven't run any demo live yet."}}</p>{{end}}
+<h2>{{t .Lang "Мои данные" "My data"}}</h2>
+{{if .Channel}}<form method="post" action="/account/contact" class="check">
+<label><input type="checkbox" name="contact_ok" value="1" {{if .User.ContactOK}}checked{{end}} onchange="this.form.submit()"> {{t .Lang "Можно писать мне с предложением услуг" "You may message me about services"}}</label>
+<noscript><button class="btn ghost" type="submit">OK</button></noscript></form>{{end}}
+<div class="actions">
+<a class="btn" href="/account/export">{{t .Lang "Скачать мои данные (JSON)" "Download my data (JSON)"}}</a>
+<form method="post" action="/logout"><button class="btn ghost" type="submit">{{t .Lang "Выйти" "Sign out"}}</button></form>
+</div>
+<details class="danger"><summary>{{t .Lang "Удалить аккаунт" "Delete account"}}</summary>
+<p>{{t .Lang "Удалить аккаунт и все данные о нём? Это действие нельзя отменить. Резервные копии очистятся автоматически в течение 6 месяцев." "Delete your account and all its data? This can't be undone. Backups are purged automatically within 6 months."}}</p>
+<form method="post" action="/account/delete"><input type="hidden" name="confirm" value="1"><button class="btn danger" type="submit">{{t .Lang "Удалить аккаунт" "Delete account"}}</button></form>
+</details>
+{{else}}
+{{if .Deleted}}<h1>{{t .Lang "Аккаунт удалён. Сессии на всех устройствах завершены." "Account deleted. You've been signed out everywhere."}}</h1>{{else}}<h1>{{t .Lang "Вы не вошли" "You're not signed in"}}</h1>{{end}}
+<p><a class="btn primary" href="/login">{{t .Lang "Войти" "Sign in"}}</a></p>
+{{end}}
+</section>
+{{template "foot" .}}{{end}}
