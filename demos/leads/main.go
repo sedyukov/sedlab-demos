@@ -4,6 +4,8 @@ package main
 
 import (
 	"context"
+	accounts "github.com/sedyukov/sedlab-modules/modules/accounts/go"
+	accountskit "github.com/sedyukov/sedlab-modules/modules/accounts/go/kit"
 	crmkit "github.com/sedyukov/sedlab-modules/modules/crm/go/kit"
 	"log/slog"
 	"net/http"
@@ -50,6 +52,18 @@ func main() {
 		case EditionIntl:
 			app.OtherURL = "https://leads." + d
 		}
+	}
+	if edition == EditionRU {
+		// sign-in + live limits (accounts). Default provider is mock: it never allows live mode, so the
+		// RU edition stays in the sandbox until ACCOUNTS_PROVIDER=http and the auth service are in place.
+		acc, err := accounts.FromEnv(accountskit.Env{Prefix: "ACCOUNTS_"})
+		if err != nil {
+			logger.Error("accounts config", "err", err.Error())
+			os.Exit(1)
+		}
+		app.Acc = acc
+		app.AuthWidgetURL = env("AUTH_WIDGET_URL", "")
+		logger.Info("accounts", "provider", acc.ProviderName(), "demo", acc.Demo(), "widget", app.AuthWidgetURL != "")
 	}
 	guard := DefaultGuard()
 	if v, err := strconv.Atoi(env("SUBMIT_PER_MIN", "")); err == nil && v > 0 {

@@ -29,6 +29,7 @@ type Lead struct {
 	PaymentID       string         `json:"payment_id,omitempty"`
 	PaymentStatus   string         `json:"payment_status,omitempty"`
 	ConfirmationURL string         `json:"confirmation_url,omitempty"`
+	Live            bool           `json:"live"`  // processed by live providers (accounts allowed it), not the sandbox
 	Alias           string         `json:"alias"` // client-N: shown instead of email/phone on the public page
 	Lang            string         `json:"lang"`
 	Steps           map[string]int `json:"steps"` // step → 0 pending, 1 ok, 2 retrying, 3 failed

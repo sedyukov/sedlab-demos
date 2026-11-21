@@ -4,6 +4,13 @@
 EN-версия https://leads-en.demo.sedlab.dev (EDITION=intl, freelance-1).
 
 ## Сделано
+- **Вход и лимиты (accounts) в RU-редакции:** кнопка входа (виджет auth, `AUTH_WIDGET_URL`), баннер режима (`GET /api/mode`),
+  заявка уходит в живые провайдеры только через `accounts.LiveCall` по ресурсу CRM стека (`amocrm` или `bitrix24`): списание
+  до запуска, возврат при ошибке, отказ/не вошёл/auth недоступен → песочница посетителя и строка в логе о причине.
+  Без живых ключей CRM ничего не гейтится (всё в песочнице). INTL-редакция accounts не использует.
+  Тесты `TestAccountsGatesLiveLeads` (аноним → песочница, 2 живые заявки в лимите, третья → песочница, оплата живой заявки),
+  `TestAccountsNoLiveKeysNoGate`. Compose leads-ru: `ACCOUNTS_PROVIDER=http`, `ACCOUNTS_DEMO=leads`, ключи `AUTH_SVC_LEADS`,
+  `ACCOUNTS_PUBLIC_KEY` из sec, CA-бандл хоста read-only (корень Минцифры для Max).
 - **Две редакции** (решение владельца): одна кодовая база, `EDITION=ru|intl` (пусто = старая объединённая страница).
   ru: только русский язык (в т.ч. лог, бейджи, уведомления), amoCRM или Битрикс24 (переключатель, профиль `ru_b24`, env `RU_B24_*`),
   ЮKassa, таблица с подписью «Яндекс Диск» (mock до провайдера s2), уведомления Telegram + Max, ссылка «English version».

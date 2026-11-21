@@ -4,11 +4,13 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"net/http"
 	"strings"
 	"time"
 
+	accounts "github.com/sedyukov/sedlab-modules/modules/accounts/go"
 	crm "github.com/sedyukov/sedlab-modules/modules/crm/go"
 	notify "github.com/sedyukov/sedlab-modules/modules/notify/go"
 	payments "github.com/sedyukov/sedlab-modules/modules/payments/go"
@@ -17,16 +19,18 @@ import (
 
 // App wires sessions, profiles, the event hub and the pipeline.
 type App struct {
-	Profiles  map[string]*Profile
-	Sessions  *Sessions
-	Hub       *Hub
-	Edition   string // ru | intl | "" (combined)
-	OtherURL  string // the other edition ("English version" / "Русская версия")
-	PublicURL string // https://leads.demo.sedlab.dev — used in checkout links
-	SelfURL   string // where webhooks are delivered in mock mode (http://127.0.0.1:8080)
-	Retry     RetryPolicy
-	HTTP      *http.Client
-	now       func() time.Time
+	Profiles      map[string]*Profile
+	Sessions      *Sessions
+	Hub           *Hub
+	Edition       string           // ru | intl | "" (combined)
+	OtherURL      string           // the other edition ("English version" / "Русская версия")
+	PublicURL     string           // https://leads.demo.sedlab.dev — used in checkout links
+	SelfURL       string           // where webhooks are delivered in mock mode (http://127.0.0.1:8080)
+	Acc           *accounts.Client // RU edition: sign-in + live limits; nil = no gating
+	AuthWidgetURL string           // https://auth.demo.sedlab.dev/widget.js (RU edition; empty = no sign-in button yet)
+	Retry         RetryPolicy
+	HTTP          *http.Client
+	now           func() time.Time
 }
 
 func NewApp(profiles map[string]*Profile, publicURL, selfURL string, maxSessions int) *App {
@@ -39,16 +43,35 @@ func NewApp(profiles map[string]*Profile, publicURL, selfURL string, maxSessions
 	}
 }
 
-func (a *App) stack(s *Session, profile string) *Stack {
+// stack is the visitor's sandbox for a profile (what the side panels show).
+func (a *App) stack(s *Session, profile string) *Stack { return a.stackMode(s, profile, false) }
+
+// stackFor is the stack a lead runs on: live providers if accounts allowed live mode for it, else the sandbox.
+func (a *App) stackFor(s *Session, lead *Lead) *Stack {
+	if lead == nil {
+		return nil
+	}
+	return a.stackMode(s, lead.Profile, lead.Live)
+}
+
+func (a *App) stackMode(s *Session, profile string, live bool) *Stack {
+	key := profile
+	if live {
+		key += "#live"
+	}
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	st := s.stacks[profile]
+	st := s.stacks[key]
 	if st == nil {
-		st = a.Profiles[profile].NewStack(a.PublicURL + "/checkout/{id}?s=" + s.ID)
-		s.stacks[profile] = st
+		// with accounts (RU edition) the sandbox is always mock; live providers only for leads accounts allowed
+		st = a.Profiles[profile].NewStack(a.PublicURL+"/checkout/{id}?s="+s.ID, a.Acc != nil && !live)
+		s.stacks[key] = st
 	}
 	return st
 }
+
+// Gated: live providers exist for this profile and accounts decides per lead.
+func (a *App) Gated(p *Profile) bool { return a.Acc != nil && p.shared.CRM != nil }
 
 func (a *App) providerLabel(profile, service string) string {
 	p := a.Profiles[profile]
@@ -142,6 +165,7 @@ type LeadInput struct {
 	Message      string
 	Plan         string
 	Lang         string
+	Token        string // accounts session token (never stored or logged)
 }
 
 // Submit registers the lead (deduping by submission id) and runs the pipeline in the background.
@@ -178,15 +202,58 @@ func (a *App) Submit(s *Session, in LeadInput) (*Lead, bool) {
 	a.emit(s, lead, Event{Step: "form.submit", Service: "form", Status: "ok", Message: tr(lead.Lang, "Form submitted: ", "Форма отправлена: ") + lead.Name,
 		Data: map[string]any{"submission_id": in.SubmissionID, "plan": plan.Key, "amount": lead.Amount, "profile": in.Profile}})
 	s.update(func() { lead.Steps["form.submit"] = 1 })
-	go a.process(s, lead)
+	if a.Gated(prof) {
+		go a.processGated(s, lead, in.Token, prof)
+	} else {
+		go a.process(s, lead)
+	}
 	return lead, false
 }
 
-func (a *App) process(s *Session, lead *Lead) {
+// processGated asks accounts for one live unit of the profile's CRM resource (consume → run → refund on failure).
+// Refused, signed out or auth down → the lead runs in the visitor's sandbox and the log says why.
+func (a *App) processGated(s *Session, lead *Lead, token string, prof *Profile) {
+	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Minute)
+	defer cancel()
+	_, m, err := accounts.LiveCall(ctx, a.Acc, accounts.LiveCallInput{Token: token, Resource: prof.Resource,
+		IdempotencyKey: "lead-" + lead.SubmissionID}, func(ctx context.Context) (bool, error) {
+		s.update(func() { lead.Live = true })
+		a.emit(s, lead, Event{Step: "accounts.live", Service: "system", Status: "info",
+			Message: fmt.Sprintf(tr(lead.Lang, "Live mode: the lead goes to the real %s (one live unit used)", "Живой режим: заявка уходит в настоящую %s (списан один живой запуск)"), prof.CRMName)})
+		return true, a.process(s, lead)
+	})
+	if err != nil {
+		a.emit(s, lead, Event{Step: "accounts.live", Service: "system", Status: "info",
+			Message: tr(lead.Lang, "Live call failed: the unit is refunded", "Живой вызов не удался: лимит возвращён")})
+		return
+	}
+	if !m.Live {
+		a.emit(s, lead, Event{Step: "accounts.live", Service: "system", Status: "info", Message: modeReason(lead.Lang, m.Reason, prof.CRMName)})
+		a.process(s, lead)
+	}
+}
+
+// modeReason explains why the sandbox is used (same wording as the page banner).
+func modeReason(lang, reason, crmName string) string {
+	switch reason {
+	case accounts.ReasonUnauthenticated:
+		return tr(lang, "Demo mode: sign in to send leads to the real "+crmName, "Демо-режим: войдите, чтобы заявка ушла в настоящую "+crmName)
+	case accounts.ReasonUserDaily, accounts.ReasonGlobalDaily, accounts.ReasonBudgetMonth:
+		return tr(lang, "Today's live limit is used up, showing demo mode", "Живой лимит на сегодня исчерпан, показываем демо-режим")
+	case accounts.ReasonUnavailable:
+		return tr(lang, "Sign-in service is unavailable, demo mode", "Сервис входа недоступен, работаем в демо-режиме")
+	case accounts.ReasonNoKey:
+		return tr(lang, "Demo mode: everything runs in a sandbox, real CRMs and payments are not touched",
+			"Демо-режим: всё работает в песочнице, настоящие CRM и платежи не затрагиваются")
+	}
+	return tr(lang, "Demo mode", "Демо-режим")
+}
+
+func (a *App) process(s *Session, lead *Lead) error {
 	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Minute)
 	defer cancel()
 	t0 := a.now()
-	st := a.stack(s, lead.Profile)
+	st := a.stackFor(s, lead)
 	prof := a.Profiles[lead.Profile]
 	fail := func() {
 		s.update(func() { lead.Status = "failed" })
@@ -210,7 +277,7 @@ func (a *App) process(s *Session, lead *Lead) {
 		return fmt.Sprintf("%s: %s", verb, c.ID), map[string]any{"contact": c}, nil
 	}); err != nil {
 		fail()
-		return
+		return errPipeline
 	}
 	s.update(func() { lead.ContactID = contact.ID })
 
@@ -227,7 +294,7 @@ func (a *App) process(s *Session, lead *Lead) {
 		return tr(lead.Lang, fmt.Sprintf("Deal %s created, stage «%s»", d.ID, d.StageName), fmt.Sprintf("Сделка %s создана, этап «%s»", d.ID, stageRU(d.StageName))), map[string]any{"deal": d, "idempotency_key": "deal-" + lead.SubmissionID}, nil
 	}); err != nil {
 		fail()
-		return
+		return errPipeline
 	}
 	s.update(func() { lead.DealID, lead.DealStage, lead.DealURL = deal.ID, deal.StageName, deal.URL })
 	a.deliverCRMWebhook(ctx, s, lead, st)
@@ -246,7 +313,7 @@ func (a *App) process(s *Session, lead *Lead) {
 		return tr(lead.Lang, "Row appended: ", "Строка добавлена: ") + r.UpdatedRange, map[string]any{"result": r}, nil
 	}); err != nil {
 		fail()
-		return
+		return errPipeline
 	}
 
 	// 4. Notifications (Telegram for RU; Telegram + email for international)
@@ -285,14 +352,17 @@ func (a *App) process(s *Session, lead *Lead) {
 		return fmt.Sprintf(tr(lead.Lang, "Payment %s created (%s), link ready", "Платёж %s создан (%s), ссылка готова"), p.ID, p.Status), map[string]any{"payment": p}, nil
 	}); err != nil {
 		fail()
-		return
+		return errPipeline
 	}
 	s.update(func() {
 		lead.PaymentID, lead.PaymentStatus, lead.ConfirmationURL, lead.Status = pay.ID, pay.Status, pay.ConfirmationURL, "awaiting_payment"
 	})
 	a.emit(s, lead, Event{Step: "pipeline", Service: "system", Status: "ok",
 		Message: fmt.Sprintf(tr(lead.Lang, "Lead processed in %d ms, waiting for payment", "Заявка обработана за %d мс, ждём оплату"), a.now().Sub(t0).Milliseconds())})
+	return nil
 }
+
+var errPipeline = errors.New("pipeline stopped")
 
 func customer(l *Lead) *payments.Customer {
 	if l.Email == "" && l.Phone == "" {
@@ -376,7 +446,7 @@ func (a *App) post(ctx context.Context, url string, headers map[string]string, b
 
 // MockPay simulates the customer finishing checkout and delivers the provider's signed webhook to us.
 func (a *App) MockPay(ctx context.Context, s *Session, lead *Lead, outcome string) error {
-	st := a.stack(s, lead.Profile)
+	st := a.stackFor(s, lead)
 	if st.payMock == nil {
 		return fmt.Errorf("live payments: pay on the provider's checkout page")
 	}
@@ -447,13 +517,18 @@ func (a *App) HandlePaymentWebhook(ctx context.Context, profile string, headers 
 	var parser payments.Provider = prof.shared.Pay
 	var s *Session
 	var lead *Lead
-	if parser == nil { // mock mode: route to the visitor's sandbox, whose mock verifies the signature
+	if parser == nil || header(headers, payments.MockSignatureHeader) != "" {
+		// sandbox payment: route to the visitor's stack, whose mock verifies the signature
 		sid, lid := routeHint(body)
 		if s = a.Sessions.Peek(sid); s == nil {
 			return http.StatusNotFound
 		}
-		parser = a.stack(s, profile).Pay
 		lead = s.lead(lid)
+		if lead != nil {
+			parser = a.stackFor(s, lead).Pay
+		} else {
+			parser = a.stack(s, profile).Pay
+		}
 	}
 	t0 := a.now()
 	ev, err := parser.ParseWebhook(ctx, headers, body)
@@ -495,7 +570,7 @@ func (a *App) HandlePaymentWebhook(ctx context.Context, profile string, headers 
 func (a *App) onPayment(s *Session, lead *Lead, ev *payments.WebhookEvent) {
 	ctx, cancel := context.WithTimeout(context.Background(), time.Minute)
 	defer cancel()
-	st := a.stack(s, lead.Profile)
+	st := a.stackFor(s, lead)
 	var stage, status, sheetStatus string
 	switch ev.Type {
 	case payments.EventPaymentSucceeded:
@@ -666,4 +741,14 @@ func planRU(key string) string {
 		return v
 	}
 	return key
+}
+
+// header looks a header up case-insensitively.
+func header(h map[string]string, name string) string {
+	for k, v := range h {
+		if strings.EqualFold(k, name) {
+			return v
+		}
+	}
+	return ""
 }

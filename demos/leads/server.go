@@ -80,6 +80,7 @@ func NewServer(app *App, g *Guard) *Server {
 	s.mux.HandleFunc("GET /api/config", s.config)
 	s.mux.HandleFunc("GET /api/events", s.events)
 	s.mux.HandleFunc("GET /api/state", s.limited(s.state))
+	s.mux.HandleFunc("GET /api/mode", s.limited(s.mode))
 	s.mux.HandleFunc("OPTIONS /api/leads", s.cors(func(w http.ResponseWriter, r *http.Request) { w.WriteHeader(http.StatusNoContent) }))
 	s.mux.HandleFunc("POST /api/leads", s.cors(s.submit))
 	s.mux.HandleFunc("POST /api/leads/{id}/{action}", s.limited(s.leadAction))
@@ -175,7 +176,11 @@ func (s *Server) config(w http.ResponseWriter, r *http.Request) {
 			ps = append(ps, p)
 		}
 	}
-	writeJSON(w, http.StatusOK, map[string]any{"edition": s.App.Edition, "other_edition_url": s.App.OtherURL,
+	var widget any
+	if s.App.Acc != nil && s.App.AuthWidgetURL != "" {
+		widget = map[string]string{"url": s.App.AuthWidgetURL, "demo": s.App.Acc.Demo()}
+	}
+	writeJSON(w, http.StatusOK, map[string]any{"edition": s.App.Edition, "other_edition_url": s.App.OtherURL, "auth_widget": widget,
 		"profiles": ps, "retention": "24h", "sandbox_contacts": s.Guard.SandboxContacts})
 }
 
@@ -248,7 +253,11 @@ func (s *Server) state(w http.ResponseWriter, r *http.Request) {
 	st := s.App.stack(sess, prof)
 	var chaos bool
 	sess.update(func() { chaos = sess.Chaos })
-	out := map[string]any{"profile": prof, "chaos": chaos, "leads": sess.Leads(prof), "modes": s.App.Profiles[prof].Modes}
+	modes := s.App.Profiles[prof].Modes
+	if s.App.Acc != nil { // the panels show the visitor's sandbox; live leads are flagged per lead
+		modes = Modes{CRM: "mock", Payments: "mock", Sheets: "mock", Notify: "mock"}
+	}
+	out := map[string]any{"profile": prof, "chaos": chaos, "leads": sess.Leads(prof), "modes": modes}
 	ctx := r.Context()
 	if rows, err := st.Sheets.ReadRows(ctx, sheets.ReadRowsInput{SheetID: st.SheetID, Tab: st.SheetTab}); err == nil {
 		out["sheet"] = rows.Rows
@@ -373,6 +382,9 @@ func (s *Server) submit(w http.ResponseWriter, r *http.Request) {
 	if _, ok := s.App.Profiles[prof].Plan(in.Plan); !ok {
 		in.Plan = "business"
 	}
+	if s.App.Acc != nil {
+		in.Token = s.App.Acc.TokenFromRequest(r.Header) // sl_auth cookie (same site) or Bearer
+	}
 	lead, dup := s.App.Submit(sess, in)
 	writeJSON(w, http.StatusAccepted, map[string]any{"lead_id": lead.ID, "accepted": true, "duplicate": dup})
 }
@@ -494,4 +506,20 @@ func (s *Server) crmWebhook(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	w.WriteHeader(s.App.HandleCRMWebhook(r.Context(), r.PathValue("profile"), r.URL.Query().Get("s"), headerMap(r), body))
+}
+
+// mode: whether the next lead of this profile would go live (RU edition with accounts), for the page banner.
+func (s *Server) mode(w http.ResponseWriter, r *http.Request) {
+	prof, ok := s.profile(w, r.URL.Query().Get("profile"))
+	if !ok {
+		return
+	}
+	p := s.App.Profiles[prof]
+	if s.App.Acc == nil {
+		writeJSON(w, http.StatusOK, map[string]any{"gated": false})
+		return
+	}
+	m := s.App.Acc.ModeForRequest(r.Context(), r, p.Resource, p.shared.CRM != nil)
+	writeJSON(w, http.StatusOK, map[string]any{"gated": true, "live": m.Live, "reason": m.Reason, "user_left": m.UserLeft,
+		"resets_at": m.ResetsAt, "message": modeReason(p.Lang, m.Reason, p.CRMName)})
 }

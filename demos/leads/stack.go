@@ -25,8 +25,9 @@ type Plan struct {
 
 // Profile is one integration configuration the demo can switch between.
 type Profile struct {
-	Key         string   `json:"key"`  // ru | ru_b24 | intl
-	Lang        string   `json:"lang"` // ru | en: texts of notifications and labels
+	Key         string   `json:"key"`      // ru | ru_b24 | intl
+	Resource    string   `json:"resource"` // accounts resource that gates live mode (CRM of the stack)
+	Lang        string   `json:"lang"`     // ru | en: texts of notifications and labels
 	Currency    string   `json:"currency"`
 	Plans       []Plan   `json:"plans"`
 	CRMName     string   `json:"crm"`      // amoCRM | HubSpot
@@ -91,22 +92,22 @@ func intlPlans() []Plan { return []Plan{{"start", 9900}, {"business", 29900}, {"
 // RU_CRM_PROVIDER=amocrm (+ RU_CRM_AMOCRM_*), RU_B24_CRM_PROVIDER=bitrix24, INTL_PAYMENTS_PROVIDER=stripe,
 // INTL_SHEETS_PROVIDER=google_sheets (+ INTL_SHEETS_SHEET_ID), ... Everything defaults to the modules' mock providers.
 func LoadProfiles(getenv func(string) (string, bool), edition string) (map[string]*Profile, error) {
-	intl := &Profile{Key: "intl", Lang: "en", Currency: "USD", CRMName: "HubSpot", PayName: "Stripe", SheetsName: "Google Sheets",
+	intl := &Profile{Key: "intl", Resource: "hubspot", Lang: "en", Currency: "USD", CRMName: "HubSpot", PayName: "Stripe", SheetsName: "Google Sheets",
 		NotifyChans: []string{"telegram", "email"}, env: "INTL_", Plans: intlPlans()}
 	var ps map[string]*Profile
 	switch edition {
 	case EditionRU:
 		ps = map[string]*Profile{
-			"ru": {Key: "ru", Lang: "ru", Currency: "RUB", CRMName: "amoCRM", PayName: "ЮKassa", SheetsName: "Яндекс Диск",
+			"ru": {Key: "ru", Resource: "amocrm", Lang: "ru", Currency: "RUB", CRMName: "amoCRM", PayName: "ЮKassa", SheetsName: "Яндекс Диск",
 				NotifyChans: []string{"telegram", "max"}, env: "RU_", Plans: ruPlans()},
-			"ru_b24": {Key: "ru_b24", Lang: "ru", Currency: "RUB", CRMName: "Битрикс24", PayName: "ЮKassa", SheetsName: "Яндекс Диск",
+			"ru_b24": {Key: "ru_b24", Resource: "bitrix24", Lang: "ru", Currency: "RUB", CRMName: "Битрикс24", PayName: "ЮKassa", SheetsName: "Яндекс Диск",
 				NotifyChans: []string{"telegram", "max"}, env: "RU_B24_", Plans: ruPlans()},
 		}
 	case EditionIntl:
 		ps = map[string]*Profile{"intl": intl}
 	case EditionCombined:
 		ps = map[string]*Profile{
-			"ru": {Key: "ru", Lang: "ru", Currency: "RUB", CRMName: "amoCRM", PayName: "YooKassa", SheetsName: "Google Sheets",
+			"ru": {Key: "ru", Resource: "amocrm", Lang: "ru", Currency: "RUB", CRMName: "amoCRM", PayName: "YooKassa", SheetsName: "Google Sheets",
 				NotifyChans: []string{"telegram"}, env: "RU_", Plans: ruPlans()},
 			"intl": intl,
 		}
@@ -181,8 +182,12 @@ func LoadProfiles(getenv func(string) (string, bool), edition string) (map[strin
 
 // NewStack returns providers for one session: live ones are shared, the rest are fresh mocks,
 // so every visitor gets an isolated sandbox (own CRM, sheet, payments, inbox).
-func (p *Profile) NewStack(checkoutURL string) *Stack {
+// forceMock: the sandbox stack of a visitor when live mode is gated by accounts (RU edition).
+func (p *Profile) NewStack(checkoutURL string, forceMock bool) *Stack {
 	s := &Stack{CRM: p.shared.CRM, Pay: p.shared.Pay, Sheets: p.shared.Sheets, Notify: p.shared.Notify, SheetID: p.sheetID, SheetTab: p.sheetTab}
+	if forceMock {
+		s = &Stack{SheetID: "demo-sheet", SheetTab: "Leads"}
+	}
 	if s.CRM == nil {
 		s.crmMock = crm.NewMock()
 		s.CRM = s.crmMock

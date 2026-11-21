@@ -98,7 +98,7 @@
       b.addEventListener('click', function () {
         if (S.profile === b.dataset.profile) return;
         S.profile = b.dataset.profile; ls('leads.profile', S.profile); S.selected = null;
-        applyProfile(); syncURL(); if (widget) widget.setProfile(S.profile); refresh();
+        applyProfile(); syncURL(); if (widget) widget.setProfile(S.profile); refresh(); refreshMode();
       });
     });
   }
@@ -129,11 +129,34 @@
     if (c.edition === 'ru') I18N.ru.tagline = 'Форма → CRM → таблица на Яндекс Диске → Telegram и Max → оплата → сделка «Успешно»';
   }
 
+  // ---------- sign-in (RU edition): auth widget renders the button and limits; the banner says mock or live
+  function mountAuth(c) {
+    if (!c.auth_widget || !c.auth_widget.url) return;
+    var box = document.createElement('div'); box.id = 'sl-account'; box.className = 'acct';
+    $('.controls').insertBefore(box, $('.controls').firstChild);
+    var sc = document.createElement('script');
+    sc.src = c.auth_widget.url; sc.defer = true;
+    sc.setAttribute('data-demo', c.auth_widget.demo); sc.setAttribute('data-lang', S.lang);
+    var p = profile();
+    if (p) { sc.setAttribute('data-resource', p.resource); sc.setAttribute('data-providers', p.crm + ', ' + p.payments + ' (Россия)'); }
+    document.body.appendChild(sc);
+    window.addEventListener('sedlab:account', function () { refreshMode(); });
+  }
+  function refreshMode() {
+    if (!S.cfg || !S.cfg.auth_widget) return;
+    fetch('/api/mode?profile=' + S.profile, { credentials: 'same-origin' }).then(function (r) { return r.json(); }).then(function (m) {
+      var b = $('#modeBanner');
+      if (!m.gated) { b.hidden = true; return; }
+      b.hidden = false; b.className = 'mode-banner ' + (m.live ? 'on' : 'off');
+      b.textContent = m.live ? (S.lang === 'ru' ? 'Живой режим: заявка уйдёт в настоящую CRM. Осталось сегодня: ' : 'Live mode: the lead goes to the real CRM. Left today: ') + m.user_left : m.message;
+    }).catch(function () {});
+  }
+
   // ---------- widget (mounted once the edition is known)
   var widget = null;
   function mountWidget() {
     widget = LeadsWidget.mount('#widget', { endpoint: location.origin, profile: S.profile, lang: S.lang, session: S.session, theme: 'auto',
-      onSubmitted: function (j) { if (j.lead_id && j.lead_id !== 'L-000') { S.selected = j.lead_id; refresh(); } } });
+      onSubmitted: function (j) { if (j.lead_id && j.lead_id !== 'L-000') { S.selected = j.lead_id; refresh(); setTimeout(refreshMode, 1500); } } });
   }
 
   // ---------- tools
@@ -250,6 +273,7 @@
     $('#flow').innerHTML = html;
     $('#flowLead').textContent = l ? t('selected') + ': ' + l.id + ' · ' + l.name + ' · ' + money(l.amount) + ' · ' + (t('st')[l.status] || l.status) : '';
   }
+  function eff(k) { var p = profile(); return (S.state && S.state.modes && S.state.modes[k]) || (p && p.modes[k]) || 'mock'; }
   function sys(name, mode) {
     return '<div class="sys"><span>' + esc(name) + '</span><span class="mode ' + mode + '">' + t(mode) + '</span></div>';
   }
@@ -258,11 +282,11 @@
     if (!p) return;
     var leads = (S.state && S.state.leads) || [], cols = { New: [], Won: [], Lost: [] };
     leads.forEach(function (l) { if (l.deal_id) (cols[l.deal_stage] || cols.New).push(l); });
-    var html = sys(p.crm + ' · ' + (S.lang === 'ru' ? 'воронка продаж' : 'sales pipeline'), p.modes.crm) + '<div class="kanban">';
+    var html = sys(p.crm + ' · ' + (S.lang === 'ru' ? 'воронка продаж' : 'sales pipeline'), eff('crm')) + '<div class="kanban">';
     ['New', 'Won', 'Lost'].forEach(function (k) {
       html += '<div class="kcol"><h4>' + t('stages')[k] + '<span>' + cols[k].length + '</span></h4>';
       cols[k].forEach(function (l) {
-        html += '<div class="deal' + (lead() && lead().id === l.id ? ' sel' : '') + '" data-id="' + esc(l.id) + '"><b>' + esc(l.name) + '</b>' +
+        html += '<div class="deal' + (lead() && lead().id === l.id ? ' sel' : '') + '" data-id="' + esc(l.id) + '"><b>' + esc(l.name) + (l.live ? ' <span class="mode live">' + t('live') + '</span>' : '') + '</b>' +
           '<span class="amt">' + money(l.amount) + '</span><div class="id">' + esc(l.deal_id) + ' · ' + esc(l.id) + '</div></div>';
       });
       html += '</div>';
@@ -274,7 +298,7 @@
     var p = profile(), el = $('#tab-sheet');
     if (!p) return;
     var rows = (S.state && S.state.sheet) || [];
-    var html = sys(p.sheets + (S.cfg.edition === 'ru' ? ' · leads.xlsx' : ' · Leads'), p.modes.sheets);
+    var html = sys(p.sheets + (S.cfg.edition === 'ru' ? ' · leads.xlsx' : ' · Leads'), eff('sheets'));
     if (!rows.length) { el.innerHTML = html + '<p class="empty">' + t('noRows') + '</p>'; return; }
     var cols = Math.max.apply(null, rows.map(function (r) { return r.length; }));
     html += '<div class="sheet-wrap"><table class="sheet"><thead><tr><th class="rn"></th>';
@@ -294,7 +318,7 @@
     var p = profile(), el = $('#tab-inbox');
     if (!p) return;
     var msgs = (S.state && S.state.messages) || [];
-    var html = sys(notifyNames(p).join(' + ') + ' · notify', p.modes.notify) +
+    var html = sys(notifyNames(p).join(' + ') + ' · notify', eff('notify')) +
       '<div class="chat"><div class="chat-h"><span class="av">S</span><div><b>' + t('chatName') + '</b><br>' + t('bot') + '</div></div>';
     if (!msgs.length) html += '<p class="empty">' + t('noMsgs') + '</p>';
     msgs.forEach(function (m) {
@@ -308,15 +332,16 @@
     var p = profile(), el = $('#tab-pay');
     if (!p) return;
     var leads = ((S.state && S.state.leads) || []).filter(function (l) { return l.payment_id; });
-    var html = sys(p.payments, p.modes.payments);
+    var html = sys(p.payments, eff('payments'));
     if (!leads.length) { el.innerHTML = html + '<p class="empty">' + t('noPays') + '</p>'; return; }
     leads.forEach(function (l) {
       var ps = l.payment_status || 'pending', done = ps !== 'pending';
+      var payLive = l.live ? p.modes.payments === 'live' : eff('payments') === 'live';
       html += '<div class="pay"><div class="pay-h"><b>' + esc(l.id) + ' · ' + esc(l.name) + '</b><span class="pst ' + esc(ps) + '">' + esc(t('st')[ps] || ps) + '</span></div>' +
         '<div><b>' + money(l.amount) + '</b> <span class="id">' + esc(l.payment_id) + '</span></div><div class="pay-actions">' +
-        (!done && p.modes.payments === 'mock' ? '<button class="primary" data-act="pay" data-id="' + esc(l.id) + '">' + t('pay') + '</button>' : '') +
-        (!done && p.modes.payments === 'live' ? '<a class="primary" href="' + esc(l.confirmation_url) + '" target="_blank" rel="noopener">' + t('pay') + '</a>' : '') +
-        (done && p.modes.payments === 'mock' ? '<button class="ghost" data-act="replay-webhook" data-id="' + esc(l.id) + '">↻ ' + t('replay') + '</button>' : '') +
+        (!done && !payLive ? '<button class="primary" data-act="pay" data-id="' + esc(l.id) + '">' + t('pay') + '</button>' : '') +
+        (!done && payLive ? '<a class="primary" href="' + esc(l.confirmation_url) + '" target="_blank" rel="noopener">' + t('pay') + '</a>' : '') +
+        (done && !payLive ? '<button class="ghost" data-act="replay-webhook" data-id="' + esc(l.id) + '">↻ ' + t('replay') + '</button>' : '') +
         '<button class="ghost warnbtn" data-act="forge-webhook" data-id="' + esc(l.id) + '">⚠ ' + t('forge') + '</button></div></div>';
     });
     el.innerHTML = html + '<p class="hint">' + t('replayHint') + '</p>';
@@ -332,7 +357,7 @@
   function renderModes() {
     var p = profile();
     if (!p) return;
-    $('#modes').innerHTML = [[p.crm, p.modes.crm], [p.payments, p.modes.payments], [p.sheets, p.modes.sheets], ['notify', p.modes.notify]]
+    $('#modes').innerHTML = [[p.crm, eff('crm')], [p.payments, eff('payments')], [p.sheets, eff('sheets')], ['notify', eff('notify')]]
       .map(function (x) { return '<span>' + esc(x[0]) + ' <span class="mode ' + x[1] + '">' + t(x[1]) + '</span></span>'; }).join('');
   }
 
@@ -356,7 +381,7 @@
   applyLang(); applyProfile();
   fetch('/api/config').then(function (r) { return r.json(); }).then(function (c) {
     S.cfg = c;
-    applyEdition(c); applyLang(); applyProfile(); syncURL(); mountWidget(); refresh();
+    applyEdition(c); applyLang(); applyProfile(); syncURL(); mountWidget(); mountAuth(c); refreshMode(); refresh();
   });
   connect();
   window.leadsDemo = S; // for e2e tests

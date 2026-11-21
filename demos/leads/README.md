@@ -36,6 +36,10 @@ One code base, two deployments; the edition is picked by `EDITION=intl|ru`.
 
 Each page links to the other edition.
 
+The Russian edition has sign-in (Max, Yandex ID, VK ID): signed-in visitors can send a lead to the real CRM and payment
+provider (when keys are connected) within a daily limit; otherwise everything runs in the sandbox. The English edition
+is sandbox only.
+
 ## Reliability features you can see in the log
 
 - **Retries with backoff.** Turn on *Simulate API failures* and the CRM answers 503, Sheets answers 429 with
