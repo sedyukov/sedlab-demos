@@ -181,7 +181,11 @@ func (a *App) handleAuth(w http.ResponseWriter, r *http.Request) {
 		writeErr(w, 401, "unauthenticated", "invalid initData")
 		return
 	}
-	if err := a.store.UpsertUser(u.ID, u.FirstName, "" /* username not stored */, a.userLangOr(u.ID, u.Lang), m.Platform()); err != nil {
+	name := u.FirstName
+	if a.cfg.DemoReset && !emulated { // public demo host (outside RU): real users' names stay in the session only
+		name = ""
+	}
+	if err := a.store.UpsertUser(u.ID, name, "" /* username not stored */, a.userLangOr(u.ID, u.Lang), m.Platform()); err != nil {
 		a.fail(w, err)
 		return
 	}
