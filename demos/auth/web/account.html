@@ -2,7 +2,7 @@
 <section class="card">
 {{if .User}}
 <h1>{{.User.DisplayName}}</h1>
-<p class="muted">{{t .Lang "Аккаунт sedlab demo — один на все демо." "Your sedlab demo account — one for all demos."}}</p>
+<p class="muted">{{t .Lang "Аккаунт sedlab demo: один на все демо." "Your sedlab demo account: one for all demos."}}</p>
 <h2>{{t .Lang "Живые лимиты на сегодня" "Today's live limits"}}</h2>
 {{range .Demos}}<div class="demo"><a href="https://{{.Demo}}.demo.sedlab.dev">{{.Demo}}</a>
 <ul class="limits">{{range .Items}}<li><span>{{index . "label"}}</span> <b>{{if lt (index . "user_left") 0}}∞{{else}}{{index . "user_left"}} / {{index . "user_limit"}}{{end}}</b></li>{{end}}</ul></div>

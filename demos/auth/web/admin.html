@@ -2,6 +2,6 @@
 <section class="card wide"><h1>Leads</h1>
 <div class="scroll"><table><thead><tr><th>lead</th><th>created (UTC)</th><th>provider</th><th>name</th><th>login</th><th>first demo</th><th>demos</th><th>live</th></tr></thead><tbody>
 {{range .Leads}}<tr><td><code>{{.ID}}</code></td><td>{{.CreatedAt}}</td><td>{{.Provider}}</td><td>{{.DisplayName}}</td><td>{{.Username}}</td><td>{{.FirstDemo}}</td>
-<td>{{range .Demos}}{{.Demo}}×{{.Visits}} {{end}}</td><td>{{.LiveUsed}}</td></tr>{{else}}<tr><td colspan="8">—</td></tr>{{end}}
+<td>{{range .Demos}}{{.Demo}}×{{.Visits}} {{end}}</td><td>{{.LiveUsed}}</td></tr>{{else}}<tr><td colspan="8">-</td></tr>{{end}}
 </tbody></table></div></section>
 {{template "foot" .}}{{end}}

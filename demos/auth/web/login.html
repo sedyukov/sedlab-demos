@@ -20,7 +20,7 @@
 </section>
 <script>
 (function(){var b=document.getElementById('max-login');if(!b)return;
-var expired={{t .Lang "Ссылка устарела — начните заново." "Link expired — start again."}};
+var expired={{t .Lang "Ссылка устарела, начните заново." "Link expired, start again."}};
 b.addEventListener('click',function(){b.disabled=true;
 fetch('/api/login/start',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({provider:'max'})})
 .then(function(r){return r.json()}).then(function(d){if(!d.link){b.disabled=false;return}

@@ -78,7 +78,7 @@ func (a *App) maxWebhook(w http.ResponseWriter, r *http.Request) {
 		name := from.display()
 		var text, btn string
 		if strings.HasPrefix(strings.ToLower(u.UserLocale), "ru") || u.UserLocale == "" { // legal/ui-texts.md §2
-			text = "Войти на " + host + " как " + name + "? Если вход начали не вы — просто проигнорируйте это сообщение."
+			text = "Войти на " + host + " как " + name + "? Если вход начали не вы, просто проигнорируйте это сообщение."
 			btn = "Подтвердить вход"
 		} else {
 			text = "Sign in to " + host + " as " + name + "? If you didn't start this, just ignore this message."
@@ -92,9 +92,9 @@ func (a *App) maxWebhook(w http.ResponseWriter, r *http.Request) {
 			uid = u.UserID
 		}
 		ok, err := a.store.ConfirmNonce(ctx, strings.TrimPrefix(u.Data, "login:"), store.Subject{Provider: "max", ProviderUID: strconv.FormatInt(uid, 10), DisplayName: from.display(), Username: from.Username}, a.now())
-		text := "Готово — вернитесь в браузер. / Done — return to your browser."
+		text := "Готово, вернитесь в браузер. / Done, return to your browser."
 		if err != nil || !ok {
-			text = "Ссылка устарела — начните вход заново. / Link expired — start again."
+			text = "Ссылка устарела, начните вход заново. / Link expired, start again."
 		}
 		_, _ = a.max.AnswerCallbackQuery(ctx, maxcore.AnswerCallbackInput{CallbackQueryID: u.CallbackQueryID, Text: text})
 	case u.Command == "start" || u.Command == "id":
@@ -136,7 +136,7 @@ func (a *App) notifyLeads(ctx context.Context) {
 	for _, l := range leads {
 		demo := l.FirstDemo
 		if demo == "" {
-			demo = "—"
+			demo = "нет"
 		}
 		text := "🆕 Новый аккаунт sedlab: " + l.Provider + ", демо: " + demo + "\n" + a.cfg.PublicURL + "/admin/leads/" + l.ID
 		if a.notifyOwner(ctx, text, "lead-"+l.ID) {

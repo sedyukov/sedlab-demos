@@ -1,7 +1,7 @@
 {{define "consent.html"}}{{template "head" .}}
 <section class="card">
 <h1>{{t .Lang "Почти готово" "Almost there"}}</h1>
-<p>{{if eq .Lang "en"}}You're signing in as <b>{{.Name}}</b> via {{.ProviderLabel}}. We store only your ID, name and login — no phone or email.{{else}}Вы входите как <b>{{.Name}}</b> через {{.ProviderLabel}}. Мы храним только id, имя и логин — без телефона и email.{{end}}</p>
+<p>{{if eq .Lang "en"}}You're signing in as <b>{{.Name}}</b> via {{.ProviderLabel}}. We store only your ID, name and login (no phone or email).{{else}}Вы входите как <b>{{.Name}}</b> через {{.ProviderLabel}}. Мы храним только id, имя и логин, без телефона и email.{{end}}</p>
 <form method="post" action="/consent" id="consent">
 <label class="check"><input type="checkbox" name="agree_pd" value="1" required>
 {{if eq .Lang "en"}}I give <a href="/consent/demo?lang=en" target="_blank">consent to the processing of my personal data</a> under the <a href="{{.PrivacyURL}}" target="_blank">Privacy Policy</a>. I am 18 or older.{{else}}Даю <a href="/consent/demo" target="_blank">согласие на обработку персональных данных</a> на условиях <a href="{{.PrivacyURL}}" target="_blank">Политики</a>. Мне есть 18 лет.{{end}}</label>
@@ -11,7 +11,7 @@
 {{if eq .Lang "en"}}You may message me on {{.Channel}} about your services (<a href="/consent/contact?lang=en" target="_blank">details</a>). Doesn't affect demo access.{{else}}Можно написать мне в {{.Channel}} с предложением услуг (<a href="/consent/contact" target="_blank">условия</a>). Не влияет на доступ к демо.{{end}}</label>{{end}}
 <div class="actions">
 <button class="btn primary" type="submit" id="go" disabled>{{t .Lang "Продолжить" "Continue"}}</button>
-<button class="btn ghost" type="submit" name="cancel" value="1" formnovalidate>{{t .Lang "Отмена — не создавать аккаунт" "Cancel — don't create an account"}}</button>
+<button class="btn ghost" type="submit" name="cancel" value="1" formnovalidate>{{t .Lang "Отмена: не создавать аккаунт" "Cancel: don't create an account"}}</button>
 </div>
 </form>
 <p class="muted small">{{t .Lang "Данные хранятся в России. Удалить аккаунт можно в любой момент на странице «Мой аккаунт»." "Data is stored in Russia. You can delete your account at any time on the “My account” page."}}</p>
