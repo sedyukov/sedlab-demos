@@ -1,0 +1,7 @@
+{
+  "name": "booking-e2e",
+  "private": true,
+  "type": "module",
+  "scripts": { "test": "node flow.mjs", "media": "node flow.mjs --media" },
+  "devDependencies": { "playwright": "^1.56.0" }
+}

@@ -1,0 +1,6 @@
+**/node_modules
+**/.localdata
+demos/booking/media
+demos/booking/e2e
+.git
+site

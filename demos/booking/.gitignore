@@ -1,0 +1,4 @@
+.localdata/
+node_modules/
+server/static/*
+!server/static/.gitkeep
