@@ -12,6 +12,7 @@ COPY modules-src/modules/telegram-core/go /src/modules-src/modules/telegram-core
 COPY modules-src/modules/payments/go /src/modules-src/modules/payments/go
 COPY modules-src/modules/notify/go /src/modules-src/modules/notify/go
 COPY modules-src/modules/max-core/go /src/modules-src/modules/max-core/go
+COPY modules-src/modules/accounts/go /src/modules-src/modules/accounts/go
 COPY demos/booking/server/go.mod demos/booking/server/go.sum ./
 RUN go mod download
 COPY demos/booking/server/ ./
