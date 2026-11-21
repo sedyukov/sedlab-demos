@@ -478,3 +478,12 @@ func TestStartsWithoutMaxTokenAndHidesMax(t *testing.T) {
 		t.Fatal("login page shows Max without a token")
 	}
 }
+
+func TestUnknownDemoGetsNoLiveResources(t *testing.T) {
+	app, _ := newTestApp(t, nil)
+	for _, r := range []string{"openai", "gigachat", "yandex-stt"} {
+		if _, ok := app.limits.For("some-new-demo", r); ok {
+			t.Fatalf("unknown demo got %s", r)
+		}
+	}
+}

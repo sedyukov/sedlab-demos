@@ -104,6 +104,9 @@
       "amocrm",
       "telegram",
       "max"
-    ]
+    ],
+    "*": [],
+    "prices": [],
+    "api": []
   }
 }
