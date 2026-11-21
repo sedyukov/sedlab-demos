@@ -31,9 +31,16 @@
 - **CI 21.11 (1835679):** job test зелёный (vet + race на CI). Job build остановился на «GHCR visibility guard (before push)»:
   новый пакет `ghcr.io/sedyukov/prices` создан пустым пробником и публичен по умолчанию, код модулей в него не попал.
 
+- **Деплой 21.11 (до GHCR):** `prices-ru` на freelance-ru, образ `ghcr.io/sedyukov/prices:sha-ae317af` собран на Маке
+  (Docker Hub не отдал golang-образ: бинарник кросс-компилирован `GOOS=linux GOARCH=amd64`, образ на distroless, 10,4 МБ),
+  `docker save | ssh docker load`, `deploy.sh prices-ru --host freelance-ru --tag sha-ae317af --no-pull`. check-demos --pre-dns зелёное;
+  e2e 29/29 против контейнера через SSH-туннель; память 2 МБ в простое, 8 МБ после e2e. accounts: provider http, demo prices.
+  Снаружи по `--resolve …:443:5.35.4.25` TLS не отвечает (сертификат выпустится после A-записи; у auth так же).
+
 ## Осталось
 - **Владелец:** github.com/users/sedyukov/packages/container/prices/settings → Change visibility → Private, затем Re-run build-prices.
-- После зелёного build: `infra/deploy.sh prices-ru --host freelance-ru --tag sha-<7>`, проверка `curl --resolve prices.demo.sedlab.dev:443:5.35.4.25 …/health`.
+- После Private и зелёного CI: обычный деплой `infra/deploy.sh prices-ru --host freelance-ru --tag sha-<7>`.
+- После A-записи `prices.demo → 5.35.4.25`: `infra/check-demos.sh prices-ru --host freelance-ru` и e2e по https.
 - `infra/demos.txt`: строке prices нужен флаг `ru-only` (зона infra), A-запись `prices.demo → 5.35.4.25`.
 - Живые ресурсы (по желанию): `yandex-llm` для prices в limits.json auth + ключи YandexGPT; виджет входа после DNS auth.
 - Живой сбор (по желанию): WB через `marketplaces.CompetitorPrices` (теперь с остатками), Ozon через scraping http; в публичном демо не включаем.
