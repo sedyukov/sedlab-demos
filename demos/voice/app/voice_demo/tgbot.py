@@ -29,7 +29,7 @@ DEFAULT_NAMES = {"voice": "voice.ogg", "audio": "audio.mp3", "video_note": "vide
 CONSENT_DATA = "consent:bot-v1"
 CONSENT_TTL = 7 * 24 * 3600  # legal: demo data lives at most 7 days
 CONSENT_TEXT = ("Это демо. Вводите тестовые данные. Нажимая «Согласен, начать», вы даёте "
-                '<a href="https://sedlab.dev/consent/bot">согласие на обработку персональных данных</a>: '
+                '<a href="https://auth.demo.sedlab.dev/consent/bot">согласие на обработку персональных данных</a>: '
                 "имя и username в мессенджере и то, что вы введёте, хранятся на сервере в России до 7 дней. "
                 "Удалить в любой момент: /delete.")
 CONSENT_BUTTON = "Согласен, начать"

@@ -333,5 +333,5 @@ def test_intl_needs_no_consent():
 
 def test_ru_page_has_consent_box_with_legal_links():
     html = make(edition="ru").get("/").text
-    assert 'id="consentCb"' in html and "https://sedlab.dev/consent/voice" in html and "https://sedlab.dev/terms#3a" in html
+    assert 'id="consentCb"' in html and "https://auth.demo.sedlab.dev/consent/voice" in html and "https://auth.demo.sedlab.dev/terms#3a" in html
     assert "Демо не для персональных данных: загружайте тестовую запись." in html and "—" not in html
