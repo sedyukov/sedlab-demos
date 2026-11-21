@@ -298,7 +298,7 @@
     <div class="sheet" role="dialog" aria-label={L('starsTitle')}>
       <div class="star-big">⭐</div>
       <h3>{L('starsTitle')}</h3>
-      <p>{starsSheet.title} — <b>{money('XTR', booking.pay_amount, lang)}</b></p>
+      <p>{starsSheet.title}: <b>{money('XTR', booking.pay_amount, lang)}</b></p>
       <p class="hint">{L('starsBalance')}</p>
       <button class="btn stars" disabled={sheetBusy} onclick={payStarsEmu}>{L('starsPay')} {money('XTR', booking.pay_amount, lang)}</button>
       <p class="hint small-note">{L('starsNote')}</p>

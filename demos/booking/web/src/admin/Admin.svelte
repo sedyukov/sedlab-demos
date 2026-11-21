@@ -162,7 +162,7 @@
                 <td>{b.client_name}<div class="hint">{b.client_phone}</div></td>
                 <td>{pick(lang, b.service)}</td>
                 <td><span class="dot" style="background:{b.master.color}"></span>{pick(lang, b.master)}</td>
-                <td class="nowrap">{b.paid_at ? money(b.pay_currency, b.pay_amount, lang) : '—'}{#if b.refunded}<div class="hint">{L.refunded}</div>{/if}</td>
+                <td class="nowrap">{b.paid_at ? money(b.pay_currency, b.pay_amount, lang) : '-'}{#if b.refunded}<div class="hint">{L.refunded}</div>{/if}</td>
                 <td><span class="pill st-{b.status}">{L.st[b.status] || b.status}</span></td>
                 <td class="nowrap actions">
                   {#if b.status === 'confirmed'}

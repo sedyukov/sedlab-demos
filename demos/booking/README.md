@@ -1,6 +1,6 @@
 # Salon Booking Bot + Telegram Mini App · Бот записи в салон + мини-апп
 
-**Live demo:** https://booking.demo.sedlab.dev — works in the browser, no Telegram account needed · [EN](#en) · [RU](#ru)
+**Live demo:** https://booking.demo.sedlab.dev (works in the browser, no Telegram account needed) · [EN](#en) · [RU](#ru)
 
 ![demo](media/demo.gif)
 
@@ -55,7 +55,7 @@ booking alerts and open the admin panel. Switch the language to RU to see the ca
 | ![Max, RU](media/07-max-confirm-ru.png) | Video: [media/demo.mp4](media/demo.mp4) (~50 s) |
 
 ### Stack
-Go 1.26 (net/http, one static binary) · SQLite (pure Go, WAL) · Svelte 5 + Vite (Mini App, admin, emulator — built into
+Go 1.26 (net/http, one static binary) · SQLite (pure Go, WAL) · Svelte 5 + Vite (Mini App, admin and emulator, built into
 the binary) · Telegram Bot API, Mini Apps, Stars · YooKassa / Stripe · Docker (14 MB image, **~10 MB RAM**) · Caddy ·
 GitHub Actions.
 
@@ -77,7 +77,7 @@ Under the hood it is a thin layer over my reusable modules. Each has the same in
 ### Run locally
 ```bash
 cd web && npm ci && npm run build          # → server/static (embedded)
-cd ../server && go test ./... && DATA_DIR=../.localdata go run .   # http://localhost:8080 — mock mode, no keys
+cd ../server && go test ./... && DATA_DIR=../.localdata go run .   # http://localhost:8080, mock mode, no keys
 cd ../e2e && npm ci && BASE=http://localhost:8080 node flow.mjs    # browser e2e (Playwright); --media re-shoots media/
 ```
 Config: [.env.example](.env.example). With `TELEGRAM_PROVIDER=telegram` and a BotFather token it runs as a live bot
@@ -129,11 +129,11 @@ Docker-образ и SQLite, переезд между серверами зан
 получать уведомления о записях и открыть админку. На русском языке доступна оплата картой (ЮKassa).
 
 ### Стек
-Go 1.26 (net/http, один статический бинарник) · SQLite (pure Go, WAL) · Svelte 5 + Vite (мини-апп, админка, эмулятор —
+Go 1.26 (net/http, один статический бинарник) · SQLite (pure Go, WAL) · Svelte 5 + Vite (мини-апп, админка и эмулятор
 вшиты в бинарник) · Telegram Bot API, Mini Apps, Stars · ЮKassa / Stripe · Docker (образ 14 МБ, **~10 МБ RAM**) · Caddy ·
 GitHub Actions.
 
-Внутри — тонкий слой над моими переиспользуемыми модулями (одинаковый интерфейс на Go и Python, контрактные тесты):
+Внутри тонкий слой над моими переиспользуемыми модулями (одинаковый интерфейс на Go и Python, контрактные тесты):
 **telegram-core** (Bot API с ретраями и лимитами, идемпотентные вебхуки, проверка `initData` и сессии, Stars: счета,
 ссылки на оплату, возвраты, симулятор оплаты для тестов), **payments** (ЮKassa, Stripe и другие РФ-провайдеры: платежи,
 проверенные вебхуки, возвраты, ключи идемпотентности), **notify** (уведомления в Telegram, email и вебхук), **max-core**

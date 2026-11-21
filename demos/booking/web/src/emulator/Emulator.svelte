@@ -24,22 +24,22 @@
     en: {
       h1: 'Salon booking bot + Telegram Mini App', lead: 'Live demo. This page emulates the Telegram app, so you can try it without an account. The backend is the production one: signed launch data, webhooks, payments sandbox.',
       persona: 'You are', guest: 'Client', owner: 'Salon owner', name: 'Your name', steps: 'Try it',
-      s1: 'Tap «Book now» in the chat', s2: 'Pick a service, a master and a time', s3: 'Pay the deposit — Telegram Stars (sandbox)', s4: 'Get the confirmation and reminders in the chat',
+      s1: 'Tap «Book now» in the chat', s2: 'Pick a service, a master and a time', s3: 'Pay the deposit in Telegram Stars (sandbox)', s4: 'Get the confirmation and reminders in the chat',
       ownerSteps: 'As the owner you get a message for every new booking and manage the schedule, masters and services in the admin panel.',
       remind: '⏩ Send me a reminder now', admin: 'Open the admin panel ↗', reset: 'Reset demo data', resetDone: 'Demo data restored',
       bot: 'Bloom Salon Bot', online: 'bot', placeholder: 'Message', open: 'Open', start: 'Start',
-      built: 'Built with', more: 'Same code runs as a real Telegram bot: just add a BotFather token.', noRem: 'Book something first — the reminder is for your next visit.',
+      built: 'Built with', more: 'Same code runs as a real Telegram bot: just add a BotFather token.', noRem: 'Book something first: the reminder is about your next visit.',
       variants: 'Payments: Telegram Stars (international) · card via YooKassa (Russia, switch to RU). Max: card only.', messenger: 'Messenger',
     },
     ru: {
-      h1: 'Бот записи в салон + Telegram Mini App', lead: 'Живое демо. Страница эмулирует Telegram — можно попробовать без аккаунта. Бэкенд боевой: подписанные данные запуска, вебхуки, песочница платежей.',
+      h1: 'Бот записи в салон + Telegram Mini App', lead: 'Живое демо. Страница эмулирует Telegram, поэтому попробовать можно без аккаунта. Бэкенд боевой: подписанные данные запуска, вебхуки, песочница платежей.',
       persona: 'Вы', guest: 'Клиент', owner: 'Владелец салона', name: 'Ваше имя', steps: 'Как попробовать',
-      s1: 'Нажмите «Записаться» в чате', s2: 'Выберите услугу, мастера и время', s3: 'Внесите предоплату — картой (ЮKassa, песочница) или Telegram Stars', s4: 'Получите подтверждение и напоминания в чат',
+      s1: 'Нажмите «Записаться» в чате', s2: 'Выберите услугу, мастера и время', s3: 'Внесите предоплату картой (ЮKassa, песочница) или в Telegram Stars', s4: 'Получите подтверждение и напоминания в чат',
       ownerSteps: 'Владельцу приходит сообщение о каждой новой записи, а в админке он ведёт расписание, мастеров и услуги.',
       remind: '⏩ Прислать напоминание сейчас', admin: 'Открыть админку ↗', reset: 'Сбросить демо-данные', resetDone: 'Демо-данные восстановлены',
       bot: 'Bloom Salon Bot', online: 'бот', placeholder: 'Сообщение', open: 'Открыть', start: 'Старт',
-      built: 'Стек', more: 'Тот же код работает как настоящий Telegram-бот — нужен только токен от BotFather.', noRem: 'Сначала запишитесь — напоминание приходит о ближайшем визите.',
-      variants: 'Оплата: ЮKassa (РФ) и Telegram Stars (международный рынок, переключите на EN). В Max — картой.', messenger: 'Мессенджер',
+      built: 'Стек', more: 'Тот же код работает как настоящий Telegram-бот, нужен только токен от BotFather.', noRem: 'Сначала запишитесь: напоминание приходит о ближайшем визите.',
+      variants: 'Оплата: ЮKassa (РФ) и Telegram Stars (международный рынок, переключите на EN). В Max оплата картой.', messenger: 'Мессенджер',
     },
   }
   const L = $derived(T[lang])

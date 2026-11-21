@@ -133,7 +133,7 @@ func (a *App) authed(h http.HandlerFunc) http.HandlerFunc {
 			uid, err = a.max.VerifySession(r.Header.Get("Authorization"))
 		}
 		if err != nil {
-			writeErr(w, 401, "unauthenticated", "session expired — reopen the app")
+			writeErr(w, 401, "unauthenticated", "session expired, reopen the app")
 			return
 		}
 		emu := isEmulatorUser(uid)

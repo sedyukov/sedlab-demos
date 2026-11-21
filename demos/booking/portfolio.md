@@ -4,10 +4,10 @@ No links or contacts, so it can be pasted on Kwork, FL.ru, Habr Freelance and Up
 
 ---
 
-## RU — заголовок
+## RU: заголовок
 Telegram-бот записи в салон + мини-апп: предоплата ЮKassa / Telegram Stars, напоминания, админка
 
-## RU — описание
+## RU: описание
 Бот и мини-апп для онлайн-записи в салон красоты, барбершоп, клинику или студию.
 
 Клиент открывает мини-апп из чата, выбирает услугу, мастера и свободное время и вносит предоплату картой (ЮKassa) или в
@@ -27,10 +27,10 @@ Telegram Stars. Пока он платит, время закреплено за
 
 ---
 
-## EN — title
+## EN: title
 Telegram booking bot + Mini App: deposits in Telegram Stars or by card, reminders, owner admin panel
 
-## EN — description
+## EN: description
 A Telegram bot and Mini App for online booking at a beauty salon, barbershop, clinic or studio.
 
 Clients open the Mini App from the chat, pick a service, a master and a free time slot, and pay a deposit in Telegram

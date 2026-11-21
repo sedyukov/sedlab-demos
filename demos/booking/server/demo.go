@@ -173,9 +173,9 @@ func (a *App) handleDemoRunReminders(w http.ResponseWriter, r *http.Request) {
 	if t.Sub(a.now()) > 36*time.Hour || t.Sub(a.now()) < 12*time.Hour {
 		text = T(b.Lang, "remind2", svc.Name(b.Lang), m.Name(b.Lang), t.Format("15:04"))
 		if b.Lang == "ru" {
-			text = "⏰ Напоминание: " + fmtWhen("ru", t) + " — <b>" + svc.Name("ru") + "</b>, мастер " + m.Name("ru") + "."
+			text = "⏰ Напоминание: " + fmtWhen("ru", t) + ", <b>" + svc.Name("ru") + "</b>, мастер " + m.Name("ru") + "."
 		} else {
-			text = "⏰ Reminder: " + fmtWhen("en", t) + " — <b>" + svc.Name("en") + "</b> with " + m.Name("en") + "."
+			text = "⏰ Reminder: " + fmtWhen("en", t) + ", <b>" + svc.Name("en") + "</b> with " + m.Name("en") + "."
 		}
 	}
 	a.tell(r.Context(), b.UserID, "reminder", text, &WebAppButton{Text: T(b.Lang, "my_open"), URL: a.cfg.PublicURL + "/app/?screen=my"}, "")

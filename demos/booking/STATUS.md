@@ -1,4 +1,4 @@
-# STATUS — S3 booking (2026-11-21)
+# STATUS: S3 booking (2026-11-21)
 
 ## Done
 - Go backend (SQLite, ~10 MB RAM, 14 MB image) + Svelte Mini App, owner admin, browser Telegram emulator, mock checkout page.

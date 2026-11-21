@@ -42,7 +42,7 @@ func (a *App) handlePay(w http.ResponseWriter, r *http.Request) {
 	}
 	svc, _ := a.store.Service(b.ServiceID)
 	m, _ := a.store.Master(b.MasterID)
-	desc := fmt.Sprintf("%s — %s, %s", svc.Name(b.Lang), m.Name(b.Lang), fmtWhen(b.Lang, time.Unix(b.StartAt, 0).In(a.cfg.TZ)))
+	desc := fmt.Sprintf("%s, %s, %s", svc.Name(b.Lang), m.Name(b.Lang), fmtWhen(b.Lang, time.Unix(b.StartAt, 0).In(a.cfg.TZ)))
 	hold := now + int64(a.cfg.HoldMinutes)*60 // give the payer a fresh hold window
 
 	switch in.Method {
@@ -344,7 +344,7 @@ func (a *App) upcomingText(userID int64, lang string) string {
 	for _, b := range bs {
 		svc, _ := a.store.Service(b.ServiceID)
 		m, _ := a.store.Master(b.MasterID)
-		fmt.Fprintf(&sb, "\n• %s — %s, %s", fmtWhen(lang, time.Unix(b.StartAt, 0).In(a.cfg.TZ)), svc.Name(lang), m.Name(lang))
+		fmt.Fprintf(&sb, "\n• %s: %s, %s", fmtWhen(lang, time.Unix(b.StartAt, 0).In(a.cfg.TZ)), svc.Name(lang), m.Name(lang))
 	}
 	return sb.String()
 }

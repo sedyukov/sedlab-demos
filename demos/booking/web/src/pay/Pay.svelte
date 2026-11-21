@@ -9,8 +9,8 @@
   const embed = q.get('embed') === '1'
   const pid = location.pathname.split('/').filter(Boolean).pop()
   const T = {
-    en: { title: 'Demo checkout', sub: 'Sandbox of the card payment provider — no real money moves', pay: 'Pay', cancel: 'Cancel payment', card: 'Test card', ok: 'Payment received', canceled: 'Payment cancelled', back: 'Back to the app', nf: 'Payment not found', note: 'In production this is the provider’s hosted page (YooKassa / Stripe via the payments module).' },
-    ru: { title: 'Демо-оплата', sub: 'Песочница платёжного провайдера — реальные деньги не списываются', pay: 'Оплатить', cancel: 'Отменить платёж', card: 'Тестовая карта', ok: 'Оплата прошла', canceled: 'Платёж отменён', back: 'Вернуться в приложение', nf: 'Платёж не найден', note: 'В проде здесь страница провайдера (ЮKassa / Stripe через модуль payments).' },
+    en: { title: 'Demo checkout', sub: 'Sandbox of the card payment provider: no real money moves', pay: 'Pay', cancel: 'Cancel payment', card: 'Test card', ok: 'Payment received', canceled: 'Payment cancelled', back: 'Back to the app', nf: 'Payment not found', note: 'In production this is the provider’s hosted page (YooKassa / Stripe via the payments module).' },
+    ru: { title: 'Демо-оплата', sub: 'Песочница платёжного провайдера: реальные деньги не списываются', pay: 'Оплатить', cancel: 'Отменить платёж', card: 'Тестовая карта', ok: 'Оплата прошла', canceled: 'Платёж отменён', back: 'Вернуться в приложение', nf: 'Платёж не найден', note: 'В проде здесь страница провайдера (ЮKassa / Stripe через модуль payments).' },
   }[lang]
   let p = $state(null), state = $state('loading'), busy = $state(false)
 

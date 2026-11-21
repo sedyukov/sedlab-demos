@@ -174,7 +174,7 @@ func (a *App) handleCreateBooking(w http.ResponseWriter, r *http.Request) {
 	}
 	// demo hygiene: one unpaid hold per user
 	if pend, _ := a.store.queryBookings(`user_id=? AND status='pending' AND hold_until>?`, s.UserID, a.now().Unix()); len(pend) >= 3 {
-		writeErr(w, 429, "rate_limited", "too many unpaid bookings — pay or wait 15 minutes")
+		writeErr(w, 429, "rate_limited", "too many unpaid bookings: pay or wait 15 minutes")
 		return
 	}
 	if s.Emulated {
