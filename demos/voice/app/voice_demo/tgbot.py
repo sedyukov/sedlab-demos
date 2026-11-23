@@ -40,8 +40,8 @@ TEXT = {
     "start": {
         "en": "Send me a voice message, an audio file or a round video. I'll transcribe it, summarize it, list the "
               "action items (who / what / when) and answer with a voice message. Text works too.",
-        "ru": "Пришлите голосовое, аудиофайл или кружок: расшифрую, сделаю саммари, выпишу задачи (кто / что / срок) "
-              "и отвечу голосом. Можно и текстом.",
+        "ru": "Пришлите голосовое, аудиофайл или кружок: переведу в текст, коротко перескажу суть, выпишу задачи "
+              "(кто, что, к какому сроку) и отвечу голосом. Можно и текстом.",
     },
     "too_long": {"en": "Audio is limited to {n} s in this demo.", "ru": "В демо аудио не длиннее {n} с."},
     "too_big": {"en": "The file is too large for this demo ({n} MB max).", "ru": "Файл слишком большой для демо (до {n} МБ)."},
@@ -50,12 +50,15 @@ TEXT = {
                                                      "сервис распознавания не принимает."},
     "unsupported": {"en": "Send a voice message, audio or video, please.", "ru": "Пришлите, пожалуйста, голосовое, аудио или видео."},
     "limit": {"en": "Demo limit reached, try again later.", "ru": "Лимит демо исчерпан, попробуйте позже."},
-    "demo": {"en": "Live speech recognition is off in this demo build.", "ru": "Живое распознавание в этой сборке выключено."},
+    "demo": {"en": "Live speech recognition is off in this demo build.", "ru": "Это демо-бот: живое распознавание голосовых пока не подключено. Напишите задачу текстом, "
+                                                                     "например «Анна пришлёт отчёт до пятницы», и я покажу, как выглядит "
+                                                                     "результат (имитация, без нейросети)."},
     "error": {"en": "Something went wrong, try again.", "ru": "Что-то пошло не так, попробуйте ещё раз."},
-    "summary": {"en": "Summary", "ru": "Саммари"},
+    "summary": {"en": "Summary", "ru": "Кратко"},
+    "imitation": {"en": "", "ru": "<i>Имитация: нейросеть не подключена, «кратко» здесь = первая фраза.</i>"},
     "tasks": {"en": "Action items", "ru": "Задачи"},
     "none": {"en": "no action items", "ru": "задач нет"},
-    "transcript": {"en": "Transcript", "ru": "Расшифровка"},
+    "transcript": {"en": "Transcript", "ru": "Текст записи"},
 }
 
 
@@ -123,7 +126,8 @@ class Consents:
 class VoiceBot:
     def __init__(self, s: Settings, prov: Providers, limits: Limits, bot: Bot | None = None) -> None:
         self.s, self.prov, self.limits = s, prov, limits
-        self.bot = bot or Bot(HTTPAPI(s.telegram_token), token=s.telegram_token)
+        self.bot = bot or Bot(HTTPAPI(s.telegram_token, s.telegram_api_base), token=s.telegram_token)
+        self.username = ""
         self.llm = s.environ.get("VOICE_TG_LLM") or default_llm(prov)
         self.max_bytes = s.max_upload_mb * 1024 * 1024
         self._stop = threading.Event()
@@ -132,6 +136,10 @@ class VoiceBot:
 
     # --- lifecycle -------------------------------------------------------------------------------------------
     def start(self) -> None:
+        try:  # @username for the page link; failure here must not stop polling
+            self.username = str((self.bot.call("getMe", {}) or {}).get("username") or "")
+        except Exception as e:  # noqa: BLE001
+            log.warning("getMe failed: %s", getattr(e, "code", type(e).__name__))
         threading.Thread(target=self._loop, name="tg-poll", daemon=True).start()
         log.info("telegram bot polling started")
 
@@ -220,7 +228,10 @@ class VoiceBot:
             transcript = text = tr.text
         out_lang = pipeline.guess_lang(text, lang)
         r = pipeline.analyze(client, text, out_lang, live_llm=self.prov.llm_live(self.llm))
-        self._send(chat, format_result(transcript, r, lang))
+        out = format_result(transcript, r, lang)
+        if not self.prov.llm_live(self.llm) and t("imitation", lang):
+            out = t("imitation", lang) + "\n\n" + out
+        self._send(chat, out)
         if self.prov.tts_live:
             try:
                 a = client.synthesize(r["reply"]["text"][:4000], format="opus")

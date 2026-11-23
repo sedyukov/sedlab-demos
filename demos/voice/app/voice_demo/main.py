@@ -94,6 +94,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
             bot_prov = prov if s.edition != "ru" else Providers(s.environ, s.edition, live_allowed=False)
             bot = VoiceBot(s, bot_prov, limits)
             bot.start()
+            app.state.tg_username = bot.username
         yield
         if bot:
             bot.stop()
@@ -161,6 +162,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
                          "file": f"/samples/{r['id']}/{r['file']}", "duration_sec": r["duration_sec"]}
                         for r in samples.values()],
             "telegram": bool(s.telegram_token),
+            "telegram_username": getattr(app.state, "tg_username", ""),
             "accounts": {"enabled": accounts.enabled, "widget": s.accounts_widget, "auth_url": s.auth_public_url},
         }
 

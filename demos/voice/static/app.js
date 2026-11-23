@@ -85,7 +85,8 @@
       e_generic: "Что-то пошло не так. Попробуйте ещё раз.", e_mic: "Микрофон недоступен: {m}",
       e_decode: "Браузер не смог прочитать файл. Попробуйте mp3, m4a или wav.",
       no_tasks: "Задач не найдено", processing: "Обработка…",
-      tg_line: "Telegram-бот: пришлите ему голосовое, и он ответит саммари, задачами и голосом.",
+      tg_line: "Есть и Telegram-бот {bot}: перешлите ему голосовое или напишите задачу текстом.",
+      tg_line_imit: " Пока бот работает в режиме имитации, без нейросети.",
       p_sample: "пример", p_mock: "имитация", p_browser: "браузер", p_live: "вживую",
       seg_count: "{n} фраз", dur: "{s} с",
       integ: "Отправку задач в Битрикс24, amoCRM или Яндекс Трекер подключаю под ваш сервис. В этом демо такой отправки нет: список задач можно скопировать кнопкой.",
@@ -204,7 +205,12 @@
     $("#dropHint").textContent = t("drop_hint", { mb: L.max_upload_mb, dur: durText(L.max_audio_sec) });
     renderAbout(c);
     $("#tgLine").hidden = !c.telegram;
-    $("#tgLine").textContent = t("tg_line");
+    if (isRu()) {  // RU: a link to the bot, and honest about imitation (the RU bot never spends live limits)
+      const u = c.telegram_username;
+      $("#tgLine").hidden = !c.telegram || !u;
+      $("#tgLine").innerHTML = esc(t("tg_line", { bot: "@" + u })).replace(esc("@" + u),
+        `<a href="https://t.me/${encodeURIComponent(u)}" target="_blank" rel="noopener">@${esc(u)}</a>`) + esc(t("tg_line_imit"));
+    } else $("#tgLine").textContent = t("tg_line");
   }
 
   /* ---------- RU: honest integration line + technical details folded away for specialists ---------- */

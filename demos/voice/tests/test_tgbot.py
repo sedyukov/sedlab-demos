@@ -65,7 +65,7 @@ def test_start_limits_and_demo_mode():
     vb, api = make_bot(live=False)
     push(api, 1, voice={"file_id": "F", "duration": 3})
     vb.poll_once()
-    assert "выключено" in sent_texts(api)[0] and not api.calls("getFile")
+    assert "не подключено" in sent_texts(api)[0] and not api.calls("getFile")
 
 
 def test_text_message_is_analyzed():
@@ -145,3 +145,20 @@ def test_intl_bot_has_no_consent_step_and_shows_test_data_note():
     push(api, 1, text="/start")
     vb.poll_once()
     assert "Demo: use test data only. Nothing is stored after the session." in sent_texts(api)[0]
+
+
+def test_ru_bot_text_in_imitation_is_labelled():
+    vb, api = make_bot(live=False)
+    vb.prov.client = lambda name: Client.mock()  # type: ignore[method-assign]
+    push(api, 1, text="Анна пришлёт отчёт до пятницы.")
+    vb.poll_once()
+    out = sent_texts(api)[-1]
+    assert out.startswith("<i>Имитация") and "Кратко" in out and "Саммари" not in out
+
+
+def test_bot_uses_tg_relay_base_url():
+    s = Settings.from_env({"EDITION": "ru", "VOICE_TELEGRAM_TOKEN": "1:a", "TELEGRAM_API_BASE": "https://tg-relay.example/"})
+    assert s.telegram_api_base == "https://tg-relay.example"
+    vb = VoiceBot(s, Providers(s.environ), Limits(1, 1))
+    assert str(vb.bot.api._client.base_url).rstrip("/") == "https://tg-relay.example"
+    assert Settings.from_env({}).telegram_api_base == "https://api.telegram.org"

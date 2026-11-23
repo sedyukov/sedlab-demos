@@ -28,6 +28,7 @@ class Settings:
     samples_dir: Path = DEFAULT_SAMPLES
     static_dir: Path = DEFAULT_STATIC
     telegram_token: str = ""          # optional live bot (long polling)
+    telegram_api_base: str = "https://api.telegram.org"  # TELEGRAM_API_BASE: RU host reaches Telegram via tg-relay
     edition: str = "intl"             # EDITION=ru|intl: language, providers, samples, link to the other edition
     live_allowed: bool = False        # VOICE_LIVE: ru → on by default (Russian stack), intl → off for now
     other_url: str = ""               # link to the other edition (default from DEMO_DOMAIN)
@@ -63,5 +64,6 @@ class Settings:
             samples_dir=Path(env.get("VOICE_SAMPLES_DIR") or DEFAULT_SAMPLES),
             static_dir=Path(env.get("VOICE_STATIC_DIR") or DEFAULT_STATIC),
             telegram_token=env.get("VOICE_TELEGRAM_TOKEN", "").strip(),
+            telegram_api_base=(env.get("TELEGRAM_API_BASE") or "https://api.telegram.org").strip().rstrip("/"),
             environ=env,
         )
