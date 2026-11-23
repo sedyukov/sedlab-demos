@@ -38,6 +38,7 @@ type Profile struct {
 
 	env        string // env prefix: RU_ / INTL_
 	shared     *Stack // live providers shared by all sessions (nil fields → per-session mock)
+	payPublic  bool   // PAYMENTS_PUBLIC=1: a test-mode shop open to every visitor (no sign-in); CRM stays gated
 	sheetID    string
 	sheetTab   string
 	recipients map[string]string // notify channel → recipient (demo: fake team chat / inbox)
@@ -137,6 +138,10 @@ func LoadProfiles(getenv func(string) (string, bool), edition string) (map[strin
 				return nil, fmt.Errorf("%s payments: %w", p.Key, err)
 			}
 			p.shared.Pay = c
+			if n, ok := payNames[v]; ok { // the page names the provider that is really connected
+				p.PayName = n
+			}
+			p.payPublic = isTrue(get("PAYMENTS_PUBLIC"))
 		}
 		if v := strings.ToLower(get("SHEETS_PROVIDER")); v != "" && v != "mock" {
 			c, err := sheets.SheetsFromEnv(sheetskit.Env{Prefix: p.env + "SHEETS_", Lookup: getenv})
@@ -188,6 +193,9 @@ func (p *Profile) NewStack(checkoutURL string, forceMock bool) *Stack {
 	s := &Stack{CRM: p.shared.CRM, Pay: p.shared.Pay, Sheets: p.shared.Sheets, Notify: p.shared.Notify, SheetID: p.sheetID, SheetTab: p.sheetTab}
 	if forceMock {
 		s = &Stack{SheetID: "demo-sheet", SheetTab: tr(p.Lang, "Leads", "Заявки")}
+		if p.payPublic { // test-mode payments need no sign-in: nothing real is charged, nothing personal is stored
+			s.Pay = p.shared.Pay
+		}
 	}
 	s.Header = sheetHeader(p.Lang)
 	if s.CRM == nil {
@@ -249,4 +257,24 @@ func (p *Profile) Plan(key string) (Plan, bool) {
 		}
 	}
 	return Plan{}, false
+}
+
+// payNames: display names of live payment providers (RU edition: Robokassa first, ЮKassa later).
+var payNames = map[string]string{"yookassa": "ЮKassa", "robokassa": "Robokassa", "stripe": "Stripe"}
+
+func isTrue(v string) bool {
+	switch strings.ToLower(strings.TrimSpace(v)) {
+	case "1", "true", "yes", "on":
+		return true
+	}
+	return false
+}
+
+// PublicModes: what every visitor's (sandbox) stack really uses in the RU edition.
+func (p *Profile) PublicModes() Modes {
+	m := Modes{CRM: "mock", Payments: "mock", Sheets: "mock", Notify: "mock"}
+	if p.payPublic && p.shared.Pay != nil {
+		m.Payments = "live"
+	}
+	return m
 }

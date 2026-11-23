@@ -10,6 +10,7 @@ import (
 
 	accounts "github.com/sedyukov/sedlab-modules/modules/accounts/go"
 	crm "github.com/sedyukov/sedlab-modules/modules/crm/go"
+	payments "github.com/sedyukov/sedlab-modules/modules/payments/go"
 )
 
 // RU edition with a "live" CRM: signed-in visitors get live leads within the daily limit, then the sandbox.
@@ -103,5 +104,31 @@ func TestAccountsNoLiveKeysNoGate(t *testing.T) {
 	l := h.submitAndWait(sid(31), "ru", "x")
 	if l.Live {
 		t.Fatal("must be sandbox")
+	}
+}
+
+// A test-mode payment shop can be open to everyone (PAYMENTS_PUBLIC=1): the sandbox stack pays through it,
+// the page shows payments as real, the CRM stays simulated and nothing is gated.
+func TestPublicTestPayments(t *testing.T) {
+	h := newEditionHarness(t, nil, EditionRU)
+	acc, _ := accounts.New(accounts.Config{Provider: "mock", Demo: "leads"})
+	h.app.Acc = acc
+	p := h.app.Profiles["ru"]
+	live := payments.NewMock(payments.MockConfig{}) // stands in for Robokassa test mode
+	p.shared.Pay, p.payPublic, p.PayName = live, true, "Robokassa"
+	if h.app.Gated(p) {
+		t.Fatal("payments alone must not gate")
+	}
+	s := sid(33)
+	l := h.submitAndWait(s, "ru", "pp-1")
+	if l.Live || h.app.stackFor(h.app.Sessions.Peek(s), l).Pay != live {
+		t.Fatal("sandbox stack must pay through the public test shop")
+	}
+	if m := p.PublicModes(); m.Payments != "live" || m.CRM != "mock" {
+		t.Fatalf("modes %+v", m)
+	}
+	p.payPublic = false
+	if m := p.PublicModes(); m.Payments != "mock" {
+		t.Fatal("without PAYMENTS_PUBLIC the sandbox stays simulated")
 	}
 }

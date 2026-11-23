@@ -256,7 +256,7 @@ func (s *Server) state(w http.ResponseWriter, r *http.Request) {
 	sess.update(func() { chaos = sess.Chaos })
 	modes := s.App.Profiles[prof].Modes
 	if s.App.Acc != nil { // the panels show the visitor's sandbox; live leads are flagged per lead
-		modes = Modes{CRM: "mock", Payments: "mock", Sheets: "mock", Notify: "mock"}
+		modes = s.App.Profiles[prof].PublicModes()
 	}
 	out := map[string]any{"profile": prof, "chaos": chaos, "leads": sess.Leads(prof), "modes": modes}
 	ctx := r.Context()
