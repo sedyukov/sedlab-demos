@@ -34,7 +34,7 @@ STATUS = {Code.INVALID_ARGUMENT: 400, Code.RATE_LIMITED: 429, Code.NOT_IMPLEMENT
 
 CONSENT_VERSION = "voice-v1"  # legal: /consent/voice + terms 3a; sent by the page with every own recording (RU)
 
-RU_MOCK_TRANSCRIPT = ("Это имитация: живое распознавание пока не подключено, поэтому здесь не текст вашей записи. "
+RU_MOCK_TRANSCRIPT = ("Это имитация: живое распознавание для этой записи не запускалось, поэтому здесь не текст вашей записи. "
                       "Нажмите «Править текст», впишите свою фразу, например: «Анна пришлёт отчёт до пятницы», "
                       "и нажмите «Пересчитать».")
 

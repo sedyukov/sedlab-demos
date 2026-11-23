@@ -21,6 +21,32 @@
 
 **Решение владельца (2026-11-21): на INTL-редакцию ресурсы не тратим.** voice-en заморожен на `sha-ae7866a`: не передеплоить, медиа, README EN и EN-тексты не обновлять, e2e не гонять. Все изменения дальше только для RU (`deploy.sh voice-ru --host freelance-ru`).
 
+## Включение живого режима: чек-лист (подготовлено 2026-11-23)
+Код и образ менять не нужно: ключи добавляются в sec, нужные строки раскомментируются, затем передеплой тем же тегом.
+Текущий тег: смотреть `ssh freelance-ru 'grep TAG /srv/voice-ru/.env'`.
+
+**А. Yandex Cloud: распознавание, голос, YandexGPT (главное)**
+1. Владелец по ops/KEYS-PLAN.md, раздел 2: каталог `sedlab-demo`, сервисный аккаунт с ролями `ai.speechkit-stt.user`, `ai.speechkit-tts.user`, `ai.languageModels.user`, API-ключ; в биллинге уведомление о бюджете.
+2. Оркестратор: `sec -s freelance grab AI_YANDEX_API_KEY AI_YANDEX_FOLDER_ID`; проверить `sec -p freelance ls | grep AI_YANDEX`.
+3. В `infra/compose/voice-ru/env.keys` раскомментировать `AI_YANDEX_API_KEY` и `AI_YANDEX_FOLDER_ID`, закоммитить `infra/compose/voice-ru`.
+4. `infra/deploy.sh voice-ru --tag <текущий тег> --host freelance-ru`, затем `infra/check-demos.sh voice-ru --host freelance-ru`.
+5. Проверка: `curl -s https://voice.demo.sedlab.dev/api/config | python3 -m json.tool | grep -A6 providers` → `stt`, `tts`, `yandexgpt` = `live`. На странице в «Для специалистов» везде «работает вживую».
+6. Без входа поведение не меняется (так задумано): примеры показываются готовыми, своя запись идёт в имитации с подсказкой «Живая обработка доступна после входа». Живой вызов только после входа, под лимитами auth.
+7. Откат: закомментировать строки, передеплой.
+
+**Б. Вход (без него живой режим никому не достаётся)**
+1. Нужно хотя бы одно OAuth-приложение в auth (Яндекс ID / VK ID / Max, ops/KEYS-PLAN.md, раздел 1), это зона auth.
+2. В `infra/compose/voice-ru/compose.yml` поставить `VOICE_ACCOUNTS_WIDGET: "1"`, передеплой.
+3. e2e (делаю я): вход → отметка согласия → запись `voice-v1` в журнале auth; три живых запуска, четвёртый уходит в имитацию с подсказкой про лимит (число запусков из limits.json auth); после выхода снова имитация.
+
+**В. GigaChat (необязательно)**
+`sec -s freelance grab AI_GIGACHAT_API_KEY` (cloud.ru, `AI_GIGACHAT_MODE=cloudru` уже в compose), раскомментировать строку в env.keys, передеплой. Переключателя моделей на странице нет, поэтому GigaChat работает, только когда нет ключей Yandex (запасной вариант). Аварийный стоп: `GIGACHAT_LIVE_ALLOWED = False` в providers.py.
+
+**Г. Что не включается одним ключом**
+- Telegram-бот: с RU-хоста (Selectel) Telegram API недоступен, в RU-редакции бот выключен. Нужно решение infra (ретранслятор через freelance-1, `TELEGRAM_API_BASE`) и решение владельца, разрешать ли живой ИИ в боте без входа (сейчас в RU бот всегда в имитации). Токен: VOICE_TELEGRAM_TOKEN.
+- Отправка задач в Битрикс24: нужна операция «создать задачу» в модуле crm (s2), затем кнопка в демо (около 0,5 дня), ключ `BITRIX24_WEBHOOK_URL` (входящий вебхук с правами «Задачи»).
+- Просьба к infra: необязательные ключи в env.keys (например, `?AI_YANDEX_API_KEY`: пропустить, если ключа нет в sec). Тогда шаг А.3 отпадёт.
+
 ## 2026-11-23: DNS переключён
 - voice.demo.sedlab.dev → 5.35.4.25 (freelance-ru), `voice-ru sha-133dd25`, check-demos снаружи зелёный (сертификат выпущен).
 - Старая смешанная сборка `voice` снята с freelance-1 (`deploy.sh rm voice`), маршрут убран; `infra/compose/voice` в репо уже нет. voice-en работает как был (заморожен).

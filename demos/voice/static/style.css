@@ -39,7 +39,6 @@ button, input, textarea { font: inherit; color: inherit; }
 .badge.live { color: var(--ok); border-color: color-mix(in srgb, var(--ok) 40%, var(--line)); }
 .acc { display: flex; align-items: center; }
 .acc .login { cursor: default; opacity: .75; }
-@media (max-width: 480px) { .acc { display: none; } }
 .badge.other { color: var(--accent); text-decoration: none; }
 .badge.other:hover { border-color: var(--accent); }
 .badge.demo { color: var(--warn); border-color: color-mix(in srgb, var(--warn) 40%, var(--line)); }
@@ -112,6 +111,7 @@ h1 { font-size: clamp(24px, 4vw, 36px); line-height: 1.15; margin: 0 0 10px; let
 .consent-check { display: flex; gap: 8px; align-items: flex-start; cursor: pointer; }
 .consent-check input { margin-top: 3px; flex: none; }
 .locked { opacity: .45; pointer-events: none; }
+.lock-hint { margin: 8px 0 0; font-size: 13px; color: var(--warn); font-weight: 600; }
 
 /* results */
 .results { margin-bottom: 18px; }
@@ -171,6 +171,8 @@ button:disabled { opacity: .5; cursor: default; }
   .brand { font-size: 14px; gap: 8px; }
   .badge { font-size: 11px; padding: 2px 7px; }
   .tabs { width: 100%; }
+  .steps { display: none; }  /* phone: card headings carry the numbers; get to the samples faster */
+  .hero { padding-bottom: 6px; }
   .tabs button { flex: 1; padding: 6px 4px; font-size: 14px; }
   .seg button { padding: 6px 9px; font-size: 13px; }
   .tasks td:nth-child(2), .tasks td:nth-child(3) { white-space: normal; }

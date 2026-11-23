@@ -62,7 +62,7 @@
       f2: "Задачи из разговора сразу списком: кто, что и к какому сроку. Список можно скопировать в мессенджер или таск-трекер.",
       f3: "Данные не уходят за границу: распознавание речи и нейросети российские, сервер в России.",
       other_ed: "English version",
-      login_stub: "Войти и попробовать вживую", login_soon: "Вход скоро появится",
+      login_stub: "Вход: скоро", login_soon: "Вход скоро появится",
       n_acc_login: "Живая обработка доступна после входа.",
       n_acc_limit: "Живые запуски на сегодня закончились, завтра лимит обновится.",
       n_acc_down: "Вход временно недоступен, живая обработка выключена.",
@@ -79,7 +79,7 @@
       limits_demo: "Демо-режим: без ключей и расходов. В живом режиме: аудио до {sec} с, {n} запусков в час на посетителя.",
       k_meeting: "созвон", k_voice: "голосовое", sec: "с",
       n_sample: "Это готовый пример: результат подготовлен заранее. Свою запись можно загрузить во вкладке «Своя запись».",
-      n_stt_mock: "Имитация: живое распознавание и нейросеть сейчас не подключены, поэтому результат ниже ненастоящий. Чтобы увидеть настоящий результат, откройте готовый пример.",
+      n_stt_mock: "Имитация: живая обработка для этой записи не запускалась, поэтому результат ниже ненастоящий. Настоящий результат можно посмотреть в готовых примерах.",
       n_stt_browser: "Текст записи распознал ваш браузер.",
       n_llm_mock: "Имитация: нейросеть сейчас не подключена. «Кратко» здесь = первая фраза, задачи = строки вида «- Прислать отчёт @Анна 2026-12-01».",
       e_generic: "Что-то пошло не так. Попробуйте ещё раз.", e_mic: "Микрофон недоступен: {m}",
@@ -259,6 +259,7 @@
     const tab = ($("[data-tab].on") || {}).dataset ? $("[data-tab].on").dataset.tab : "samples";
     if ($("#consentBox")) $("#consentBox").hidden = !needConsent() || tab === "samples";
     const lock = !consentOk();
+    if ($("#lockHint")) $("#lockHint").hidden = !lock || tab === "samples";
     $("#drop").classList.toggle("locked", lock); $("#fileIn").disabled = lock;
     $("#micBtn").disabled = lock && !rec.active;
   }
@@ -329,6 +330,10 @@
     $("#trEdit").hidden = true; $("#reBtn").hidden = true; $("#segments").hidden = false;
     stopSpeaking();
   }
+  function showResults() {  // phones: the result starts below the fold, bring it into view
+    const top = $("#results").getBoundingClientRect().top;
+    if (top > innerHeight * 0.75) $("#results").scrollIntoView({ behavior: "smooth", block: "start" });
+  }
   function fail(e) {
     state.busy = false; setStep(null);
     $("#notice").hidden = false; $("#notice").textContent = e.message || t("e_generic");
@@ -351,7 +356,7 @@
     $$(".sample").forEach((x) => x.classList.toggle("on", x.dataset.sample === id));
     const s = state.cfg.samples.find((x) => x.id === id);
     setMedia(s.file, s.file.endsWith(".mp4"));
-    startBusy(); setStep("audio");
+    startBusy(); setStep("audio"); showResults();
     try {
       const fd = new FormData(); fd.append("sample", id); fd.append("llm", state.llm); fd.append("lang", s.lang);
       const [r] = await Promise.all([api("/api/process", { method: "POST", body: fd }), sleep(500)]);
@@ -365,7 +370,7 @@
     $$(".sample").forEach((x) => x.classList.remove("on"));
     const isVideo = /^video\//.test(blob.type) || /\.(mp4|mov|webm)$/i.test(name) && !/^audio\//.test(blob.type);
     setMedia(URL.createObjectURL(blob), isVideo);
-    startBusy(); setStep("audio");
+    startBusy(); setStep("audio"); showResults();
     try {
       let body = blob, fname = name;
       try { const c = await toWav16k(blob); body = c.wav; fname = "audio.wav"; }
