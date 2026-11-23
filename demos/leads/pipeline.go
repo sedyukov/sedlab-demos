@@ -3,6 +3,8 @@ package main
 import (
 	"bytes"
 	"context"
+	"crypto/sha256"
+	"encoding/hex"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -316,8 +318,7 @@ func (a *App) process(s *Session, lead *Lead) error {
 			return "", nil, err
 		}
 		r, err := st.Sheets.AppendRows(ctx, sheets.AppendRowsInput{SheetID: st.SheetID, Tab: st.SheetTab, IdempotencyKey: "row-" + lead.SubmissionID,
-			Rows: [][]any{{lead.ID, a.now().UTC().Format("2006-01-02 15:04"), lead.Name, lead.Email, lead.Phone, lead.Company,
-				planName(lead), formatMoney(lead.Amount), deal.ID, tr(lead.Lang, "New", "Новая"), "-"}}})
+			Rows: [][]any{a.sheetRow(s, st, lead, deal.ID)}})
 		if err != nil {
 			return "", nil, err
 		}
@@ -335,16 +336,17 @@ func (a *App) process(s *Session, lead *Lead) error {
 				lead.Plan, formatMoney(lead.Amount), deal.ID)
 			if lead.Lang == "ru" {
 				text = fmt.Sprintf("🆕 Новая заявка %s\n%s · контакт: %s (в CRM)\nТариф: %s, %s\nСделка: %s", lead.ID, a.notifyName(lead), lead.Alias,
-					planRU(lead.Plan), formatMoney(lead.Amount), deal.ID)
+					planRU(lead.Plan), formatMoney(lead.Amount), dealNo(deal.ID))
 				if a.Edition == EditionRU { // the alias already stands in for the name: say it once
-					text = fmt.Sprintf("🆕 Новая заявка %s\n%s, контакты в CRM\nТариф: %s, %s\nСделка: %s", lead.ID, lead.Alias,
-						planRU(lead.Plan), formatMoney(lead.Amount), deal.ID)
+					text = fmt.Sprintf("🆕 Новая заявка %s\n%s, контакты в CRM\nТариф: %s, %s\nСделка %s", lead.ID, lead.Alias,
+						planRU(lead.Plan), formatMoney(lead.Amount), dealNo(deal.ID))
 				}
 			}
 			r, err := st.Notify.Send(ctx, notify.SendInput{Channel: ch, To: prof.recipients[ch], Text: text, Subject: "New lead " + lead.ID, IdempotencyKey: "new-" + lead.SubmissionID, Metadata: notifyMeta(ctx, lead)})
 			if err != nil {
 				return "", nil, err
 			}
+			s.record(lead.Profile, Message{ID: r.ID, Channel: ch, To: r.To, Text: text, CreatedAt: r.CreatedAt})
 			return fmt.Sprintf(tr(lead.Lang, "Sent to %s (%s)", "Отправлено: %s (%s)"), a.recipientLabel(lead, ch), r.ID), map[string]any{"result": r, "text": text}, nil
 		}); err != nil {
 			// a notification failure must not lose the lead — it is already in CRM and the sheet
@@ -416,8 +418,25 @@ func (a *App) registerRedactions(s *Session, lead *Lead) {
 	s.addRedaction(pairs...)
 }
 
+// dealNo: "deal_12" / "12" → "№12" (how a manager reads a deal number)
+func dealNo(id string) string {
+	return "№" + strings.TrimLeftFunc(id, func(r rune) bool { return r < '0' || r > '9' })
+}
+
+// groupThousands: 15000 → "15 000" (RU style, regular space)
+func groupThousands(n int64) string {
+	s := fmt.Sprintf("%d", n)
+	for i := len(s) - 3; i > 0; i -= 3 {
+		s = s[:i] + " " + s[i:]
+	}
+	return s
+}
+
 func formatMoney(m Money) string {
 	major := fmt.Sprintf("%d", m.Value/100)
+	if m.Currency == "RUB" {
+		major = groupThousands(m.Value / 100)
+	}
 	if m.Value%100 != 0 {
 		major = fmt.Sprintf("%d.%02d", m.Value/100, m.Value%100)
 	}
@@ -623,7 +642,7 @@ func (a *App) onPayment(s *Session, lead *Lead, ev *payments.WebhookEvent) {
 		return tr(lead.Lang, "Note added: ", "Примечание добавлено: ") + n.ID, map[string]any{"note": n}, nil
 	})
 	_ = a.step(ctx, s, lead, "sheets.update_row", "sheets", func(ctx context.Context) (string, map[string]any, error) {
-		found, err := st.Sheets.FindRows(ctx, sheets.FindRowsInput{SheetID: st.SheetID, Tab: st.SheetTab, Column: fmt.Sprint(st.Header[0]), Value: lead.ID})
+		found, err := st.Sheets.FindRows(ctx, sheets.FindRowsInput{SheetID: st.SheetID, Tab: st.SheetTab, Column: fmt.Sprint(st.Header[0]), Value: rowKey(lead)})
 		if err != nil {
 			return "", nil, err
 		}
@@ -649,15 +668,19 @@ func (a *App) onPayment(s *Session, lead *Lead, ev *payments.WebhookEvent) {
 	_ = a.step(ctx, s, lead, "notify."+ch, "notify", func(ctx context.Context) (string, map[string]any, error) {
 		text := fmt.Sprintf("💰 %s paid: %s, %s. Deal %s → %s", lead.ID, a.notifyName(lead), formatMoney(lead.Amount), lead.DealID, stage)
 		if lead.Lang == "ru" {
-			text = fmt.Sprintf("💰 %s оплачена: %s, %s. Сделка %s → %s", lead.ID, a.notifyName(lead), formatMoney(lead.Amount), lead.DealID, stage)
+			text = fmt.Sprintf("💰 %s оплачена: %s, %s. Сделка %s закрыта как успешная", lead.ID, a.notifyName(lead), formatMoney(lead.Amount), dealNo(lead.DealID))
 		}
 		if status != "paid" {
 			text = fmt.Sprintf("❌ %s: payment %s. Deal %s → lost", lead.ID, payStatus, lead.DealID)
+			if lead.Lang == "ru" {
+				text = fmt.Sprintf("❌ %s: клиент не оплатил. Сделка %s закрыта", lead.ID, dealNo(lead.DealID))
+			}
 		}
 		r, err := st.Notify.Send(ctx, notify.SendInput{Channel: ch, To: prof.recipients[ch], Text: text, Subject: "Payment " + lead.ID, IdempotencyKey: "pay-" + ev.ID, Metadata: notifyMeta(ctx, lead)})
 		if err != nil {
 			return "", nil, err
 		}
+		s.record(lead.Profile, Message{ID: r.ID, Channel: ch, To: r.To, Text: text, CreatedAt: r.CreatedAt})
 		return fmt.Sprintf(tr(lead.Lang, "Sent to %s (%s)", "Отправлено: %s (%s)"), a.recipientLabel(lead, ch), r.ID), map[string]any{"result": r, "text": text}, nil
 	})
 	a.emit(s, lead, Event{Step: "pipeline", Service: "system", Status: "ok", Message: tr(lead.Lang, "Payment processed: CRM, sheet and team are up to date", "Оплата обработана: CRM, таблица и команда в курсе")})
@@ -793,4 +816,29 @@ func (a *App) profileOf(lead *Lead) *Profile {
 		return nil
 	}
 	return a.Profiles[lead.Profile]
+}
+
+// sheetRow: a visitor's own sandbox sheet shows what they typed; a shared (live) sheet is seen by everyone,
+// so it carries the alias and no free-text fields, and a key unique across visitors.
+func (a *App) sheetRow(s *Session, st *Stack, lead *Lead, dealID string) []any {
+	deal := dealID
+	if lead.Lang == "ru" {
+		deal = dealNo(dealID)
+	}
+	when := a.now().UTC().Format("2006-01-02 15:04")
+	if st.sharedSheet {
+		sum := sha256.Sum256([]byte(s.ID)) // short, unique across visitors, reveals nothing about the session id
+		key := lead.ID + "·" + hex.EncodeToString(sum[:3])
+		s.update(func() { lead.RowKey = key })
+		return []any{key, when, lead.Alias, "-", "-", "-", planName(lead), formatMoney(lead.Amount), deal, tr(lead.Lang, "New", "Новая"), "-"}
+	}
+	s.update(func() { lead.RowKey = lead.ID })
+	return []any{lead.ID, when, lead.Name, lead.Email, lead.Phone, lead.Company, planName(lead), formatMoney(lead.Amount), deal, tr(lead.Lang, "New", "Новая"), "-"}
+}
+
+func rowKey(lead *Lead) string {
+	if lead.RowKey != "" {
+		return lead.RowKey
+	}
+	return lead.ID
 }

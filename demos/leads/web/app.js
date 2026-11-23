@@ -6,7 +6,7 @@
       tagline: 'Отправьте тестовую заявку и посмотрите, как она проходит путь до оплаты. Это займёт 30 секунд.',
       ruStack: 'RU-стек', intlStack: 'International', site: '1. Форма на вашем сайте', feed: '2. Что происходит', where: '3. Где это видит ваша команда',
       retention: 'Данные демо удаляются автоматически, не позже чем через сутки.',
-      feedEmpty: 'Нажмите «Отправить заявку» слева: здесь по шагам появится, что система делает с заявкой.',
+      feedEmpty: 'Форма уже заполнена тестовыми данными. Нажмите «Отправить заявку», и здесь по шагам появится, что система делает с заявкой.',
       sheetTab: 'Таблица', inboxTab: 'Мессенджер', payTab: 'Оплата', crmQ: 'Какая у вас CRM?',
       offer: 'Такую же связку для вашего сайта: от 20 тыс. ₽, срок 2-5 дней. Подключаю вашу CRM, оплату, таблицу и мессенджер.', contact: 'Обсудить задачу',
       techTitle: 'Как это устроено (для технических специалистов)',
@@ -17,7 +17,7 @@
       coHint: 'Так клиент оплачивает заказ. В настоящей интеграции здесь откроется страница платёжной системы, а она сама сообщит нам об оплате.',
       flow: ['Заявка с сайта', 'Сделка в CRM', 'Строка в таблице', 'Уведомление менеджеру', 'Оплата и итог сделки'],
       formNode: 'ваш сайт', sim: 'имитация', real: 'настоящий сервис',
-      svc: { crm: 'CRM', sheets: 'Таблица', notify: 'Мессенджер', payments: 'Оплата' },
+      svc: { crm: 'CRM', sheets: 'Таблица', notify: 'Мессенджер', payments: 'Оплата' }, svcLow: { crm: 'CRM', sheets: 'таблица', notify: 'мессенджер', payments: 'оплата' },
       honestAll: 'Честно о демо: CRM, таблица, мессенджер и оплата здесь показаны в режиме имитации. Так это будет выглядеть у вас, но настоящие сервисы к этой странице пока не подключены.',
       honestSome: 'Честно о демо: настоящие сервисы отмечены зелёным ({live}). Остальное показано в режиме имитации ({sim}).',
       honestNone: 'Все сервисы на этой странице настоящие (тестовые аккаунты).',
@@ -25,7 +25,7 @@
         sheets: 'Имитация: так заявки складываются в таблицу. Настоящая таблица к демо не подключена.',
         notify: 'Имитация: такое сообщение получает менеджер. Настоящий мессенджер к демо не подключён.',
         payments: 'Имитация: так выглядят платежи по заявкам. Настоящая платёжная система к демо не подключена.' },
-      realBanner: 'Настоящий сервис: {name}, тестовый аккаунт.',
+      realBanner: 'Настоящий сервис: {name}, тестовый аккаунт.', open: { sheets: 'Открыть таблицу', notify: 'Открыть канал' },
       ev: {
         accepted: 'Заявка принята: {name}, тариф «{plan}», {amount}',
         crmOk: 'В CRM создана сделка {deal}, этап «Новая»', crmRetry: 'CRM не ответила, система повторяет попытку', crmErr: 'CRM недоступна. Заявка не потеряна, её можно отправить повторно',
@@ -48,7 +48,7 @@
       tagline: 'Send a test lead and watch it travel all the way to payment. Takes 30 seconds.',
       ruStack: 'RU stack', intlStack: 'International', site: '1. The form on your website', feed: '2. What happens', where: '3. Where your team sees it',
       retention: 'Demo data is deleted automatically within a day.',
-      feedEmpty: 'Press “Send request” on the left: every step the system takes shows up here.',
+      feedEmpty: 'The form is already filled with test data. Press “Send request” and every step shows up here.',
       sheetTab: 'Sheet', inboxTab: 'Messenger', payTab: 'Payments', crmQ: 'Which CRM do you use?',
       offer: 'The same setup for your website in 2-5 days. Your CRM, payments, sheet and messenger.', contact: 'Discuss your task',
       techTitle: 'How it works (for engineers)',
@@ -59,7 +59,7 @@
       coHint: 'This is how the customer pays. In a real integration the payment provider page opens here and the provider notifies us.',
       flow: ['Website form', 'Deal in CRM', 'Row in a sheet', 'Manager notified', 'Payment and result'],
       formNode: 'your website', sim: 'simulation', real: 'real service',
-      svc: { crm: 'CRM', sheets: 'Sheet', notify: 'Messenger', payments: 'Payments' },
+      svc: { crm: 'CRM', sheets: 'Sheet', notify: 'Messenger', payments: 'Payments' }, svcLow: { crm: 'CRM', sheets: 'sheet', notify: 'messenger', payments: 'payments' },
       honestAll: 'Honest note: CRM, sheet, messenger and payments are simulated here. This is how it will look for you, but no real services are connected to this page yet.',
       honestSome: 'Honest note: real services are marked green ({live}). The rest is simulated ({sim}).',
       honestNone: 'Every service on this page is real (test accounts).',
@@ -67,7 +67,7 @@
         sheets: 'Simulation: this is how leads land in a sheet. No real sheet is connected.',
         notify: 'Simulation: this is the message a manager gets. No real messenger is connected.',
         payments: 'Simulation: payments per lead. No real payment provider is connected.' },
-      realBanner: 'Real service: {name}, test account.',
+      realBanner: 'Real service: {name}, test account.', open: { sheets: 'Open the sheet', notify: 'Open the channel' },
       ev: {
         accepted: 'Lead received: {name}, plan “{plan}”, {amount}',
         crmOk: 'Deal {deal} created in the CRM, stage “New”', crmRetry: 'The CRM did not answer, retrying', crmErr: 'The CRM is down. The lead is not lost and can be resent',
@@ -119,9 +119,9 @@
   function profile() { return S.cfg ? S.cfg.profiles.filter(function (p) { return p.key === S.profile; })[0] : null; }
   // honest naming: a service shows its real name only when it is really connected; a simulation is just "CRM", "Оплата"…
   function isLive(k) { var l = lead(); if (l && l.live) { var p = profile(); return !!(p && p.modes[k] === 'live'); } return eff(k) === 'live'; }
-  function realName(k) { var p = profile(); if (!p) return ''; return k === 'notify' ? notifyChans(p).join(' / ') : p[k]; }
+  function realName(k) { var p = profile(); if (!p) return ''; return k === 'notify' ? chanNames(p.notify_live && p.notify_live.length ? p.notify_live : p.notify).join(' / ') : p[k]; }
   function svcName(k) { return isLive(k) ? realName(k) : t('svc')[k]; }
-  function notifyChans(p) { return p.notify.filter(function (c) { return c !== 'email'; }).map(function (c) { return { telegram: 'Telegram', max: 'Max' }[c] || c; }); }
+  function chanNames(list) { return list.filter(function (c) { return c !== 'email'; }).map(function (c) { return { telegram: 'Telegram', max: 'Max' }[c] || c; }); }
 
   // ---------- i18n + switches
   function applyLang() {
@@ -213,7 +213,13 @@
   var widget = null;
   function mountWidget() {
     widget = LeadsWidget.mount('#widget', { endpoint: location.origin, profile: S.profile, lang: S.lang, session: S.session, theme: 'auto',
-      onSubmitted: function (j) { if (j.lead_id && j.lead_id !== 'L-000') { S.selected = j.lead_id; refresh(); setTimeout(refreshMode, 1500); } } });
+      onSubmitted: function (j) {
+        if (!j.lead_id || j.lead_id === 'L-000') return;
+        S.selected = j.lead_id; refresh(); setTimeout(refreshMode, 1500);
+        // on a phone the timeline is below the form: bring it into view
+        if (window.matchMedia && matchMedia('(max-width: 760px)').matches) $('.feed-col').scrollIntoView({ behavior: 'smooth', block: 'start' });
+      } });
+    try { widget.fillDemo(); } catch (e) {} // first screen: one press of "Send" is enough
   }
 
   // ---------- tools (inside the engineers' block)
@@ -307,7 +313,7 @@
     var el = $('#honesty');
     el.className = 'honesty' + (live.length ? ' some' : '');
     el.textContent = !live.length ? t('honestAll') : !sim.length ? t('honestNone') :
-      fill(t('honestSome'), { live: live.map(realName).join(', '), sim: sim.map(function (k) { return t('svc')[k]; }).join(', ') });
+      fill(t('honestSome'), { live: live.map(realName).join(', '), sim: sim.map(function (k) { return t('svcLow')[k]; }).join(', ') });
   }
 
   // step state for the people's view: 0 waiting, 1 done, 2 retrying, 3 failed, 4 in progress
@@ -359,7 +365,7 @@
       return d < 0.1 ? ev.instant : fill(ev.after, { s: d.toLocaleString(S.lang === 'ru' ? 'ru-RU' : 'en-US', { maximumFractionDigits: 1 }) });
     }
     var items = [];
-    function add(state, text, svc, step) { items.push({ s: state, text: text, svc: svc, when: state === 1 ? when(step) : '' }); }
+    function add(state, text, svc, step) { items.push({ s: state, text: text, svc: svc, when: state === 1 && step !== 'form.submit' ? when(step) : '' }); }
     add(1, fill(ev.accepted, { name: l.name, plan: planLabel, amount: money(l.amount) }), null, 'form.submit');
     var c = stepState(l, 'crm');
     if (c) add(c, c === 1 ? fill(ev.crmOk, { deal: l.deal_id ? dealNo(l.deal_id) : '' }).replace('  ', ' ') : c === 3 ? ev.crmErr : ev.crmRetry, 'crm', 'crm.create_deal');
@@ -391,7 +397,9 @@
   function eff(k) { var p = profile(); return (S.state && S.state.modes && S.state.modes[k]) || (p && p.modes[k]) || 'mock'; }
   function sys(k) {
     var live = isLive(k);
-    return '<p class="sysb ' + (live ? 'real' : 'sim') + '">' + esc(live ? fill(t('realBanner'), { name: realName(k) }) : t('simBanner')[k]) + '</p>';
+    var p = profile(), link = live && p && p.links && p.links[k] && t('open')[k]
+      ? ' <a href="' + esc(p.links[k]) + '" target="_blank" rel="noopener">' + esc(t('open')[k]) + ' ↗</a>' : '';
+    return '<p class="sysb ' + (live ? 'real' : 'sim') + '">' + esc(live ? fill(t('realBanner'), { name: realName(k) }) : t('simBanner')[k]) + link + '</p>';
   }
   function renderCRM() {
     var p = profile(), el = $('#tab-crm');
@@ -435,7 +443,8 @@
     if (!p) return;
     var msgs = (S.state && S.state.messages) || [];
     // a simulation shows one generic chat; real channels are named
-    if (!isLive('notify')) { var first = p.notify[0]; msgs = msgs.filter(function (m) { return m.channel === first; }); }
+    var shown = isLive('notify') && p.notify_live && p.notify_live.length ? p.notify_live : [p.notify[0]];
+    msgs = msgs.filter(function (m) { return shown.indexOf(m.channel) >= 0; });
     var html = sys('notify') + '<div class="chat"><div class="chat-h"><span class="av">S</span><div><b>' + t('chatName') + '</b><br>' + t('bot') + '</div></div>';
     if (!msgs.length) html += '<p class="empty">' + t('noMsgs') + '</p>';
     msgs.forEach(function (m) {

@@ -134,7 +134,7 @@
       '<button class="link" type="button" data-demo>' + t('demo') + '</button>' +
       '<div class="msg" role="status" aria-live="polite"></div></form>';
     this.form = this.root.querySelector('form');
-    this.rendered = Date.now();
+    if (!keep || !this.rendered) this.rendered = Date.now(); // a re-render (config arrived) keeps the visitor's timer
     this.subId = uid();
     if (keep) this.fill(keep);
     if (this.demoContact) this.markDemoContact();

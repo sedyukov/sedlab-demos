@@ -16,7 +16,6 @@ import (
 
 	crm "github.com/sedyukov/sedlab-modules/modules/crm/go"
 	crmkit "github.com/sedyukov/sedlab-modules/modules/crm/go/kit"
-	notify "github.com/sedyukov/sedlab-modules/modules/notify/go"
 	sheets "github.com/sedyukov/sedlab-modules/modules/sheets-storage/go"
 )
 
@@ -263,19 +262,19 @@ func (s *Server) state(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 	if rows, err := st.Sheets.ReadRows(ctx, sheets.ReadRowsInput{SheetID: st.SheetID, Tab: st.SheetTab}); err == nil {
 		out["sheet"] = rows.Rows
+		if st.sharedSheet { // everyone writes to it: show the header and this visitor's own rows only
+			mine, own := sess.rowKeys(), [][]string{}
+			for i, r := range rows.Rows {
+				if i == 0 || (len(r) > 0 && mine[r[0]]) {
+					own = append(own, r)
+				}
+			}
+			out["sheet"] = own
+		}
 	} else {
 		out["sheet"] = [][]string{}
 	}
-	msgs, err := st.Notify.ListDeliveries("")
-	sent := []notify.LogEntry{}
-	if err == nil {
-		for _, m := range msgs {
-			if m.Status != "failed" { // failed attempts are visible in the log as retries
-				sent = append(sent, m)
-			}
-		}
-	}
-	out["messages"] = sent
+	out["messages"] = sess.messages(prof) // what this visitor's leads sent (a live channel is shared)
 	b, _ := json.Marshal(out)
 	w.Header().Set("Content-Type", "application/json")
 	w.Write(sess.Redact(b))

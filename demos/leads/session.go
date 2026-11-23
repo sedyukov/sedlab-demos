@@ -31,6 +31,7 @@ type Lead struct {
 	ConfirmationURL string         `json:"confirmation_url,omitempty"`
 	Live            bool           `json:"live"`  // processed by live providers (accounts allowed it), not the sandbox
 	Alias           string         `json:"alias"` // client-N: shown instead of email/phone on the public page
+	RowKey          string         `json:"-"`     // the lead's key in a shared (live) sheet: L-001·ab12, unique across visitors
 	Lang            string         `json:"lang"`
 	Steps           map[string]int `json:"steps"` // step → 0 pending, 1 ok, 2 retrying, 3 failed
 	lastWebhook     *storedWebhook
@@ -59,6 +60,44 @@ type Session struct {
 	redact   []string // raw → display pairs (contacts, recipients), applied to everything the page receives
 	created  time.Time
 	lastSeen time.Time
+	sent     map[string][]Message // profile → notifications this visitor's leads produced (a live channel is shared)
+}
+
+// Message: one notification as the page shows it.
+type Message struct {
+	ID        string `json:"id"`
+	Channel   string `json:"channel"`
+	To        string `json:"to"`
+	Text      string `json:"text"`
+	CreatedAt string `json:"created_at"`
+}
+
+func (s *Session) record(profile string, m Message) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	if s.sent == nil {
+		s.sent = map[string][]Message{}
+	}
+	s.sent[profile] = append(s.sent[profile], m)
+}
+
+func (s *Session) messages(profile string) []Message {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	return append([]Message{}, s.sent[profile]...)
+}
+
+// rowKeys: this visitor's keys in a shared sheet (the panel shows only them).
+func (s *Session) rowKeys() map[string]bool {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	m := map[string]bool{}
+	for _, l := range s.leads {
+		if l.RowKey != "" {
+			m[l.RowKey] = true
+		}
+	}
+	return m
 }
 
 func (s *Session) Leads(profile string) []*Lead {

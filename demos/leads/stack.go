@@ -36,9 +36,13 @@ type Profile struct {
 	NotifyChans []string `json:"notify"` // telegram, email
 	Modes       Modes    `json:"modes"`
 
-	env        string // env prefix: RU_ / INTL_
-	shared     *Stack // live providers shared by all sessions (nil fields → per-session mock)
-	payPublic  bool   // PAYMENTS_PUBLIC=1: a test-mode shop open to every visitor (no sign-in); CRM stays gated
+	env        string            // env prefix: RU_ / INTL_
+	shared     *Stack            // live providers shared by all sessions (nil fields → per-session mock)
+	payPublic  bool              // PAYMENTS_PUBLIC=1: a test-mode shop open to every visitor (no sign-in); CRM stays gated
+	shPublic   bool              // SHEETS_PUBLIC=1: the demo table is shared by everyone (rows carry aliases, never names)
+	ntPublic   bool              // NOTIFY_PUBLIC=1: the demo channel is shared by everyone (messages carry aliases)
+	Links      map[string]string `json:"links,omitempty"`       // sheets / notify: public read-only link (proof that it is real)
+	NotifyLive []string          `json:"notify_live,omitempty"` // channels with a real provider
 	sheetID    string
 	sheetTab   string
 	recipients map[string]string // notify channel → recipient (demo: fake team chat / inbox)
@@ -54,17 +58,18 @@ type Modes struct {
 
 // Stack is the set of providers one session uses for one profile.
 type Stack struct {
-	CRM      crm.Provider
-	Pay      payments.Provider
-	Sheets   sheets.Sheets
-	Notify   *notify.Client
-	crmMock  *crm.Mock
-	payMock  *payments.Mock
-	SheetID  string
-	SheetTab string
-	Header   []any // row 1 in the profile's language; column 0 is the lookup key
-	hdrMu    sync.Mutex
-	hdrOK    bool // header verified/written (retried on failure, unlike sync.Once)
+	CRM                       crm.Provider
+	Pay                       payments.Provider
+	Sheets                    sheets.Sheets
+	Notify                    *notify.Client
+	sharedSheet, sharedNotify bool // live providers shared by every visitor: the page filters to the visitor's own
+	crmMock                   *crm.Mock
+	payMock                   *payments.Mock
+	SheetID                   string
+	SheetTab                  string
+	Header                    []any // row 1 in the profile's language; column 0 is the lookup key
+	hdrMu                     sync.Mutex
+	hdrOK                     bool // header verified/written (retried on failure, unlike sync.Once)
 }
 
 func mode(live bool) string {
@@ -123,6 +128,7 @@ func LoadProfiles(getenv func(string) (string, bool), edition string) (map[strin
 		if getenv == nil {
 			getenv = os.LookupEnv
 		}
+		getenv := autoProviders(p.env, getenv)
 		get := func(k string) string { v, _ := getenv(p.env + k); return strings.TrimSpace(v) }
 
 		if v := strings.ToLower(get("CRM_PROVIDER")); v != "" && v != "mock" {
@@ -155,6 +161,10 @@ func LoadProfiles(getenv func(string) (string, bool), edition string) (map[strin
 				p.sheetTab = t
 			}
 			p.shared.Sheets = c
+			p.shPublic = isTrue(get("SHEETS_PUBLIC"))
+			if u := get("SHEETS_PUBLIC_URL"); u != "" {
+				p.link("sheets", u)
+			}
 		}
 		// demo sandbox recipients (distinct ids per channel: they are mapped back to labels on the page)
 		p.recipients = map[string]string{"telegram": "100200300", "max": "100200301", "email": "manager@example.com"}
@@ -179,6 +189,15 @@ func LoadProfiles(getenv func(string) (string, bool), edition string) (map[strin
 				p.recipients["email"] = v
 			}
 			p.shared.Notify = c
+			p.ntPublic = isTrue(get("NOTIFY_PUBLIC"))
+			if u := get("NOTIFY_PUBLIC_URL"); u != "" {
+				p.link("notify", u)
+			}
+			for _, ch := range p.NotifyChans {
+				if v := strings.ToLower(get("NOTIFY_" + strings.ToUpper(ch) + "_PROVIDER")); v != "" && v != "mock" {
+					p.NotifyLive = append(p.NotifyLive, ch)
+				}
+			}
 		}
 		p.Modes = Modes{CRM: mode(p.shared.CRM != nil), Payments: mode(p.shared.Pay != nil),
 			Sheets: mode(p.shared.Sheets != nil), Notify: mode(p.shared.Notify != nil)}
@@ -196,7 +215,15 @@ func (p *Profile) NewStack(checkoutURL string, forceMock bool) *Stack {
 		if p.payPublic { // test-mode payments need no sign-in: nothing real is charged, nothing personal is stored
 			s.Pay = p.shared.Pay
 		}
+		if p.shPublic && p.shared.Sheets != nil {
+			s.Sheets, s.SheetID, s.SheetTab = p.shared.Sheets, p.sheetID, p.sheetTab
+		}
+		if p.ntPublic && p.shared.Notify != nil {
+			s.Notify = p.shared.Notify
+		}
 	}
+	s.sharedSheet = s.Sheets != nil && s.Sheets == p.shared.Sheets
+	s.sharedNotify = s.Notify != nil && s.Notify == p.shared.Notify
 	s.Header = sheetHeader(p.Lang)
 	if s.CRM == nil {
 		s.crmMock = crm.NewMock()
@@ -276,5 +303,46 @@ func (p *Profile) PublicModes() Modes {
 	if p.payPublic && p.shared.Pay != nil {
 		m.Payments = "live"
 	}
+	if p.shPublic && p.shared.Sheets != nil {
+		m.Sheets = "live"
+	}
+	if p.ntPublic && p.shared.Notify != nil {
+		m.Notify = "live"
+	}
 	return m
+}
+
+func (p *Profile) link(k, u string) {
+	if p.Links == nil {
+		p.Links = map[string]string{}
+	}
+	p.Links[k] = u
+}
+
+// autoRules: a provider switches on by itself when its key is present ("put the key in, redeploy").
+// An explicit *_PROVIDER always wins; the first matching rule per service is used.
+var autoRules = []struct{ provider, key, value string }{
+	{"CRM_PROVIDER", "CRM_BITRIX24_WEBHOOK_URL", "bitrix24"},
+	{"CRM_PROVIDER", "CRM_AMOCRM_TOKEN", "amocrm"},
+	{"PAYMENTS_PROVIDER", "PAYMENTS_ROBOKASSA_MERCHANT_LOGIN", "robokassa"},
+	{"PAYMENTS_PROVIDER", "PAYMENTS_YOOKASSA_SHOP_ID", "yookassa"},
+	{"SHEETS_PROVIDER", "SHEETS_YADISK_TOKEN", "yandex_disk_table"},
+	{"NOTIFY_TELEGRAM_PROVIDER", "NOTIFY_TELEGRAM_BOT_TOKEN", "telegram"},
+	{"NOTIFY_MAX_PROVIDER", "NOTIFY_MAX_BOT_TOKEN", "max"},
+}
+
+func autoProviders(prefix string, getenv func(string) (string, bool)) func(string) (string, bool) {
+	return func(k string) (string, bool) {
+		if v, ok := getenv(k); ok && strings.TrimSpace(v) != "" {
+			return v, ok
+		}
+		for _, r := range autoRules {
+			if k == prefix+r.provider {
+				if v, _ := getenv(prefix + r.key); strings.TrimSpace(v) != "" {
+					return r.value, true
+				}
+			}
+		}
+		return getenv(k)
+	}
 }

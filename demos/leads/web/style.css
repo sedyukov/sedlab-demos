@@ -63,6 +63,7 @@ h1 { font-size: 18px; font-weight: 700; }
 .sysb { margin: 0 0 10px; font-size: 12px; padding: 7px 9px; border-radius: 9px; }
 .sysb.sim { background: var(--surface-2); color: var(--mut); border: 1px dashed var(--mut); }
 .sysb.real { background: var(--ok-soft); color: var(--ok); }
+.sysb a { color: inherit; font-weight: 650; }
 .seg-wrap { display: flex; align-items: center; gap: 8px; }
 .seg-label { font-size: 12px; color: var(--mut); }
 
@@ -114,7 +115,7 @@ h1 { font-size: 18px; font-weight: 700; }
 .ghost:hover { border-color: var(--mut); }
 .ghost.xs { padding: 3px 8px; font-size: 12px; }
 .ghost[aria-pressed="true"] { background: var(--acc-soft); border-color: var(--acc); color: var(--acc); }
-.primary { background: var(--acc); color: #fff; border: 0; border-radius: 9px; padding: 9px 14px; font-weight: 600; }
+.primary { background: var(--acc); color: #fff; border: 0; border-radius: 9px; padding: 9px 14px; font-weight: 600; text-decoration: none; display: inline-block; }
 
 
 /* log */
@@ -213,7 +214,15 @@ dialog::backdrop { background: rgba(10, 12, 16, .45); }
   .top, .flow, .grid { padding-left: 16px; padding-right: 16px; }
   .honesty, .offer, .tech { margin-left: 16px; margin-right: 16px; }
   .grid { grid-template-columns: minmax(0, 1fr); }
-  .kanban { grid-template-columns: minmax(0, 1fr); }
+  .kanban { gap: 5px; }
+  .kcol { min-height: 90px; padding: 6px; }
+  .tabpanel { min-height: 0; }
+  .kcol h4 { font-size: 10px; }
+  .flow ol { flex-wrap: wrap; overflow: visible; }
+  .flow li { flex: 1 1 30%; padding: 6px 8px; }
+  .flow li::after { display: none; }
+  .flow li .n { display: none; }
+  .flow li b { white-space: normal; font-size: 12px; }
   .log li { grid-template-columns: 54px minmax(0, 1fr); }
   .log li .badge { grid-column: 2; justify-self: start; }
   .log li .ev-main { grid-column: 1 / -1; }
