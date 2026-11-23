@@ -51,7 +51,7 @@ func (a *App) handlePay(w http.ResponseWriter, r *http.Request) {
 		prov, consumption, mode := a.cardProviderFor(r.Context(), r, b)
 		in := pay.CreatePaymentInput{
 			Amount:         pay.Money{Value: amount, Currency: cur},
-			Description:    truncate(desc, 128),
+			Description:    truncate(desc, 100),
 			IdempotencyKey: fmt.Sprintf("booking-%d-%d", b.ID, b.CreatedAt),
 			ReturnURL:      fmt.Sprintf("%s/app/?booking=%d", a.cfg.PublicURL, b.ID),
 			Metadata:       map[string]string{"booking_id": strconv.FormatInt(b.ID, 10)},
@@ -154,7 +154,11 @@ func (a *App) cancelBooking(ctx context.Context, b Booking, refund bool, by stri
 				rerr = a.msg.RefundStars(ctx, b.UserID, b.PayID)
 			}
 		}
-		if rerr != nil {
+		if rerr != nil && b.PayMethod == "card" && a.payFor(b).Name() == "robokassa" {
+			// Robokassa test mode has no refunds (OpStateExt / Refund API work with live payments only): say so honestly
+			a.log.Info("refund skipped: robokassa test mode", "booking", b.ID)
+			refundNote = T(b.Lang, "refund_test_na")
+		} else if rerr != nil {
 			a.log.Error("refund failed", "booking", b.ID, "err", rerr)
 		} else {
 			a.store.MarkRefunded(b.ID)
@@ -182,20 +186,30 @@ func (a *App) handlePaymentsWebhook(w http.ResponseWriter, r *http.Request) {
 	}
 	hdr := headersMap(r.Header)
 	hdr["Remote-Addr"] = clientIP(r)
-	if err := a.processPaymentWebhook(r.Context(), hdr, body); err != nil {
+	reply, err := a.processPaymentWebhook(r.Context(), hdr, body)
+	if err != nil {
 		a.log.Warn("payments webhook rejected", "err", err)
 		writeErr(w, 400, "signature_invalid", "rejected")
+		return
+	}
+	if reply != "" { // the exact body the provider expects (Robokassa ResultURL: "OK<InvId>")
+		w.Header().Set("Content-Type", "text/plain; charset=utf-8")
+		io.WriteString(w, reply)
 		return
 	}
 	writeJSON(w, 200, map[string]any{"ok": true})
 }
 
-func (a *App) processPaymentWebhook(ctx context.Context, headers map[string]string, body []byte) error {
+func (a *App) processPaymentWebhook(ctx context.Context, headers map[string]string, body []byte) (string, error) {
 	prov := a.webhookProvider(headers)
 	ev, err := prov.ParseWebhook(ctx, headers, body)
 	if err != nil {
-		return err
+		return "", err
 	}
+	return ev.Reply, a.handlePaymentEvent(ctx, prov, ev)
+}
+
+func (a *App) handlePaymentEvent(ctx context.Context, prov pay.Provider, ev *pay.WebhookEvent) error {
 	if ev.Duplicate {
 		return nil
 	}
@@ -472,4 +486,29 @@ func truncate(s string, n int) string {
 		return s
 	}
 	return string(r[:n-1]) + "…"
+}
+
+// handlePaymentReturn: a plain page in the tab the provider opened. The booking itself is confirmed by the
+// webhook (ResultURL); the Mini App tab polls and shows it.
+func (a *App) handlePaymentReturn(ok bool) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		title, text := "Оплата прошла", "Вернитесь во вкладку с демо: запись подтвердится автоматически через несколько секунд."
+		if !ok {
+			title, text = "Оплата не прошла", "Вернитесь во вкладку с демо и попробуйте ещё раз. Время записи удерживается 15 минут."
+		}
+		if a.cfg.Lang != "ru" {
+			title, text = "Payment received", "Go back to the demo tab: the booking is confirmed automatically."
+			if !ok {
+				title, text = "Payment failed", "Go back to the demo tab and try again."
+			}
+		}
+		w.Header().Set("Content-Type", "text/html; charset=utf-8")
+		w.Header().Set("Cache-Control", "no-store")
+		fmt.Fprintf(w, `<!doctype html><html lang="%s"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>%s</title><body style="font-family:system-ui,sans-serif;display:grid;place-items:center;min-height:90vh;margin:0;padding:16px;background:#f4f3f8;color:#1c1c24">
+<div style="max-width:420px;text-align:center"><div style="font-size:44px">%s</div><h1 style="font-size:24px">%s</h1><p style="color:#4b4b57;line-height:1.5">%s</p>
+<p><a href="%s/" style="color:#5b4bdb">Открыть демо</a></p></div></body></html>`,
+			html.EscapeString(a.cfg.Lang), html.EscapeString(title), map[bool]string{true: "✅", false: "⚠️"}[ok],
+			html.EscapeString(title), html.EscapeString(text), html.EscapeString(a.cfg.PublicURL))
+	}
 }

@@ -256,7 +256,7 @@ func (a *App) handleDemoCheckout(w http.ResponseWriter, r *http.Request) {
 		writeErr(w, 409, "conflict", "payment can't change state")
 		return
 	}
-	if err := a.processPaymentWebhook(r.Context(), wh.Headers, []byte(wh.Body)); err != nil {
+	if _, err := a.processPaymentWebhook(r.Context(), wh.Headers, []byte(wh.Body)); err != nil {
 		a.fail(w, err)
 		return
 	}

@@ -110,8 +110,8 @@
       }
       const p = await api('POST', `/api/bookings/${booking.id}/pay`, { method })
       booking = { ...booking, pay_amount: p.amount, pay_currency: p.currency }
-      if (p.live) flash(L('liveOn', { n: p.live_left }))
-      else if (['user_daily', 'ip_daily', 'global_daily', 'budget_month'].includes(p.live_reason)) flash(L('liveOff'))
+      if (p.live) flash(L('liveOn', { n: p.live_left, prov: cfg.live_provider }))
+      else if (['user_daily', 'ip_daily', 'global_daily', 'budget_month'].includes(p.live_reason)) flash(L('liveOff', { prov: cfg.live_provider }))
       if (p.method === 'stars') {
         const status = await tg.openInvoice(p.invoice_link)
         if (status === 'paid') { tg.haptic('success'); await openBooking(booking.id, true) }
@@ -256,8 +256,8 @@
           </button>
         {/each}
       </div>
-      {#if lang === 'ru'}<p class="hint">{cfg.live_available ? L('livePay') : L('demoPay')}</p>{/if}
-      {#if liveLink}<a class="btn soft" href={liveLink} target="_blank" rel="noopener" onclick={() => (liveLink = '')}>{L('liveOpen')} ↗</a>{/if}
+      {#if lang === 'ru'}<p class="hint">{cfg.live_available ? L('livePay', { prov: cfg.live_provider }) + (cfg.live_provider === 'Robokassa' ? L('livePayRobo') : L('livePayYoo')) : L('demoPay')}</p>{/if}
+      {#if liveLink}<a class="btn soft" href={liveLink} target="_blank" rel="noopener" onclick={() => (liveLink = '')}>{L('liveOpen', { prov: cfg.live_provider })} ↗</a>{/if}
       {#if booking?.status === 'pending' && holdLeft > 0}
         <p class="hint hold">⏱ {L('held', { m: Math.floor(holdLeft / 60), s: String(holdLeft % 60).padStart(2, '0') })}</p>
       {/if}

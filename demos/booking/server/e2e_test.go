@@ -2,12 +2,14 @@ package main
 
 import (
 	"bytes"
+	"crypto/sha256"
 	"encoding/json"
 	"fmt"
 	"io"
 	"log/slog"
 	"net/http"
 	"net/http/httptest"
+	"net/url"
 	"path/filepath"
 	"strings"
 	"testing"
@@ -547,5 +549,65 @@ func TestRuLiveAnonymousByIP(t *testing.T) {
 	}
 	if p := pay1("192.0.2.1"); p["live"] != false || p["live_reason"] != "global_daily" { // 3 a day overall
 		t.Fatalf("global cap: %v", p)
+	}
+}
+
+// Robokassa TEST shop as the live provider: payment link, ResultURL reply "OK<InvId>", confirmation,
+// and an honest note on cancel (test mode has no refunds).
+func TestRuLiveRobokassa(t *testing.T) {
+	h := newHarness(t, "ru")
+	rk, err := pay.NewRobokassa(pay.RobokassaConfig{MerchantLogin: "sedlabbooking", Password1: "p1-test", Password2: "p2-test", Hash: "sha256", Test: true})
+	if err != nil {
+		t.Fatal(err)
+	}
+	h.app.livePay, h.app.live = rk, newLiveQuota(3, 60)
+	if _, cfg := h.do("GET", "/api/config", "", nil); cfg["live_provider"] != "Robokassa" || cfg["live_resource"] != "robokassa-test" {
+		t.Fatalf("config: %v", cfg)
+	}
+	tok, uid := h.login("guest", 61, "ru")
+	b := h.book(tok, "2026-11-24")
+	id := int64(b["id"].(float64))
+	code, p := h.do("POST", fmt.Sprintf("/api/bookings/%d/pay", id), tok, map[string]any{"method": "card"})
+	if code != 200 || p["live"] != true {
+		t.Fatalf("pay %d %v", code, p)
+	}
+	u, _ := url.Parse(p["confirmation_url"].(string))
+	q := u.Query()
+	if q.Get("IsTest") != "1" || q.Get("MerchantLogin") != "sedlabbooking" {
+		t.Fatalf("link: %s", u)
+	}
+	form := url.Values{"OutSum": {q.Get("OutSum")}, "InvId": {q.Get("InvId")}}
+	shp := map[string]string{}
+	for k, v := range q {
+		if strings.HasPrefix(k, "Shp_") {
+			form.Set(k, v[0])
+			shp[k] = v[0]
+		}
+	}
+	form.Set("SignatureValue", pay.RobokassaSignature(sha256.New, pay.RobokassaResultBase(q.Get("OutSum"), q.Get("InvId"), "p2-test", shp)))
+	req := httptest.NewRequest("POST", "/payments/webhook", strings.NewReader(form.Encode()))
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	w := httptest.NewRecorder()
+	h.app.Routes().ServeHTTP(w, req)
+	if w.Code != 200 || w.Body.String() != "OK"+q.Get("InvId") {
+		t.Fatalf("ResultURL reply %d %q", w.Code, w.Body)
+	}
+	if got, _ := h.app.store.Booking(id); got.Status != "confirmed" {
+		t.Fatalf("not confirmed: %v", got.Status)
+	}
+	code, c := h.do("POST", fmt.Sprintf("/api/bookings/%d/cancel", id), tok, nil)
+	if code != 200 || c["status"] != "cancelled" {
+		t.Fatalf("cancel %d %v", code, c)
+	}
+	msgs := h.chat(uid)
+	if last := msgs[len(msgs)-1]["text"].(string); !strings.Contains(last, "тестовом режиме Robokassa возврат не проводится") {
+		t.Fatalf("cancel note: %s", last)
+	}
+	for _, path := range []string{"/payment/success", "/payment/fail"} {
+		rr := httptest.NewRecorder()
+		h.app.Routes().ServeHTTP(rr, httptest.NewRequest("GET", path, nil))
+		if rr.Code != 200 || !strings.Contains(rr.Body.String(), "Вернитесь во вкладку") {
+			t.Fatalf("%s: %d", path, rr.Code)
+		}
 	}
 }

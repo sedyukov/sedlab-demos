@@ -22,7 +22,24 @@ import (
 // accounts decides (mode) and accounts for it (consume, refund on failure); it fails closed to the mock.
 // INTL edition: no accounts at all (a.acc == nil), always mock.
 
-const liveResource = "yookassa-test"
+// liveResourceOf: the accounts resource of the live TEST shop ("robokassa-test" / "yookassa-test").
+func (a *App) liveResource() string {
+	if a.livePay != nil && a.livePay.Name() == "robokassa" {
+		return "robokassa-test"
+	}
+	return "yookassa-test"
+}
+
+// liveTitle: the provider name shown on live screens (only when it is really connected).
+func (a *App) liveTitle() string {
+	if a.livePay == nil {
+		return ""
+	}
+	if a.livePay.Name() == "robokassa" {
+		return "Robokassa"
+	}
+	return "ЮKassa"
+}
 
 // accToken takes the accounts token from the sl_auth cookie only: our own Mini App session uses the
 // Authorization header, which must not be mistaken for an accounts token.
@@ -46,11 +63,11 @@ func (a *App) cardProviderFor(ctx context.Context, r *http.Request, b Booking) (
 		return a.ipLive(clientIP(r), b.ID, acc.Mode{Reason: acc.ReasonDisabled})
 	}
 	tok := a.accToken(r)
-	m := a.acc.Mode(ctx, acc.ModeInput{Token: tok, Resource: liveResource, HasKey: a.livePay != nil})
+	m := a.acc.Mode(ctx, acc.ModeInput{Token: tok, Resource: a.liveResource(), HasKey: a.livePay != nil})
 	if !m.Live {
 		return a.ipLive(clientIP(r), b.ID, m)
 	}
-	d, err := a.acc.Consume(ctx, acc.ConsumeInput{Token: tok, Resource: liveResource, Units: 1,
+	d, err := a.acc.Consume(ctx, acc.ConsumeInput{Token: tok, Resource: a.liveResource(), Units: 1,
 		IdempotencyKey: fmt.Sprintf("booking-%d-%d", b.ID, b.CreatedAt)})
 	if err != nil || !d.Allowed {
 		m.Live = false

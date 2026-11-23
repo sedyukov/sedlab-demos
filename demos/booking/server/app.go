@@ -93,6 +93,9 @@ func (a *App) Routes() http.Handler {
 		mux.HandleFunc("POST /max/webhook", a.handleMaxWebhook)
 	}
 	mux.HandleFunc("POST /payments/webhook", a.handlePaymentsWebhook)
+	// where the provider's own page sends the payer back (Robokassa Success URL / Fail URL, GET or POST)
+	mux.HandleFunc("/payment/success", a.handlePaymentReturn(true))
+	mux.HandleFunc("/payment/fail", a.handlePaymentReturn(false))
 
 	// Browser emulator (sandbox only)
 	if a.cfg.Emulator {
@@ -289,8 +292,9 @@ func (a *App) handleConfig(w http.ResponseWriter, r *http.Request) {
 		"pay_methods": a.cfg.PayMethods, "deposit_percent": a.cfg.DepositPercent, "tz": a.cfg.TZ.String(),
 		"edition": a.cfg.Edition, "lang": a.cfg.Lang, "other_url": a.cfg.OtherURL, "max": a.maxEnabled(),
 		"card_provider": a.cardProvider(), "card_currency": a.cardCurrency(), "collect_phone": a.cfg.PDAllowed,
-		"accounts_ui": a.accountsUI(), "widget_url": a.cfg.WidgetURL, "live_resource": liveResource, "live_available": a.livePay != nil,
-		"emulator": a.cfg.Emulator, "payments_mock": a.cfg.PaymentsMock, "telegram_live": a.cfg.TelegramLive,
+		"accounts_ui": a.accountsUI(), "widget_url": a.cfg.WidgetURL, "live_resource": a.liveResource(), "live_available": a.livePay != nil,
+		"live_provider": a.liveTitle(),
+		"emulator":      a.cfg.Emulator, "payments_mock": a.cfg.PaymentsMock, "telegram_live": a.cfg.TelegramLive,
 		"platform": a.msg.Platform(), "hold_minutes": a.cfg.HoldMinutes,
 	})
 }

@@ -184,10 +184,10 @@ func NewAppFromEnv(log *slog.Logger) (*App, error) {
 		if accClient, err = acc.FromEnv(acckit.Env{Prefix: "ACCOUNTS_"}); err != nil {
 			return nil, err
 		}
-		if env("PAYMENTS_YOOKASSA_SHOP_ID", "") != "" && env("PAYMENTS_YOOKASSA_SECRET_KEY", "") != "" {
+		if lp := liveProviderName(); lp != "" {
 			livePay, err = pay.FromEnv(paykit.Env{Prefix: "PAYMENTS_", Lookup: func(k string) (string, bool) {
 				if k == "PAYMENTS_PROVIDER" {
-					return "yookassa", true
+					return lp, true
 				}
 				return os.LookupEnv(k)
 			}})
@@ -257,4 +257,40 @@ func subcommand(args []string) int {
 		return 0
 	}
 	return 2
+}
+
+// liveProviderName: the real TEST shop for live runs (ru). LIVE_PROVIDER=robokassa|yookassa|off picks one explicitly;
+// otherwise the first provider whose keys are present (Robokassa first: it is the shop that exists today).
+func liveProviderName() string {
+	has := func(keys ...string) bool {
+		for _, k := range keys {
+			if env(k, "") == "" {
+				return false
+			}
+		}
+		return true
+	}
+	robo := has("PAYMENTS_ROBOKASSA_MERCHANT_LOGIN", "PAYMENTS_ROBOKASSA_PASSWORD1", "PAYMENTS_ROBOKASSA_PASSWORD2")
+	yoo := has("PAYMENTS_YOOKASSA_SHOP_ID", "PAYMENTS_YOOKASSA_SECRET_KEY")
+	switch env("LIVE_PROVIDER", "") {
+	case "off":
+		return ""
+	case "robokassa":
+		if robo {
+			return "robokassa"
+		}
+		return ""
+	case "yookassa":
+		if yoo {
+			return "yookassa"
+		}
+		return ""
+	}
+	if robo {
+		return "robokassa"
+	}
+	if yoo {
+		return "yookassa"
+	}
+	return ""
 }

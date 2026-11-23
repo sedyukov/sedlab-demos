@@ -50,8 +50,8 @@
       gainsTitle: 'Что получает салон',
       gains: ['Клиенты записываются сами, в любое время и без звонков', 'Предоплата и напоминания за сутки и за 2 часа: меньше неявок', 'Расписание мастеров, услуги и записи в одной админке', 'Работает в Telegram и Max, данные хранятся в России'],
       techTitle: 'Для специалистов: что здесь настоящее',
-      s3Live: 'Внесите предоплату через настоящую ЮKassa в тестовом режиме: деньги не списываются',
-      techPayLive: 'Оплата настоящая: тестовый магазин ЮKassa (деньги не списываются), несколько оплат в день с одного адреса, дальше учебная. Окно мессенджера остаётся имитацией.',
+      s3Live: 'Внесите предоплату через настоящую {prov} в тестовом режиме: деньги не списываются',
+      techPayLive: 'Оплата настоящая: тестовый магазин {prov} (деньги не списываются), несколько оплат в день с одного адреса, дальше учебная. Окно мессенджера остаётся имитацией.',
       tech: ['Настоящие: сервер и вся логика записи (слоты, удержание времени, предоплата 30%, отмена с возвратом, напоминания), админка, база данных. Это тот же код, что работает в рабочем боте.', 'Имитация: окно мессенджера (браузер вместо Telegram и Max) и оплата (учебная страница, платёжная система не подключена). Данные запуска мини-приложения подписываются и проверяются так же, как в Telegram.', 'Чтобы запустить вживую, нужны токен бота и ключи магазина платёжной системы.', 'Стек: Go, SQLite, Svelte, Docker. Сервер в России, тестовые данные удаляются через 7 дней.'],
       noRem: 'Сначала запишитесь: напоминание приходит о ближайшем визите.',
       variants: '', messenger: 'Мессенджер', other: 'English version',
@@ -189,7 +189,7 @@
     {#if persona === 'guest'}
       <div class="block">
         <div class="label">{L.steps}</div>
-        <ol><li>{L.s1}</li><li>{L.s2}</li><li>{cfg.live_available && L.s3Live ? L.s3Live : L.s3}</li><li>{L.s4}</li></ol>
+        <ol><li>{L.s1}</li><li>{L.s2}</li><li>{cfg.live_available && L.s3Live ? L.s3Live.replace('{prov}', cfg.live_provider) : L.s3}</li><li>{L.s4}</li></ol>
         <button class="btn soft" onclick={remindNow}>{L.remind}</button>
       </div>
     {:else}
@@ -213,7 +213,7 @@
     </div>
     <details class="block tech">
       <summary>{L.techTitle}</summary>
-      {#each L.tech as p, i}<p>{i === 1 && cfg.live_available && L.techPayLive ? L.techPayLive : p}</p>{/each}
+      {#each L.tech as p, i}<p>{i === 1 && cfg.live_available && L.techPayLive ? L.techPayLive.replace('{prov}', cfg.live_provider) : p}</p>{/each}
     </details>
     {#if notice}<div class="notice">{notice}</div>{/if}
   </section>
