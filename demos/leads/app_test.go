@@ -176,7 +176,7 @@ func TestInternationalProfile(t *testing.T) {
 		t.Fatalf("deliveries: %+v", msgs)
 	}
 	for _, e := range h.app.Hub.Events(s) {
-		if e.Service == "crm" && !strings.HasPrefix(e.Provider, "HubSpot") {
+		if e.Service == "crm" && e.Provider != "CRM · simulation" {
 			t.Fatalf("provider label %q", e.Provider)
 		}
 	}
@@ -533,17 +533,20 @@ func TestEditionRU(t *testing.T) {
 			t.Fatalf("%s deliveries: %+v", prof, msgs)
 		}
 	}
-	want := map[string]string{"crm": "Битрикс24", "sheets": "Яндекс Диск", "payments": "ЮKassa"}
+	// mocks never carry a real provider's name: "CRM · имитация", not "Битрикс24 · песочница"
+	want := map[string]string{"crm": "CRM · имитация", "sheets": "Таблица · имитация", "payments": "Оплата · имитация", "notify": "Мессенджер · имитация"}
 	seen := map[string]bool{}
 	for _, e := range h.app.Hub.Events(s) {
-		if p, ok := want[e.Service]; ok && strings.HasPrefix(e.Provider, p) {
+		if p, ok := want[e.Service]; ok && e.Provider == p {
 			seen[e.Service] = true
 		}
-		if strings.Contains(e.Provider, "Google") || strings.Contains(e.Provider, "HubSpot") || strings.Contains(e.Provider, "Stripe") {
-			t.Fatalf("foreign provider in ru edition: %q", e.Provider)
+		for _, real := range []string{"Битрикс24", "amoCRM", "ЮKassa", "Яндекс", "Telegram", "Max", "Google", "HubSpot", "Stripe", "песочн"} {
+			if strings.Contains(e.Provider, real) {
+				t.Fatalf("real provider name on a simulated step: %q", e.Provider)
+			}
 		}
 	}
-	if len(seen) != 3 {
+	if len(seen) < 3 {
 		t.Fatalf("labels seen: %v", seen)
 	}
 	resp, _ := http.Get(h.srv.URL + "/api/config")

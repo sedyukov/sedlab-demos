@@ -45,6 +45,7 @@ func main() {
 	app := NewApp(profiles, public, env("SELF_URL", "http://127.0.0.1:"+port), maxSessions)
 	app.Edition = edition
 	app.OtherURL = env("OTHER_EDITION_URL", "")
+	app.ContactURL = env("CONTACT_URL", "")
 	if d := os.Getenv("DEMO_DOMAIN"); d != "" && app.OtherURL == "" {
 		switch edition {
 		case EditionRU:

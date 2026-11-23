@@ -28,6 +28,7 @@ type App struct {
 	SelfURL       string           // where webhooks are delivered in mock mode (http://127.0.0.1:8080)
 	Acc           *accounts.Client // RU edition: sign-in + live limits; nil = no gating
 	AuthWidgetURL string           // https://auth.demo.sedlab.dev/widget.js (RU edition; empty = no sign-in button yet)
+	ContactURL    string           // "order the same" button in the footer (CONTACT_URL; empty = price line only)
 	Retry         RetryPolicy
 	HTTP          *http.Client
 	now           func() time.Time
@@ -75,23 +76,28 @@ func (a *App) Gated(p *Profile) bool { return a.Acc != nil && p.shared.CRM != ni
 
 func (a *App) providerLabel(profile, service string) string {
 	p := a.Profiles[profile]
-	var name, m string
+	var name, generic, m string
 	switch service {
 	case "crm":
-		name, m = p.CRMName, p.Modes.CRM
+		name, generic, m = p.CRMName, "CRM", p.Modes.CRM
 	case "payments", "webhook":
-		name, m = p.PayName, p.Modes.Payments
+		name, generic, m = p.PayName, tr(p.Lang, "Payments", "Оплата"), p.Modes.Payments
 	case "sheets":
-		name, m = p.SheetsName, p.Modes.Sheets
+		name, generic, m = p.SheetsName, tr(p.Lang, "Sheet", "Таблица"), p.Modes.Sheets
 	case "notify":
-		name, m = "Telegram/email", p.Modes.Notify
+		name, generic, m = "Telegram/email", tr(p.Lang, "Messenger", "Мессенджер"), p.Modes.Notify
 	default:
 		return ""
 	}
-	if m == "mock" {
-		return name + " · " + tr(p.Lang, "sandbox", "песочница")
+	return modeLabel(p.Lang, name, generic, m)
+}
+
+// modeLabel: a mock never carries a real provider's name (owner rule 23.11: integrations are shown honestly).
+func modeLabel(lang, name, generic, mode string) string {
+	if mode == "mock" {
+		return generic + " · " + tr(lang, "simulation", "имитация")
 	}
-	return name + " · " + tr(p.Lang, "live", "боевой")
+	return name + " · " + tr(lang, "live", "настоящий сервис")
 }
 
 func (a *App) emit(s *Session, lead *Lead, ev Event) Event {
@@ -105,7 +111,7 @@ func (a *App) emit(s *Session, lead *Lead, ev Event) Event {
 func (a *App) step(ctx context.Context, s *Session, lead *Lead, name, service string, fn func(ctx context.Context) (string, map[string]any, error)) error {
 	label := a.providerLabel(lead.Profile, service)
 	if ch, ok := strings.CutPrefix(name, "notify."); ok {
-		label = map[string]string{"telegram": "Telegram", "max": "Max", "email": "Email"}[ch] + " · " + map[string]string{"mock": tr(lead.Lang, "sandbox", "песочница"), "live": tr(lead.Lang, "live", "боевой")}[a.Profiles[lead.Profile].Modes.Notify]
+		label = modeLabel(lead.Lang, map[string]string{"telegram": "Telegram", "max": "Max", "email": "Email"}[ch], tr(lead.Lang, "Messenger", "Мессенджер"), a.Profiles[lead.Profile].Modes.Notify)
 	}
 	setState := func(v int) { s.update(func() { lead.Steps[name] = v }) }
 	p := a.Retry
@@ -181,10 +187,15 @@ func (a *App) Submit(s *Session, in LeadInput) (*Lead, bool) {
 			return
 		}
 		s.nLead++
+		lang := a.leadLang(prof, in.Lang)
+		alias := fmt.Sprintf("client-%d", s.nLead)
+		if lang == "ru" {
+			alias = fmt.Sprintf("Клиент №%d", s.nLead)
+		}
 		lead = &Lead{ID: fmt.Sprintf("L-%03d", s.nLead), SubmissionID: in.SubmissionID, Profile: in.Profile,
 			CreatedAt: a.now().UTC().Format(time.RFC3339), Name: in.Name, Email: in.Email, Phone: in.Phone,
 			Company: in.Company, Message: in.Message, Plan: plan.Key, Amount: Money{plan.Amount, prof.Currency},
-			Status: "processing", Steps: map[string]int{}, Alias: fmt.Sprintf("client-%d", s.nLead), Lang: a.leadLang(prof, in.Lang)}
+			Status: "processing", Steps: map[string]int{}, Alias: alias, Lang: lang}
 		s.leads[lead.ID] = lead
 		s.bySubmit[in.SubmissionID] = lead.ID
 		s.order = append(s.order, lead.ID)
@@ -243,8 +254,8 @@ func modeReason(lang, reason, crmName string) string {
 	case accounts.ReasonUnavailable:
 		return tr(lang, "Sign-in service is unavailable, demo mode", "Сервис входа недоступен, работаем в демо-режиме")
 	case accounts.ReasonNoKey:
-		return tr(lang, "Demo mode: everything runs in a sandbox, real CRMs and payments are not touched",
-			"Демо-режим: всё работает в песочнице, настоящие CRM и платежи не затрагиваются")
+		return tr(lang, "Demo mode: CRM, payments and notifications are simulated, real services are not touched",
+			"Демо-режим: CRM, оплата и уведомления здесь в имитации, настоящие сервисы не затрагиваются")
 	}
 	return tr(lang, "Demo mode", "Демо-режим")
 }
@@ -325,6 +336,10 @@ func (a *App) process(s *Session, lead *Lead) error {
 			if lead.Lang == "ru" {
 				text = fmt.Sprintf("🆕 Новая заявка %s\n%s · контакт: %s (в CRM)\nТариф: %s, %s\nСделка: %s", lead.ID, a.notifyName(lead), lead.Alias,
 					planRU(lead.Plan), formatMoney(lead.Amount), deal.ID)
+				if a.Edition == EditionRU { // the alias already stands in for the name: say it once
+					text = fmt.Sprintf("🆕 Новая заявка %s\n%s, контакты в CRM\nТариф: %s, %s\nСделка: %s", lead.ID, lead.Alias,
+						planRU(lead.Plan), formatMoney(lead.Amount), deal.ID)
+				}
 			}
 			r, err := st.Notify.Send(ctx, notify.SendInput{Channel: ch, To: prof.recipients[ch], Text: text, Subject: "New lead " + lead.ID, IdempotencyKey: "new-" + lead.SubmissionID, Metadata: notifyMeta(ctx, lead)})
 			if err != nil {
@@ -384,7 +399,7 @@ func recipientLabel(lead *Lead, ch string) string {
 func (a *App) registerRedactions(s *Session, lead *Lead) {
 	pairs := []string{lead.Email, lead.Alias + " (email)", lead.Phone, lead.Alias + " (phone)"}
 	if lead.Lang == "ru" {
-		pairs[3] = lead.Alias + " (тел.)"
+		pairs[1], pairs[3] = lead.Alias+" (email скрыт)", lead.Alias+" (телефон скрыт)"
 	}
 	if e, err := crm.NormalizeEmail(lead.Email); err == nil && e != lead.Email {
 		pairs = append(pairs, e, pairs[1])

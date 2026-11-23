@@ -3,10 +3,10 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Lead → CRM · live demo</title>
-<meta name="description" content="Live demo: website form → CRM (amoCRM / HubSpot) → Google Sheet → Telegram, payment (YooKassa / Stripe) moves the deal to Won. Real-time event log with retries and webhook idempotency.">
-<meta property="og:title" content="Lead → CRM · live integration demo">
-<meta property="og:description" content="Form → CRM → Google Sheet → Telegram → payment → deal won. Watch every step, retry and webhook in real time.">
+<title>Заявки с сайта в CRM: демо</title>
+<meta name="description" content="Демо: заявка с сайта сама попадает в CRM, в таблицу и менеджеру в мессенджер, а после оплаты сделка закрывается. Отправьте тестовую заявку и посмотрите путь за 30 секунд.">
+<meta property="og:title" content="Заявки с сайта: сразу в CRM, таблицу и мессенджер">
+<meta property="og:description" content="Отправьте тестовую заявку и посмотрите, как она проходит путь от формы на сайте до оплаты.">
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='8' fill='%232f6fed'/%3E%3Cpath d='M8 11h16M8 16h11M8 21h7' stroke='white' stroke-width='3' stroke-linecap='round'/%3E%3C/svg%3E">
 <link rel="stylesheet" href="/style.css">
 </head>
@@ -15,14 +15,17 @@
   <div class="brand">
     <span class="logo" aria-hidden="true"></span>
     <div>
-      <h1 data-i18n="title">Заявка → CRM</h1>
-      <p class="tag" data-i18n="tagline">Форма → CRM → Google Таблица → Telegram → оплата → сделка «Успешно»</p>
+      <h1 data-i18n="title">Заявки с сайта: сразу в CRM, таблицу и мессенджер</h1>
+      <p class="tag" data-i18n="tagline">Отправьте тестовую заявку и посмотрите, как она проходит путь до оплаты. Это займёт 30 секунд.</p>
     </div>
   </div>
   <div class="controls">
-    <div class="seg" role="radiogroup" aria-label="Integration stack" id="profileSeg">
-      <button role="radio" data-profile="ru" aria-checked="true"><b data-i18n="ruStack">RU-стек</b><small>amoCRM · ЮKassa</small></button>
-      <button role="radio" data-profile="intl" aria-checked="false"><b data-i18n="intlStack">International</b><small>HubSpot · Stripe</small></button>
+    <div class="seg-wrap" id="profileWrap">
+      <span class="seg-label" id="profileLabel" hidden></span>
+      <div class="seg" role="radiogroup" aria-label="CRM" id="profileSeg">
+        <button role="radio" data-profile="ru" aria-checked="true"><b data-i18n="ruStack">RU-стек</b><small>amoCRM · ЮKassa</small></button>
+        <button role="radio" data-profile="intl" aria-checked="false"><b data-i18n="intlStack">International</b><small>HubSpot · Stripe</small></button>
+      </div>
     </div>
     <a class="ghost edlink" id="otherEdition" hidden></a>
     <div class="seg small" role="radiogroup" aria-label="Language" id="langSeg">
@@ -31,45 +34,33 @@
     </div>
   </div>
 </header>
-
-<section class="flow" aria-label="Pipeline">
+<p class="honesty" id="honesty"></p>
+<section class="flow" aria-label="Путь заявки">
   <ol id="flow"></ol>
-  <p class="flow-lead" id="flowLead"></p>
 </section>
-
 <main class="grid">
   <section class="col form-col">
-    <div class="panel-h"><h2 data-i18n="site">Сайт клиента</h2><span class="hint" data-i18n="widgetHint">встраиваемый JS-виджет</span></div>
+    <div class="panel-h"><h2 data-i18n="site">1. Форма на вашем сайте</h2></div>
     <div class="landing">
       <div class="landing-bar"><i></i><i></i><i></i><span id="fakeUrl">example-shop</span></div>
       <p class="mode-banner" id="modeBanner" hidden></p>
       <div id="widget"></div>
     </div>
-    <div class="tools">
-      <label class="switch"><input type="checkbox" id="chaos"><span></span><b data-i18n="chaos">Симулировать сбои API</b></label>
-      <p class="hint" data-i18n="chaosHint">CRM 503, таблица 429 с Retry-After, Telegram 502: смотрите повторы в логе</p>
-      <button class="ghost" id="reset" data-i18n="reset">Сбросить песочницу</button>
-      <p class="hint" data-i18n="retention">У каждого посетителя своя песочница. Данные удаляются раз в сутки.</p>
-    </div>
+    <p class="hint" data-i18n="retention">Данные демо удаляются автоматически, не позже чем через сутки.</p>
   </section>
-
-  <section class="col log-col">
+  <section class="col feed-col">
     <div class="panel-h">
-      <h2><span class="live-dot" id="liveDot"></span> <span data-i18n="log">Лог событий</span></h2>
-      <div class="log-tools">
-        <button class="ghost xs" id="filterLead" data-i18n="onlyLead">Только выбранная</button>
-        <button class="ghost xs" id="clearLog" data-i18n="clear">Очистить</button>
-      </div>
+      <h2><span class="live-dot" id="liveDot"></span> <span data-i18n="feed">2. Что происходит</span></h2>
     </div>
-    <ol class="log" id="log" aria-live="polite"></ol>
-    <p class="empty" id="logEmpty" data-i18n="logEmpty">Отправьте форму слева, и каждый шаг появится здесь в реальном времени.</p>
+    <ol class="feed" id="feed" aria-live="polite"></ol>
+    <p class="empty" id="feedEmpty" data-i18n="feedEmpty">Нажмите «Отправить заявку» слева: здесь по шагам появится, что система делает с заявкой.</p>
   </section>
-
   <section class="col side-col">
+    <div class="panel-h"><h2 data-i18n="where">3. Где это видит ваша команда</h2></div>
     <div class="tabs" role="tablist">
       <button role="tab" data-tab="crm" aria-selected="true">CRM</button>
       <button role="tab" data-tab="sheet" aria-selected="false" data-i18n="sheetTab">Таблица</button>
-      <button role="tab" data-tab="inbox" aria-selected="false">Telegram</button>
+      <button role="tab" data-tab="inbox" aria-selected="false" data-i18n="inboxTab">Мессенджер</button>
       <button role="tab" data-tab="pay" aria-selected="false" data-i18n="payTab">Оплата</button>
     </div>
     <div class="tabpanel" id="tab-crm"></div>
@@ -78,26 +69,46 @@
     <div class="tabpanel" id="tab-pay" hidden></div>
   </section>
 </main>
-
-<footer class="foot">
-  <span data-i18n="foot">Демо собрано из модулей crm · payments · sheets-storage · notify (Go). Без ключей работает на sandbox-провайдерах с подписанными вебхуками.</span>
-  <span class="modes" id="modes"></span>
-</footer>
-
+<section class="offer" id="offer">
+  <p data-i18n="offer">Такую же связку для вашего сайта: от 20 тыс. ₽, срок 2-5 дней. Подключаю вашу CRM, оплату, таблицу и мессенджер.</p>
+  <a class="primary" id="contact" hidden data-i18n="contact">Обсудить задачу</a>
+</section>
+<details class="tech" id="tech">
+  <summary data-i18n="techTitle">Как это устроено (для технических специалистов)</summary>
+  <div class="tech-body">
+    <div class="tech-tools">
+      <div>
+        <label class="switch"><input type="checkbox" id="chaos"><span></span><b data-i18n="chaos">Симулировать сбои API</b></label>
+        <p class="hint" data-i18n="chaosHint">CRM 503, таблица 429 с Retry-After, мессенджер 502: смотрите повторы в журнале</p>
+      </div>
+      <div class="tech-acts" id="techActs"></div>
+      <button class="ghost" id="reset" data-i18n="reset">Начать заново</button>
+    </div>
+    <div class="panel-h">
+      <h2 data-i18n="log">Журнал событий</h2>
+      <div class="log-tools">
+        <button class="ghost xs" id="filterLead" data-i18n="onlyLead">Только выбранная</button>
+        <button class="ghost xs" id="clearLog" data-i18n="clear">Очистить</button>
+      </div>
+    </div>
+    <ol class="log" id="log"></ol>
+    <p class="empty" id="logEmpty" data-i18n="logEmpty">Пока пусто.</p>
+    <p class="hint" data-i18n="foot">Демо собрано из модулей crm · payments · sheets-storage · notify (Go). Повторы с паузой и Retry-After, ключи идемпотентности, вебхуки с подписью HMAC. Форма: встраиваемый JS-виджет.</p>
+    <p class="modes" id="modes"></p>
+  </div>
+</details>
 <dialog id="checkout">
   <form method="dialog" class="co">
-    <p class="co-badge" data-i18n="sandboxCheckout">Тестовая оплата · sandbox</p>
+    <p class="co-badge" data-i18n="sandboxCheckout">Имитация оплаты</p>
     <h3 id="coTitle"></h3>
     <p class="co-amount" id="coAmount"></p>
-    <div class="card-fake"><span>Test card · sandbox</span><span>•••• 4242</span></div>
+    <p class="hint" data-i18n="coHint">Так клиент оплачивает заказ. В настоящей интеграции здесь откроется страница платёжной системы, а она сама сообщит нам об оплате.</p>
     <div class="co-actions">
       <button value="succeeded" class="primary" data-i18n="payBtn">Оплатить</button>
       <button value="canceled" class="ghost" data-i18n="declineBtn">Отказаться</button>
     </div>
-    <p class="hint" data-i18n="coHint">Это имитация страницы оплаты: провайдер пришлёт нам подписанный вебхук.</p>
   </form>
 </dialog>
-
 <script src="/widget.js"></script>
 <script src="/app.js"></script>
 </body>

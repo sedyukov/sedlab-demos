@@ -181,7 +181,8 @@ func (s *Server) config(w http.ResponseWriter, r *http.Request) {
 		widget = map[string]string{"url": s.App.AuthWidgetURL, "demo": s.App.Acc.Demo()}
 	}
 	writeJSON(w, http.StatusOK, map[string]any{"edition": s.App.Edition, "other_edition_url": s.App.OtherURL, "auth_widget": widget,
-		"profiles": ps, "retention": "24h", "sandbox_contacts": s.Guard.SandboxContacts})
+		"profiles": ps, "retention": "24h", "sandbox_contacts": s.Guard.SandboxContacts,
+		"contact_url": s.App.ContactURL})
 }
 
 // events streams the session's log as Server-Sent Events (backlog first, then live; Last-Event-ID resumes).
@@ -348,7 +349,7 @@ func (s *Server) submit(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if len(sess.Leads("")) >= s.Guard.MaxLeads {
-		reject(http.StatusTooManyRequests, "rate_limited", "session_cap", fmt.Sprintf(tr(s.App.Lang(), "Demo limit: %d leads per session. Press Reset", "Лимит демо: %d заявок на сессию. Нажмите «Сбросить песочницу»"), s.Guard.MaxLeads))
+		reject(http.StatusTooManyRequests, "rate_limited", "session_cap", fmt.Sprintf(tr(s.App.Lang(), "Demo limit: %d leads per session. Press Reset", "Лимит демо: %d заявок на сессию. Нажмите «Начать заново»"), s.Guard.MaxLeads))
 		return
 	}
 	in := LeadInput{SubmissionID: clean(b.SubmissionID, 64), Profile: prof, Name: clean(b.Name, 80), Email: clean(b.Email, 120),

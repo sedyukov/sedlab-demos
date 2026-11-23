@@ -39,7 +39,7 @@
   };
   var DEMO = {
     // no emails/phones: the server makes up a sandbox contact (demo_contact) — nothing contact-like on screen
-    ru: [['Анна (тест)', 'example-shop', 'Нужна интеграция сайта с amoCRM'],
+    ru: [['Анна (тест)', 'example-shop', 'Нужно, чтобы заявки сами попадали в CRM'],
          ['Иван (тест)', 'example-service', 'Заявки теряются, нужен учёт'],
          ['Ольга (тест)', 'example-school', 'Оплата курсов онлайн']],
     en: [['Emma (test)', 'example-shop', 'Connect our site form to HubSpot'],

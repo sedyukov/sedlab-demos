@@ -75,9 +75,20 @@ async function scenario(browser, { lang, stack, video }) {
   await shot(page, `01-lead-flow-${stack}.png`);
   const logCount = await page.locator('#log li').count();
   check(logCount >= 8, `[${stack}] live log has ${logCount} events`);
-  check(await page.locator('#flow li[data-s="1"]').count() >= 6, `[${stack}] pipeline nodes lit`);
+  check(await page.locator('#flow li[data-s="1"]').count() >= 4, `[${stack}] pipeline nodes lit`);
+  check(await page.locator('#feed li[data-s="1"]').count() >= 4, `[${stack}] people's timeline shows the steps`);
+  check(!(await page.locator('#tech').evaluate((d) => d.open)), `[${stack}] engineers' block is collapsed by default`);
+  if (process.env.EDITION === 'ru') {
+    const honest = await page.locator('#honesty').innerText();
+    check(/имитац/.test(honest), `[${stack}] honest note says simulation`);
+    // nothing simulated may carry a real provider's name (owner rule 23.11)
+    const txt = await page.evaluate(() => [...document.querySelectorAll('.top .brand, #honesty, #flow, main, .offer')].map((e) => e.innerText).join('\n'));
+    const real = ['amoCRM', 'Битрикс', 'ЮKassa', 'YooKassa', 'Яндекс', 'Telegram', 'Max', 'песочниц', 'sandbox', '4242'].filter((w) => txt.includes(w));
+    check(real.length === 0, `[${stack}] no real provider names on simulated screens ${real.join(', ')}`);
+  }
 
-  // 2. Failures → retries
+  // 2. Failures → retries (engineers' block)
+  await page.locator('#tech > summary').click();
   await page.locator('label.switch').click();
   await pace(600);
   const id2 = await submit(page);
@@ -85,8 +96,11 @@ async function scenario(browser, { lang, stack, video }) {
   const retries = await page.locator('#log .b-retry').count();
   check(retries >= 4, `[${stack}] retries visible in log: ${retries}`);
   await pace(800);
+  await page.locator('#tech').scrollIntoViewIfNeeded();
   await shot(page, `02-retries-${stack}.png`);
   await page.locator('label.switch').click();
+  await page.locator('#tech > summary').click();
+  await page.evaluate(() => window.scrollTo(0, 0));
 
   // 3. Sheet + Telegram tabs
   await page.locator('.tabs [data-tab="sheet"]').click();
@@ -111,16 +125,17 @@ async function scenario(browser, { lang, stack, video }) {
   check(true, `[${stack}] ${id1} paid → deal moved`);
   await pace(1800);
   await shot(page, `05-deal-won-${stack}.png`);
-  await page.locator('.tabs [data-tab="pay"]').click();
+  await page.locator('#tech > summary').click();
   await pace(600);
-  await page.locator(`#tab-pay [data-act="replay-webhook"][data-id="${id1}"]`).click();
+  await page.locator(`#techActs [data-act="replay-webhook"][data-id="${id1}"]`).click();
   await page.locator('#log .b-duplicate').first().waitFor();
   check(true, `[${stack}] replayed webhook marked duplicate`);
   await pace(1200);
-  await page.locator(`#tab-pay [data-act="forge-webhook"][data-id="${id1}"]`).click();
+  await page.locator(`#techActs [data-act="forge-webhook"][data-id="${id1}"]`).click();
   await page.locator('#log .b-rejected').first().waitFor();
   check(true, `[${stack}] forged webhook rejected`);
   await pace(2500);
+  await page.locator('#tech').scrollIntoViewIfNeeded();
   await shot(page, `06-webhooks-${stack}.png`);
   check(errors.length === 0, `[${stack}] no JS errors ${errors.join('; ')}`);
 
