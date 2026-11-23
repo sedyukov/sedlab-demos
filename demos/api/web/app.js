@@ -110,11 +110,7 @@
     document.documentElement.lang = state.lang;
     $$("[data-i18n]").forEach(function (el) { el.textContent = t(el.getAttribute("data-i18n")); });
     $$("#lang button").forEach(function (b) { b.classList.toggle("on", b.dataset.lang === state.lang); });
-    var other = $("#other-edition");
-    if (/demo\.sedlab\.dev$/.test(host)) {
-      other.href = "https://" + (isEn ? host.replace(/^api-en\./, "api.") : host.replace(/^api\./, "api-en.")) + "/";
-      other.textContent = isEn ? T.ru.other : T.en.other;
-    } else { other.hidden = true; }
+    $("#other-edition").hidden = true; // only the Russian edition is deployed
     renderTokenState();
     renderJobs(lastJobs);
   }
@@ -320,13 +316,13 @@
     var s = document.createElement("script");
     s.src = cfg.auth_widget_url; s.defer = true;
     s.setAttribute("data-demo", "api");
-    s.setAttribute("data-providers", "max,yandex,vk");
     document.body.appendChild(s);
   }
 
   fetch("/ui-config.json").then(function (r) { return r.json(); }).then(function (cfg) {
     state.config = cfg;
-    if (!store.get("api.lang")) state.lang = cfg.edition === "ru" ? "ru" : "en";
+    if (cfg.edition === "ru") { state.lang = "ru"; $("#lang").hidden = true; }
+    else if (!store.get("api.lang")) state.lang = "en";
     initAccounts(cfg);
   }).catch(function () {}).then(function () {
     applyLang();

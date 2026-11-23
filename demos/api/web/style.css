@@ -82,3 +82,4 @@ table.cmp { width: 100%; border-collapse: collapse; margin-top: 12px; font-size:
 .foot { padding: 8px 0 32px; }
 .cmp .ms { white-space: nowrap; font-size: 12px; }
 .cmp td:nth-child(2), .cmp td:nth-child(3) { white-space: nowrap; }
+[hidden] { display: none !important; }
