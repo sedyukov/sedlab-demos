@@ -484,7 +484,7 @@ func TestPageShowsNoContacts(t *testing.T) {
 			t.Fatalf("page data contains %q: …%s…", bad, all[max(0, i-60):min(len(all), i+40)])
 		}
 	}
-	for _, want := range []string{"client-1 (email)", "Sales manager (Telegram)", "client-2"} {
+	for _, want := range []string{"client-1 (email)", "Sales manager (messenger)", "client-2"} {
 		if !strings.Contains(all, want) {
 			t.Fatalf("missing %q", want)
 		}

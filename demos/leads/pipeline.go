@@ -345,7 +345,7 @@ func (a *App) process(s *Session, lead *Lead) error {
 			if err != nil {
 				return "", nil, err
 			}
-			return fmt.Sprintf(tr(lead.Lang, "Sent to %s (%s)", "Отправлено: %s (%s)"), recipientLabel(lead, ch), r.ID), map[string]any{"result": r, "text": text}, nil
+			return fmt.Sprintf(tr(lead.Lang, "Sent to %s (%s)", "Отправлено: %s (%s)"), a.recipientLabel(lead, ch), r.ID), map[string]any{"result": r, "text": text}, nil
 		}); err != nil {
 			// a notification failure must not lose the lead — it is already in CRM and the sheet
 			a.emit(s, lead, Event{Step: "notify." + ch, Service: "notify", Status: "info", Message: tr(lead.Lang, "Notification skipped after retries; lead is safe in CRM + sheet",
@@ -387,8 +387,11 @@ func customer(l *Lead) *payments.Customer {
 }
 
 // recipientLabel is how a notification recipient is shown on the page (no handles, no addresses).
-func recipientLabel(lead *Lead, ch string) string {
+func (a *App) recipientLabel(lead *Lead, ch string) string {
 	name := map[string]string{"telegram": "Telegram", "max": "Max", "email": "email"}[ch]
+	if p := a.profileOf(lead); p != nil && p.Modes.Notify == "mock" && ch != "email" {
+		name = tr(lead.Lang, "messenger", "мессенджер") // a simulation never carries a real provider's name
+	}
 	if lead != nil && lead.Lang == "ru" {
 		return "Менеджер (" + name + ")"
 	}
@@ -408,7 +411,7 @@ func (a *App) registerRedactions(s *Session, lead *Lead) {
 		pairs = append(pairs, p, pairs[3])
 	}
 	for _, ch := range []string{"telegram", "max", "email"} {
-		pairs = append(pairs, a.Profiles[lead.Profile].recipients[ch], recipientLabel(lead, ch))
+		pairs = append(pairs, a.Profiles[lead.Profile].recipients[ch], a.recipientLabel(lead, ch))
 	}
 	s.addRedaction(pairs...)
 }
@@ -654,7 +657,7 @@ func (a *App) onPayment(s *Session, lead *Lead, ev *payments.WebhookEvent) {
 		if err != nil {
 			return "", nil, err
 		}
-		return fmt.Sprintf(tr(lead.Lang, "Sent to %s (%s)", "Отправлено: %s (%s)"), recipientLabel(lead, ch), r.ID), map[string]any{"result": r, "text": text}, nil
+		return fmt.Sprintf(tr(lead.Lang, "Sent to %s (%s)", "Отправлено: %s (%s)"), a.recipientLabel(lead, ch), r.ID), map[string]any{"result": r, "text": text}, nil
 	})
 	a.emit(s, lead, Event{Step: "pipeline", Service: "system", Status: "ok", Message: tr(lead.Lang, "Payment processed: CRM, sheet and team are up to date", "Оплата обработана: CRM, таблица и команда в курсе")})
 }
@@ -782,4 +785,11 @@ func planName(lead *Lead) string {
 		return planRU(lead.Plan)
 	}
 	return lead.Plan
+}
+
+func (a *App) profileOf(lead *Lead) *Profile {
+	if lead == nil {
+		return nil
+	}
+	return a.Profiles[lead.Profile]
 }

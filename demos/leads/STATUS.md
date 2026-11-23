@@ -1,12 +1,16 @@
-# STATUS: S5 «Заявка → CRM» (app: leads), 2026-11-22
+# STATUS: S5 «Заявка → CRM» (app: leads), 2026-11-23
 
 **RU-версия (основная):** https://leads.demo.sedlab.dev
-- на RU-хосте freelance-ru: `leads-ru`, тег `sha-430c692`, accounts http, проверено изнутри и e2e через туннель (amoCRM и Битрикс24); ждёт A-записи;
-- до переключения DNS тот же адрес отдаёт RU-редакцию с freelance-1 (`compose/leads`, EDITION=ru, песочница без ПД), e2e на проде зелёный.
+- работает на RU-хосте freelance-ru (`leads-ru`, accounts http), DNS переключён 23.11, check-demos зелёный, e2e на проде зелёный;
+- копия на freelance-1 и `infra/compose/leads` сняты (infra, 44f8f01).
 
 **EN-версия:** https://leads-en.demo.sedlab.dev (`sha-5089977`). По решению владельца не обновляется и не проверяется.
 
 ## Сделано
+- **Интерфейс для людей (решение владельца 23.11):** первый экран про пользу, путь из 5 шагов, лента «Что происходит» вместо лога,
+  вкладки «Где это видит ваша команда». Всё, что не подключено по-настоящему, подписано «имитация» и без названий провайдеров
+  (и в подписях сервера); поддельной карты нет; выбор CRM появляется, только когда подключены настоящие. Журнал, сбои API,
+  повтор и подделка вебхука в свёрнутом блоке «Как это устроено (для технических специалистов)». Внизу цена и кнопка по `CONTACT_URL` (пока не задан).
 - Лимиты auth: ресурсы `amocrm` и `bitrix24` по 50 вызовов на человека в день (limits.json сервиса auth).
 - **Юр. пакет v2 (legal 2a131ec):** уведомления RU-редакции (Telegram, Max) без введённого посетителем имени, вместо него
   псевдоним `client-N`; данные демо удаляются раз в сутки (требование: не позже 7 дней). Своего бота у leads нет, поэтому
@@ -58,10 +62,8 @@
   и 2 GIF (RU и EN). Тексты без длинного тире.
 
 ## Осталось
-- **DNS (владелец):** A-запись `leads.demo.sedlab.dev → 5.35.4.25` (DNS only). Затем `infra/check-demos.sh leads-ru --host freelance-ru`,
-  `infra/deploy.sh rm leads` на freelance-1 и удалить `infra/compose/leads`.
-- Переезд RU: `infra/deploy.sh leads-ru --host freelance-ru --tag sha-<7>`, затем A-запись `leads.demo → IP freelance-ru` в Cloudflare,
-  `check-demos.sh leads-ru --host freelance-ru`, потом `deploy.sh rm leads` на freelance-1 и удалить `infra/compose/leads`.
+- `CONTACT_URL` для кнопки «Обсудить задачу» (куда вести заказчика: кворк, витрина, Telegram); без него показывается только строка с ценой.
+- Настоящие интеграции (аудит 23.11, топ-3): ЮKassa тестовый магазин, Telegram-бот и публичный канал (через ru-relay), Битрикс24 бесплатный портал.
 - Таблица RU (sheets-storage 6280924) готова к включению: `RU_SHEETS_PROVIDER=yandex_disk_table`, `RU_SHEETS_YADISK_TOKEN` (секрет), `RU_SHEETS_YADISK_ROOT=app:/`, `RU_SHEETS_SHEET_ID=app:/leads/leads.xlsx` (то же с `RU_B24_`); заголовок «Lead ID…» приложение пишет само в пустой файл. Тест `TestYandexDiskTableLiveByEnv`. По умолчанию mock.
 - Битрикс24 live (crm 1fcaa49) готов к включению: `RU_B24_CRM_PROVIDER=bitrix24`, `RU_B24_CRM_BITRIX24_WEBHOOK_URL` (секрет), `..._ENTITY`, `..._CATEGORY_ID`, `..._APP_TOKEN`; тест `TestBitrix24LiveByEnv`. По умолчанию mock.
 - Модуль accounts (sedlab-modules a027917): интеграция позже, вместе с сессией accounts. **На проде обязательно `ACCOUNTS_PROVIDER=http`**,
