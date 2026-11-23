@@ -115,6 +115,13 @@ func NewAppFromEnv(log *slog.Logger) (*App, error) {
 	if env("MAX_WEBHOOK_SECRET", "") == "" {
 		os.Setenv("MAX_WEBHOOK_SECRET", randHex(24))
 	}
+	// "insert the key and redeploy": a bot token alone turns the live bot on (an explicit *_PROVIDER=mock keeps the mock)
+	if env("TELEGRAM_PROVIDER", "") == "" && env("TELEGRAM_BOT_TOKEN", "") != "" {
+		os.Setenv("TELEGRAM_PROVIDER", "telegram")
+	}
+	if env("MAX_PROVIDER", "") == "" && env("MAX_BOT_TOKEN", "") != "" {
+		os.Setenv("MAX_PROVIDER", "max")
+	}
 	bot, err := tg.FromEnv(tgkit.Env{Prefix: "TELEGRAM_"})
 	if err != nil {
 		return nil, err
@@ -172,10 +179,17 @@ func NewAppFromEnv(log *slog.Logger) (*App, error) {
 	if env("MAX_PROVIDER", "mock") == "max" && env("NOTIFY_MAX_PROVIDER", "") == "" {
 		os.Setenv("NOTIFY_MAX_PROVIDER", "max")
 		os.Setenv("NOTIFY_MAX_BOT_TOKEN", os.Getenv("MAX_BOT_TOKEN"))
+		if b := env("MAX_API_BASE", ""); b != "" && env("NOTIFY_MAX_API_BASE", "") == "" {
+			os.Setenv("NOTIFY_MAX_API_BASE", b)
+		}
 	}
 	if live && env("NOTIFY_TELEGRAM_PROVIDER", "") == "" {
 		os.Setenv("NOTIFY_TELEGRAM_PROVIDER", "telegram")
 		os.Setenv("NOTIFY_TELEGRAM_BOT_TOKEN", os.Getenv("TELEGRAM_BOT_TOKEN"))
+		// api.telegram.org is not reachable from RU hosts: TELEGRAM_API_BASE points both the bot and notify at a relay
+		if b := env("TELEGRAM_API_BASE", ""); b != "" && env("NOTIFY_TELEGRAM_API_BASE", "") == "" {
+			os.Setenv("NOTIFY_TELEGRAM_API_BASE", b)
+		}
 	}
 	// RU edition: accounts (live mode + limits) and the real YooKassa TEST shop for live runs
 	var accClient *acc.Client

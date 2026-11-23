@@ -36,13 +36,9 @@ Until the RU host exists, `infra/compose/booking` (DO) serves the RU edition wit
   booking-en stays as deployed (sha-214b615): the owner decided not to spend effort on INTL editions.
 
 ## Left
-- RU edition move: `deploy.sh booking-ru --tag sha-…` on freelance-ru + A record `booking.demo` → RU host; then `deploy.sh rm booking` on DO.
-- accounts (RU) is wired: `server/accounts.go` (mode → consume → live YooKassa TEST shop, refund on failure, fail-closed to
-  the mock; webhook/refund routed by `pay_live`), stub sign-in button now (`ACCOUNTS_UI=stub`). To go live when auth is up:
-  `ACCOUNTS_UI=widget`, `ACCOUNTS_PROVIDER=http`, keys `AUTH_PUBLIC_KEY`, `AUTH_SVC_BOOKING`, `YOOKASSA_TEST_SHOP_ID/SECRET_KEY`
-  (see `infra/compose/booking-ru/env.keys`). Test: `TestRuLiveModeViaAccounts`.
-- Optional live bots: Telegram (BotFather token) and Max (token) via orchestrator / `sec`.
-- Real Max client: verify the Max bridge script for Mini Apps (window.WebApp) before a live Max launch.
+- RU edition moved: booking-ru on freelance-ru, A record booking.demo → RU host (23.11); interim DO copy removed.
+- Live integrations wait for keys/owner: see «Чек-лист включения живых интеграций» below.
+- Real Max client: verify the Max bridge script for Mini Apps (window.WebApp) on the first live Max launch.
 
 ## 2026-11-23: понятный интерфейс и честные интеграции (аудит, пункт А)
 - Демо-страница без техники: заголовок и шаги для заказчика, блок «Что получает салон», детали в свёрнутом «Для специалистов».
@@ -52,3 +48,36 @@ Until the RU host exists, `infra/compose/booking` (DO) serves the RU edition wit
 - Тестовая ЮKassa открыта всем без входа (решение владельца 23.11): лимит 3 оплаты в день с IP и 60 в день всего
   (`LIVE_PER_IP_DAY`, `LIVE_PER_DAY`; IP только солёным хешем в памяти). Включится, когда в sec появятся
   `PAYMENTS_YOOKASSA_SHOP_ID/SECRET_KEY`. Адрес уведомлений: https://booking.demo.sedlab.dev/payments/webhook. Тест `TestRuLiveAnonymousByIP`.
+
+## Чек-лист включения живых интеграций (booking-ru, https://booking.demo.sedlab.dev)
+Все правки: `~/freelance/infra/compose/booking-ru/` (compose.yml, env.keys), затем
+`~/freelance/infra/deploy.sh booking-ru --host freelance-ru --tag sha-<последний образ>`; проверка `check-demos` идёт сама.
+Код уже готов, пересобирать образ не нужно.
+
+1. **Robokassa, тестовый магазин sedlabbooking** (ключи в sec уже есть: BOOKING_ROBOKASSA_PASSWORD1/2).
+   - Владелец в ЛК: у магазина должны быть доступны способы оплаты для тестовых платежей (сейчас страница оплаты
+     отвечает «500 No payment methods available»); SHA256, Result URL `https://booking.demo.sedlab.dev/payments/webhook` POST,
+     Success `/payment/success` GET, Fail `/payment/fail` GET (вписаны).
+   - Включить: в compose.yml удалить строку `LIVE_PROVIDER: "off"`, передеплоить.
+   - Проверить: `curl -s https://booking.demo.sedlab.dev/api/config` → `live_available: true, live_provider: Robokassa`;
+     пройти запись в эмуляторе, оплатить на странице Robokassa, запись должна стать «Подтверждена» (Result URL).
+2. **ЮKassa, тестовый магазин** (если нужна вместо Robokassa или после неё).
+   - sec (скоуп freelance): `PAYMENTS_YOOKASSA_SHOP_ID`, `PAYMENTS_YOOKASSA_SECRET_KEY` (тестовый магазин).
+   - В ЛК ЮKassa: HTTP-уведомления на `https://booking.demo.sedlab.dev/payments/webhook` (payment.succeeded,
+     payment.canceled, refund.succeeded).
+   - env.keys: раскомментировать две строки ЮKassa. compose.yml: `LIVE_PROVIDER: yookassa` (иначе при ключах обоих
+     магазинов выбирается Robokassa). Передеплоить, проверить как в п.1 (`live_provider: ЮKassa`, тестовая карта
+     5555 5555 5555 4477).
+3. **Max-бот.**
+   - Владелец: бот на платформе Max для партнёров; токен в sec как `BOOKING_MAX_BOT_TOKEN`.
+   - env.keys: раскомментировать `BOOKING_MAX_BOT_TOKEN:MAX_BOT_TOKEN`; compose.yml: `MAX_BOT_USERNAME: <имя бота>`.
+   - Токен сам включает живого бота (подписка на вебхук `/max/webhook` ставится при старте). CA Минцифры уже смонтирован.
+   - Проверить: написать боту /start → «Согласен, начать» → «Записаться» открывает мини-приложение.
+4. **Telegram-бот** (нужно решение infra/оркестратора: из Selectel api.telegram.org недоступен).
+   - Нужен релей Bot API (например, на freelance-1) → `TELEGRAM_API_BASE: https://<релей>/` в compose.yml.
+   - BotFather: бот, токен в sec как `BOOKING_TELEGRAM_BOT_TOKEN`; в BotFather: Menu Button / Web App URL
+     `https://booking.demo.sedlab.dev/app/`.
+   - env.keys: раскомментировать `BOOKING_TELEGRAM_BOT_TOKEN:TELEGRAM_BOT_TOKEN`; вебхук `/tg/webhook` ставится сам.
+5. **Вход через accounts** (живые лимиты по аккаунту): когда auth.demo доступен снаружи, `ACCOUNTS_UI: widget`.
+
+Не относится к booking: Яндекс Облако, Битрикс24 (в этом демо их нет).

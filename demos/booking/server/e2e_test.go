@@ -611,3 +611,18 @@ func TestRuLiveRobokassa(t *testing.T) {
 		}
 	}
 }
+
+// A bot token alone switches the live bot on; the R9 guard still refuses it on a host without PD_ALLOWED.
+func TestTokenEnablesLiveBot(t *testing.T) {
+	for _, k := range []string{"TELEGRAM_PROVIDER", "MAX_PROVIDER"} {
+		t.Setenv(k, "")
+	}
+	t.Setenv("EDITION", "ru")
+	t.Setenv("DATA_DIR", t.TempDir())
+	t.Setenv("PD_ALLOWED", "false")
+	t.Setenv("MAX_BOT_TOKEN", "test-token-not-secret")
+	_, err := NewAppFromEnv(slog.New(slog.NewTextHandler(io.Discard, nil)))
+	if err == nil || !strings.Contains(err.Error(), "PD_ALLOWED") {
+		t.Fatalf("token did not enable the live bot: %v", err)
+	}
+}

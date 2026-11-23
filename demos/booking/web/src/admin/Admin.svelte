@@ -300,5 +300,5 @@
   .spinner { width: 30px; height: 30px; border-radius: 50%; border: 3px solid var(--line); border-top-color: var(--btn); animation: spin .8s linear infinite; }
   @keyframes spin { to { transform: rotate(360deg) } }
   .toast { position: fixed; right: 20px; bottom: 20px; background: #222; color: #fff; padding: 10px 16px; border-radius: 10px; z-index: 50; }
-  @media (max-width: 760px) { .kpis { grid-template-columns: 1fr 1fr; } main { padding: 12px; } header { padding: 10px 12px; } }
+  @media (max-width: 760px) { .kpis { grid-template-columns: 1fr 1fr; } main { padding: 12px; } header { padding: 10px 12px; row-gap: 6px; } nav { order: 3; flex-basis: 100%; min-width: 0; } .other { margin-left: auto; } }
 </style>

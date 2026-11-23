@@ -41,7 +41,7 @@
     ru: {
       h1: 'Бот записи в салон красоты', lead: 'Так клиент салона записывается через бота: выбирает услугу, мастера и время, вносит предоплату и получает напоминания. Попробуйте сами, это займёт минуту.',
       persona: 'Посмотреть', guest: '👤 Как клиент', owner: '💼 Глазами владельца салона', name: 'Ваше имя (любое)', steps: 'Как попробовать',
-      s1: 'Нажмите «Согласен, начать», затем «Записаться» в чате справа', s2: 'Выберите услугу, мастера и время', s3: 'Внесите предоплату: оплата учебная, деньги не списываются', s4: 'Получите подтверждение и напоминание в чат',
+      s1: 'Нажмите «Согласен, начать», затем «Записаться» в чате', s2: 'Выберите услугу, мастера и время', s3: 'Внесите предоплату: оплата учебная, деньги не списываются', s4: 'Получите подтверждение и напоминание в чат',
       ownerSteps: 'Владельцу приходит сообщение о каждой новой записи, а в админке он ведёт расписание, мастеров и услуги.',
       remind: 'Показать, как придёт напоминание', admin: 'Открыть админку салона ↗', reset: 'Начать заново', resetDone: 'Данные демо восстановлены',
       bot: 'Салон Bloom', online: 'бот', placeholder: 'Сообщение', open: 'Открыть', start: 'Старт',
@@ -185,6 +185,10 @@
         <input class="name" placeholder={L.name} bind:value={name} maxlength="32" onchange={signIn} />
       {/if}
     </div>
+  </section>
+
+  <!-- phone: right column on a laptop, right after the intro on a phone -->
+  <section class="more">
 
     {#if persona === 'guest'}
       <div class="block">
@@ -254,7 +258,10 @@
 
 <style>
   :global(body) { background: radial-gradient(1200px 600px at 10% -10%, #efe9ff, transparent), radial-gradient(900px 500px at 110% 110%, #ffe3ee, transparent), #f7f6fb; }
-  .page { max-width: 1120px; margin: 0 auto; padding: 32px 16px; display: grid; grid-template-columns: minmax(0, 1fr) 400px; gap: 40px; align-items: start; }
+  .page { max-width: 1120px; margin: 0 auto; padding: 32px 16px; display: grid; grid-template-columns: minmax(0, 1fr) 400px; grid-template-areas: 'intro phone' 'more phone'; column-gap: 40px; align-items: start; }
+  .intro { grid-area: intro; min-width: 0; }
+  .more { grid-area: more; min-width: 0; }
+  .phone-wrap { grid-area: phone; min-width: 0; }
   .intro { padding-top: 12px; }
   .top { display: flex; justify-content: space-between; align-items: center; }
   .badge { font-size: 12px; font-weight: 600; letter-spacing: .5px; color: #6b4eff; background: #6b4eff14; padding: 4px 10px; border-radius: 99px; }
@@ -310,7 +317,9 @@
   @keyframes up { from { transform: translateY(100%) } }
 
   @media (max-width: 900px) {
-    .page { grid-template-columns: 1fr; gap: 24px; padding: 20px 16px; }
+    .page { grid-template-columns: minmax(0, 1fr); grid-template-areas: 'intro' 'phone' 'more'; gap: 24px; padding: 20px 16px; }
+    .seg { display: flex; max-width: 100%; }
+    .seg button { flex: 1 1 0; min-width: 0; }
     h1 { font-size: 28px; }
     .phone { height: 680px; border-width: 6px; border-radius: 30px; max-width: 420px; margin: 0 auto; }
   }
