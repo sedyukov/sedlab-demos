@@ -89,6 +89,12 @@
       tg_line_imit: " Пока бот работает в режиме имитации, без нейросети.",
       p_sample: "пример", p_mock: "имитация", p_browser: "браузер", p_live: "вживую",
       seg_count: "{n} фраз", dur: "{s} с",
+      crm_send: "Отправить в {crm}", crm_sending: "Отправляю…",
+      crm_done: "Создано вживую в тестовом {crm}: {n}.", crm_task: "задача №{id}", crm_open: "открыть",
+      crm_note: "Портал закрытый, поэтому ссылка откроется только у его участников. Номера задач выдал сам {crm}.",
+      crm_sample_only: "В {crm} отправляются задачи готовых примеров: откройте пример.",
+      integ_live: "Отправка задач в {crm} работает вживую: откройте пример и нажмите «Отправить в {crm}», задачи появятся в тестовом портале. Другие CRM и трекеры (amoCRM, Яндекс Трекер) подключаю под ваш сервис.",
+      tech_crm: "CRM: {crm} через API (создание задач со сроком, повтор не создаёт дубль). Сейчас на демо: {st}.",
       integ: "Отправку задач в Битрикс24, amoCRM или Яндекс Трекер подключаю под ваш сервис. В этом демо такой отправки нет: список задач можно скопировать кнопкой.",
       tech_h: "Для специалистов: как это устроено",
       tech_stt: "Распознавание речи: Yandex SpeechKit, таймкоды по фразам. Сейчас на демо: {st}.",
@@ -218,7 +224,8 @@
     const on = isRu();
     $("#integLine").hidden = !on; $("#techBox").hidden = !on;
     if (!on) return;
-    $("#integLine").textContent = t("integ");
+    const crmName = c.crm && c.crm.name;
+    $("#integLine").textContent = crmName ? t("integ_live", { crm: crmName }) : t("integ");
     $("#techSum").textContent = t("tech_h");
     const p = c.providers, st = (live) => t(live ? "st_live" : "st_mock"), L = c.limits;
     const items = [
@@ -226,6 +233,7 @@
       t("tech_llm", { st: st(Object.values(p.llm).includes("live")) }),
       t("tech_tts", { st: st(p.tts === "live") }),
       t("tech_json"),
+      ...(crmName ? [t("tech_crm", { crm: crmName, st: t("st_live") })] : []),
       t("tech_limits", { sec: L.max_audio_sec, mb: L.max_upload_mb }),
       t("tech_store"),
       t("tech_code"),
@@ -433,6 +441,8 @@
 
     await step("tasks");
     renderTasks(r.tasks || []);
+    if (!instant) $("#crmOut").hidden = true;
+    syncCrm();
 
     await step("reply");
     $("#reply").innerHTML = `<span class="reveal">${esc(r.reply.text)}</span>`;
@@ -449,6 +459,32 @@
     if (!instant) { await sleep(200); setStep("all"); }
     state.busy = false;
   }
+
+  /* ---------- RU: real tasks in the CRM test portal (only for ready-made samples) ---------- */
+  function syncCrm() {
+    const c = state.cfg && state.cfg.crm, btn = $("#crmBtn");
+    btn.hidden = !isRu() || !c || !state.result || !state.current;
+    if (btn.hidden) return;
+    btn.disabled = false;
+    btn.textContent = t("crm_send", { crm: c.name });
+  }
+  $("#crmBtn").addEventListener("click", async () => {
+    const c = state.cfg.crm, btn = $("#crmBtn"), out = $("#crmOut");
+    if (!state.current) { out.hidden = false; out.textContent = t("crm_sample_only", { crm: c.name }); return; }
+    btn.disabled = true; btn.textContent = t("crm_sending");
+    try {
+      const r = await api("/api/crm/tasks", { method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ sample: state.current }) });
+      const ids = r.tasks.map((x) => t("crm_task", { id: x.id })).join(", ");
+      out.innerHTML = `${status("live")} ${esc(t("crm_done", { crm: r.name, n: ids }))}<ul>${r.tasks.map((x) =>
+        `<li>${esc(x.title)}${x.url ? ` · <a href="${esc(x.url)}" target="_blank" rel="noopener">${esc(t("crm_open"))}</a>` : ""}</li>`).join("")}</ul>
+        <div class="muted small-t">${esc(t("crm_note", { crm: r.name }))}</div>`;
+      btn.textContent = t("crm_send", { crm: c.name });
+    } catch (e) {
+      out.textContent = e.message; btn.disabled = false; btn.textContent = t("crm_send", { crm: c.name });
+    }
+    out.hidden = false;
+  });
 
   function renderTasks(tasks) {
     const colors = ["#4f46e5", "#0891b2", "#db2777", "#059669", "#d97706", "#7c3aed"];

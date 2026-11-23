@@ -112,12 +112,16 @@
         <article class="card" id="cardTasks">
           <div class="card-h">
             <h2><span class="num">4</span><span data-i18n="s_tasks">Tasks</span></h2>
-            <button type="button" class="ghost sm" id="copyBtn" data-i18n="copy_md">Copy as Markdown</button>
+            <div class="row gap">
+              <button type="button" class="ghost sm" id="copyBtn" data-i18n="copy_md">Copy as Markdown</button>
+              <button type="button" class="primary sm" id="crmBtn" hidden></button>
+            </div>
           </div>
           <table class="tasks">
             <thead><tr><th data-i18n="th_what">What</th><th data-i18n="th_who">Who</th><th data-i18n="th_due">Due</th></tr></thead>
             <tbody id="tasks"></tbody>
           </table>
+          <div class="crm-out" id="crmOut" hidden></div>
         </article>
 
         <article class="card" id="cardReply">

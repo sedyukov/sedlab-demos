@@ -30,7 +30,7 @@ jobs:
           python-version: '3.12'          # no pip cache: it would contain private code
       - name: test
         run: |
-          pip install -q ./modules-src/modules/ai/python ./modules-src/modules/telegram-core/python ./modules-src/modules/accounts/python -e './demos/voice[test]'
+          pip install -q ./modules-src/modules/ai/python ./modules-src/modules/telegram-core/python ./modules-src/modules/accounts/python ./modules-src/modules/crm/python -e './demos/voice[test]'
           cd demos/voice && pytest -q --tb=no
   build:
     needs: test

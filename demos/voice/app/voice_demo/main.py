@@ -19,9 +19,11 @@ from pydantic import BaseModel, Field
 
 from sedlab_ai import Client as AIClient
 from sedlab_ai import Code, ModuleError
+from sedlab_crm import ModuleError as CrmError
 
 from . import pipeline
 from .account import LLM_RESOURCE, STT_RESOURCE, TTS_RESOURCE, Accounts, Gate, stt_units
+from .crm_export import CrmExport
 from .limits import Limits, wav_duration
 from .providers import Providers, default_llm
 from .settings import Settings
@@ -63,6 +65,10 @@ class AnalyzeIn(BaseModel):
     lang: str = ""
 
 
+class CrmIn(BaseModel):
+    sample: str = Field(min_length=1, max_length=64)
+
+
 class ConsentIn(BaseModel):
     version: str = Field(min_length=1, max_length=32)
 
@@ -82,6 +88,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     limits = Limits(s.ip_per_hour, s.daily_live)
     accounts = Accounts(s.environ, enabled=s.edition == "ru")  # RU: live only for signed-in users, limits on auth
     mock = AIClient.mock()
+    crm = CrmExport(s.environ, s.edition)
     samples = {k: r for k, r in load_samples(s.samples_dir).items() if r["lang"] == s.lang}
     max_bytes = s.max_upload_mb * 1024 * 1024
 
@@ -101,6 +108,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
 
     app = FastAPI(title="voice demo", docs_url=None, redoc_url=None, openapi_url=None, lifespan=lifespan)
     app.state.settings, app.state.providers, app.state.limits, app.state.accounts = s, prov, limits, accounts
+    app.state.crm = crm
 
     @app.exception_handler(ApiError)
     async def _api_error(_: Request, e: ApiError):
@@ -161,6 +169,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
             "samples": [{"id": r["id"], "title": r["title"], "lang": r["lang"], "kind": r["kind"],
                          "file": f"/samples/{r['id']}/{r['file']}", "duration_sec": r["duration_sec"]}
                         for r in samples.values()],
+            "crm": crm.config(),
             "telegram": bool(s.telegram_token),
             "telegram_username": getattr(app.state, "tg_username", ""),
             "accounts": {"enabled": accounts.enabled, "widget": s.accounts_widget, "auth_url": s.auth_public_url},
@@ -284,6 +293,25 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         if body.version != CONSENT_VERSION:
             raise ApiError(400, "invalid_argument", "unknown consent version")
         return {"recorded": accounts.record_consent(req.headers, "voice", body.version), "version": body.version}
+
+    @app.post("/api/crm/tasks")
+    def crm_tasks(req: Request, body: CrmIn):
+        """RU: real tasks in the CRM test portal, only for a ready-made sample (fictional names, no visitor text)."""
+        if not crm.enabled:
+            raise ApiError(404, "not_found", "Отправка в CRM в этом демо не подключена.")
+        if body.sample not in samples:
+            raise ApiError(400, "invalid_argument", "Отправить в CRM можно задачи готового примера.")
+        ip = client_ip(req)
+        why = crm.limits.check(ip)
+        if why:
+            raise ApiError(429, "limit_" + why, "Лимит отправок на сегодня исчерпан, попробуйте позже."
+                           if why == "daily" else "Не чаще трёх отправок в час, попробуйте позже.")
+        try:
+            tasks = crm.send(crm.limits.key(ip), body.sample, samples[body.sample])
+        except CrmError as e:
+            log.warning("crm error: %s (%s)", e.code.value, e.provider)
+            raise ApiError(502, "crm_unavailable", f"{crm.name} сейчас не ответил, попробуйте позже.") from None
+        return {"provider": crm.provider, "name": crm.name, "tasks": tasks}
 
     @app.post("/api/analyze")
     def analyze(req: Request, body: AnalyzeIn):
