@@ -97,7 +97,7 @@ def test_config_intl_edition():
 def test_index_language_per_edition():
     ru = make(edition="ru").get("/").text
     en = make(edition="intl").get("/").text
-    assert '<html lang="ru">' in ru and "<title>Голосовой AI-ассистент</title>" in ru and "GigaChat" in ru
+    assert '<html lang="ru">' in ru and "<title>Голосовой ИИ-ассистент</title>" in ru
     assert '<html lang="en">' in en and "<title>Voice AI Assistant</title>" in en
     assert "GigaChat" not in en and "YandexGPT" not in en
     assert "sk-" not in en and "API_KEY" not in en
@@ -161,6 +161,13 @@ def test_upload_demo_mode_uses_mock_and_browser_voice():
     assert j["transcript"]["provider"] == "mock" and j["duration_sec"] == pytest.approx(2.0)
     assert j["reply"]["audio"] is None and j["mode"]["tts"] == "browser"
     assert "stt_mock" in j["notices"] and "llm_mock" in j["notices"] and j["lang"] == "en"
+
+
+def test_ru_upload_demo_mode_says_imitation_in_russian():
+    j = make(edition="ru").post("/api/process", files={"file": ("a.wav", wav(2), "audio/wav")},
+                                data={"consent": "voice-v1"}).json()
+    assert j["mode"]["stt"] == "mock" and j["transcript"]["text"].startswith("Это имитация")
+    assert "mock" not in j["transcript"]["text"] and "bytes" not in j["summary"]
 
 
 def test_upload_demo_mode_with_browser_transcript_ru():
@@ -334,4 +341,14 @@ def test_intl_needs_no_consent():
 def test_ru_page_has_consent_box_with_legal_links():
     html = make(edition="ru").get("/").text
     assert 'id="consentCb"' in html and "https://auth.demo.sedlab.dev/consent/voice" in html and "https://auth.demo.sedlab.dev/terms#3a" in html
-    assert "Демо не для персональных данных: загружайте тестовую запись." in html and "—" not in html
+    assert "Загружайте только тестовую запись" in html and "—" not in html
+
+
+def test_ru_page_is_honest_about_integrations():
+    """Owner 23.11: no claims of integrations that do not exist; tech details folded for specialists."""
+    html = make(edition="ru").get("/").text
+    assert 'id="integLine"' in html and 'id="techBox"' in html and "<details" in html
+    js = (Path(__file__).resolve().parent.parent / "static" / "app.js").read_text()
+    ru = js[js.index("    ru: {"):]
+    assert "сразу в CRM" not in ru and "мок" not in ru and "—" not in ru
+    assert "В этом демо такой отправки нет" in ru and "имитация" in ru

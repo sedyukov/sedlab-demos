@@ -73,7 +73,7 @@
       "container": "mp4",
       "title": {
         "en": "Project call, video file (RU, 2 voices)",
-        "ru": "Созвон по проекту, видеофайл (RU, 2 голоса)"
+        "ru": "Планёрка по проекту (видео, 2 участника)"
       },
       "lines": [
         {
@@ -132,7 +132,7 @@
       "container": "ogg",
       "title": {
         "en": "Telegram voice message (RU)",
-        "ru": "Голосовое из Telegram (RU)"
+        "ru": "Голосовое от клиента"
       },
       "lines": [
         {

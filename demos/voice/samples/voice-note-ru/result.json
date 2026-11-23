@@ -5,7 +5,7 @@
   "kind": "voice",
   "title": {
     "en": "Telegram voice message (RU)",
-    "ru": "Голосовое из Telegram (RU)"
+    "ru": "Голосовое от клиента"
   },
   "file": "input.ogg",
   "duration_sec": 18.8,

@@ -34,17 +34,21 @@ STATUS = {Code.INVALID_ARGUMENT: 400, Code.RATE_LIMITED: 429, Code.NOT_IMPLEMENT
 
 CONSENT_VERSION = "voice-v1"  # legal: /consent/voice + terms 3a; sent by the page with every own recording (RU)
 
+RU_MOCK_TRANSCRIPT = ("Это имитация: живое распознавание пока не подключено, поэтому здесь не текст вашей записи. "
+                      "Нажмите «Править текст», впишите свою фразу, например: «Анна пришлёт отчёт до пятницы», "
+                      "и нажмите «Пересчитать».")
+
 RU_META = [
     ('<html lang="en">', '<html lang="ru">'),
     ('hreflang="ru"', 'hreflang="en"'),
-    ("<title>Voice AI Assistant</title>", "<title>Голосовой AI-ассистент</title>"),
+    ("<title>Voice AI Assistant</title>", "<title>Голосовой ИИ-ассистент</title>"),
     ('content="Demo: transcribe voice messages and calls, get a summary, action items (who / what / when) and a spoken '
      'reply. Switch LLM: OpenAI, Anthropic or a local model."',
-     'content="Демо: расшифровка голосовых и созвонов, саммари, задачи (кто / что / срок) и ответ голосом. '
-     'GigaChat, YandexGPT, Yandex SpeechKit."'),
-    ('content="Voice AI Assistant: demo"', 'content="Голосовой AI-ассистент: демо"'),
+     'content="Демо: голосовые и созвоны в текст, кратко о главном, задачи (кто, что, к какому сроку) и ответ голосом. '
+     'Российские сервисы распознавания и нейросети."'),
+    ('content="Voice AI Assistant: demo"', 'content="Голосовой ИИ-ассистент: демо"'),
     ('content="Voice messages and calls → transcript → summary → action items → voice reply."',
-     'content="Голосовые и созвоны → расшифровка → саммари → задачи → ответ голосом."'),
+     'content="Голосовые и созвоны: текст, кратко, задачи и ответ голосом."'),
 ]
 
 
@@ -195,7 +199,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
                 raise ApiError(400, "consent_required", "Отметьте согласие над загрузкой, чтобы обработать свою запись.")
             data = await file.read(max_bytes + 1)
             if len(data) > max_bytes:
-                raise ApiError(413, "too_large", f"Max upload is {s.max_upload_mb} MB.")
+                raise ApiError(413, "too_large", f"Файл больше {s.max_upload_mb} МБ." if s.lang == "ru" else f"Max upload is {s.max_upload_mb} MB.")
             if not data:
                 raise ApiError(400, "invalid_argument", "empty file")
             filename = file.filename or "audio.wav"
@@ -207,9 +211,11 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         notices: list[str] = []
         if prov.stt_live:
             if duration is None:
-                raise ApiError(400, "need_wav", "Live mode expects 16 kHz mono WAV (the page converts files automatically).")
+                raise ApiError(400, "need_wav", "Не удалось прочитать запись. Попробуйте mp3, m4a или wav." if s.lang == "ru"
+                               else "Live mode expects 16 kHz mono WAV (the page converts files automatically).")
             if duration > s.max_audio_sec:
-                raise ApiError(400, "too_long", f"Live mode accepts audio up to {s.max_audio_sec} s.")
+                raise ApiError(400, "too_long", f"Запись длиннее {s.max_audio_sec} с: сократите её или откройте пример." if s.lang == "ru"
+                               else f"Live mode accepts audio up to {s.max_audio_sec} s.")
         g = gate_for(req, live)
         client = prov.client(llm)
 
@@ -230,7 +236,8 @@ def create_app(settings: Settings | None = None) -> FastAPI:
             notices.append("stt_browser")
         else:
             t = mock.transcribe(data, filename=filename)
-            transcript = {"text": t.text, "language": lang or t.language, "provider": t.provider, "segments": []}
+            text = RU_MOCK_TRANSCRIPT if s.lang == "ru" else t.text  # RU: a plain imitation text, not module internals
+            transcript = {"text": text, "language": lang or t.language, "provider": t.provider, "segments": []}
             notices.append("stt_mock")
         out_lang = pipeline.guess_lang(transcript["text"], lang or "en") if transcript["provider"] != "mock" else (lang or "en")
 

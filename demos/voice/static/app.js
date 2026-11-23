@@ -46,48 +46,70 @@
       seg_count: "{n} segments", dur: "{s} s",
     },
     ru: {
-      brand: "Голосовой AI-ассистент",
-      h1: "Голосовые и созвоны → саммари, задачи и ответ голосом",
-      lead: "Загрузите запись или скажите в микрофон. Ассистент расшифрует, напишет короткое саммари, выпишет задачи (кто / что / срок) и ответит голосом.",
-      s_audio: "Аудио / видео", s_transcript: "Расшифровка", s_summary: "Саммари", s_tasks: "Задачи", s_reply: "Ответ голосом",
-      t_samples: "Примеры", t_upload: "Загрузить файл", t_record: "Записать", llm: "LLM",
+      brand: "Голосовой ИИ-ассистент",
+      h1: "Голосовые и созвоны: кратко, задачи и ответ голосом",
+      lead: "Пришлите голосовое или запись созвона. Ассистент переведёт её в текст, коротко перескажет суть, выпишет задачи (кто, что, к какому сроку) и ответит голосом. Начните с примера ниже.",
+      s_audio: "Запись", s_transcript: "Текст записи", s_summary: "Кратко", s_tasks: "Задачи", s_reply: "Ответ голосом",
+      t_samples: "Примеры", t_upload: "Своя запись", t_record: "Сказать в микрофон", llm: "LLM",
       drop: "Перетащите аудио или видео сюда или нажмите, чтобы выбрать",
-      drop_hint: "mp3, m4a, ogg/opus (голосовые Telegram), wav, webm, mp4/mov, до {mb} МБ",
+      drop_hint: "Аудио или видео до {dur}, в том числе голосовые из Telegram. Файл до {mb} МБ.",
       rec_start: "Начать запись", rec_stop: "Остановить и обработать",
       rec_hint: "Скажите пару фраз, например: «Анна пришлёт отчёт до пятницы, я завтра позвоню клиенту».",
-      edit: "Править текст", done_edit: "Готово", reanalyze: "Пересчитать", copy_md: "Скопировать в Markdown", copied: "Скопировано ✓",
+      edit: "Править текст", done_edit: "Готово", reanalyze: "Пересчитать", copy_md: "Скопировать список задач", copied: "Скопировано ✓",
       th_what: "Что", th_who: "Кто", th_due: "Срок", play_reply: "Прослушать ответ", stop: "Стоп",
-      about_h: "Что внутри",
-      f1: "Распознавание голосовых, созвонов и видеофайлов (Yandex SpeechKit), таймкоды по фразам.",
-      f2: "Саммари и задачи с ответственным и сроком в JSON, сразу в CRM, Notion, Jira или Google Таблицу.",
-      f3: "Единый интерфейс LLM: GigaChat, YandexGPT или локальная модель, переключение конфигом, без правок кода. Данные остаются в России (152-ФЗ).",
+      about_h: "Чем полезно",
+      f1: "Не нужно слушать голосовые и записи созвонов целиком: суть читается за 10 секунд.",
+      f2: "Задачи из разговора сразу списком: кто, что и к какому сроку. Список можно скопировать в мессенджер или таск-трекер.",
+      f3: "Данные не уходят за границу: распознавание речи и нейросети российские, сервер в России.",
       other_ed: "English version",
       login_stub: "Войти и попробовать вживую", login_soon: "Вход скоро появится",
-      n_acc_login: "Войдите, чтобы запустить вживую: пока показан демо-режим.",
-      n_acc_limit: "Живой лимит на сегодня исчерпан: показываем демо-режим.",
-      n_acc_down: "Сервис входа недоступен: показываем демо-режим.",
-      n_acc_left: "Живой режим: осталось {n} запусков на сегодня.",
-      limits_acc: "Демо-режим: без расходов. Живой режим после входа: дневной лимит на пользователя, аудио до {sec} с.",
-      f4: "Ответ голосом (TTS). В Telegram-боте приходит голосовым сообщением.",
-      f5: "Контроль расходов: лимит на пользователя, дневной бюджет, максимальная длина аудио.",
+      n_acc_login: "Живая обработка доступна после входа.",
+      n_acc_limit: "Живые запуски на сегодня закончились, завтра лимит обновится.",
+      n_acc_down: "Вход временно недоступен, живая обработка выключена.",
+      n_acc_left: "Обработано вживую. Осталось запусков на сегодня: {n}.",
+      limits_acc: "Свою запись можно обработать вживую после входа: несколько запусков в день, запись до {dur}. Без входа доступны готовые примеры.",
+      f4: "Ответ голосом: удобно, когда человек за рулём или на объекте. В Telegram-боте ответ приходит голосовым сообщением.",
+      f5: "Расходы на нейросети под контролем: лимит на человека и на день, счёт не вырастет неожиданно.",
       foot: "Демо sedlab · в примерах синтезированные голоса, без персональных данных.",
-      privacy: "Записи не сохраняются: обрабатываются в памяти и сразу удаляются. Живой режим отправляет ваш запрос провайдеру: GigaChat (Россия), YandexGPT (Россия), Yandex SpeechKit (Россия). Не вводите чужие персональные данные.",
-      mode_demo: "Демо-режим", mode_live: "Живой режим", mode_demo_t: "На сервере нет API-ключей: примеры посчитаны заранее, остальное работает на моках.",
+      privacy: "Записи не сохраняются: обрабатываются в памяти и сразу удаляются. Не загружайте записи с чужими персональными данными.",
+      mode_demo: "Демо-режим", mode_live: "Живой режим", mode_demo_t: "Готовые примеры, своя запись в режиме имитации.",
       mode_live_t: "Настоящие модели с лимитами расходов.",
       tag_live: "live", tag_demo: "демо",
       limits_live: "Живой режим: аудио до {sec} с и {mb} МБ, {n} запусков в час на посетителя. Осталось на сегодня: {left}.",
       limits_demo: "Демо-режим: без ключей и расходов. В живом режиме: аудио до {sec} с, {n} запусков в час на посетителя.",
       k_meeting: "созвон", k_voice: "голосовое", sec: "с",
-      n_sample: "Результат для примера посчитан заранее (демо-режим). С API-ключами та же кнопка запускает настоящий конвейер.",
-      n_stt_mock: "Демо-режим: живое распознавание выключено, поэтому расшифровка будет заглушкой мока. Нажмите «Править текст», напишите пару строк и «Пересчитать», или откройте пример.",
-      n_stt_browser: "Демо-режим: расшифровка сделана распознаванием речи вашего браузера.",
-      n_llm_mock: "LLM без ключа работает как мок: саммари = первое предложение, задачи = строки вида «- Прислать отчёт @Анна 2026-12-01».",
+      n_sample: "Это готовый пример: результат подготовлен заранее. Свою запись можно загрузить во вкладке «Своя запись».",
+      n_stt_mock: "Имитация: живое распознавание и нейросеть сейчас не подключены, поэтому результат ниже ненастоящий. Чтобы увидеть настоящий результат, откройте готовый пример.",
+      n_stt_browser: "Текст записи распознал ваш браузер.",
+      n_llm_mock: "Имитация: нейросеть сейчас не подключена. «Кратко» здесь = первая фраза, задачи = строки вида «- Прислать отчёт @Анна 2026-12-01».",
       e_generic: "Что-то пошло не так. Попробуйте ещё раз.", e_mic: "Микрофон недоступен: {m}",
       e_decode: "Браузер не смог прочитать файл. Попробуйте mp3, m4a или wav.",
       no_tasks: "Задач не найдено", processing: "Обработка…",
       tg_line: "Telegram-бот: пришлите ему голосовое, и он ответит саммари, задачами и голосом.",
-      p_sample: "пример", p_mock: "мок", p_browser: "браузер", p_live: "live",
+      p_sample: "пример", p_mock: "имитация", p_browser: "браузер", p_live: "вживую",
       seg_count: "{n} фраз", dur: "{s} с",
+      integ: "Отправку задач в Битрикс24, amoCRM или Яндекс Трекер подключаю под ваш сервис. В этом демо такой отправки нет: список задач можно скопировать кнопкой.",
+      tech_h: "Для специалистов: как это устроено",
+      tech_stt: "Распознавание речи: Yandex SpeechKit, таймкоды по фразам. Сейчас на демо: {st}.",
+      tech_llm: "Нейросеть: YandexGPT или GigaChat, переключение настройкой без правок кода; имена и контакты маскируются перед отправкой в GigaChat. Сейчас на демо: {st}.",
+      tech_tts: "Ответ голосом: синтез Yandex SpeechKit; без ключа звучит встроенный голос браузера. Сейчас на демо: {st}.",
+      tech_json: "Результат в JSON (кратко, задачи с ответственным и сроком): готов к отправке в CRM или трекер по API.",
+      tech_limits: "Защита от расходов: вход по аккаунту, дневной лимит на пользователя и общий бюджет, аудио до {sec} с, файл до {mb} МБ.",
+      tech_store: "Хранение: аудио обрабатывается в памяти и не сохраняется, журналирование запросов у провайдера отключено, сервер в России (152-ФЗ).",
+      tech_code: "Стек: Python (FastAPI), страница без фреймворков, Docker. Исходный код демо открыт на GitHub.",
+      st_live: "работает вживую",
+      st_mock: "имитация, ключи не подключены",
+      limits_acc_soon: "Готовые примеры доступны всем. Живая обработка своих записей появится вместе со входом, пока своя запись обрабатывается в режиме имитации.",
+      k_video: "видео",
+      k_audio: "аудио",
+      c_sample: "готовый пример",
+      c_mock: "имитация",
+      c_browser: "распознал браузер",
+      c_live: "вживую",
+      c_llm_live: "нейросеть {p}",
+      c_tts_live: "синтез речи",
+      c_tts_browser: "голос браузера",
+      min: "{n} мин",
     },
   };
   const LLM_NAMES = { openai: "OpenAI", anthropic: "Anthropic", gigachat: "GigaChat", yandexgpt: "YandexGPT" };
@@ -108,6 +130,8 @@
     if (vars) for (const [a, b] of Object.entries(vars)) s = s.replaceAll("{" + a + "}", b);
     return s;
   };
+  const isRu = () => state.lang === "ru";
+  const durText = (sec) => (sec % 60 === 0 ? t("min", { n: sec / 60 }) : sec + " " + t("sec"));
   const esc = (s) => String(s ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
   const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
   const fmtTime = (s) => { s = Math.max(0, Math.floor(s)); return Math.floor(s / 60) + ":" + String(s % 60).padStart(2, "0"); };
@@ -131,18 +155,20 @@
     state.cfg = await r.json();
     if (state.cfg.lang && state.cfg.lang !== state.lang) { state.lang = state.cfg.lang; applyLang(); }
     const llm = state.cfg.providers.llm;
-    if (!llm[state.llm] || (llm[state.llm] !== "live" && Object.values(llm).includes("live"))) state.llm = state.cfg.default_llm || Object.keys(llm)[0];
+    if (isRu() || !llm[state.llm] || (llm[state.llm] !== "live" && Object.values(llm).includes("live"))) state.llm = state.cfg.default_llm || Object.keys(llm)[0];
     renderConfig();
   }
 
   function renderConfig() {
     const c = state.cfg, p = c.providers;
     const oe = $("#otherEd");
-    oe.hidden = !c.other_url; oe.href = c.other_url || "#"; oe.textContent = t("other_ed");
+    oe.hidden = !c.other_url || isRu(); oe.href = c.other_url || "#"; oe.textContent = t("other_ed");
     renderAccount(c.accounts || {});
     syncConsent();
     const live = p.stt === "live" || Object.values(p.llm).includes("live");
     const b = $("#modeBadge");
+    b.hidden = isRu();  // RU: no "demo / live" jargon in the header; each result card says what it is
+    $("#llmBox").hidden = isRu();
     b.className = "badge " + (live ? "live" : "demo");
     b.textContent = live ? "● " + t("mode_live") : "● " + t("mode_demo");
     b.title = live ? t("mode_live_t") : t("mode_demo_t");
@@ -163,7 +189,7 @@
       return `<button type="button" class="sample" data-sample="${s.id}">
         <span class="s-top"><span class="s-ico">${ico}</span>${esc(s.title[state.lang] || s.title.en)}</span>
         <span class="wave">${bars}</span>
-        <span class="s-meta">${s.lang.toUpperCase()} · ${t("k_" + s.kind)} · ${Math.round(s.duration_sec)} ${t("sec")} · ${s.file.split(".").pop()}</span>
+        <span class="s-meta">${isRu() ? `${t(s.file.endsWith(".mp4") ? "k_video" : s.kind === "voice" ? "k_voice" : "k_audio")} · ${Math.round(s.duration_sec)} ${t("sec")}` : `${s.lang.toUpperCase()} · ${t("k_" + s.kind)} · ${Math.round(s.duration_sec)} ${t("sec")} · ${s.file.split(".").pop()}`}</span>
       </button>`;
     }).join("");
     $$(".sample").forEach((x) => x.addEventListener("click", () => runSample(x.dataset.sample)));
@@ -171,13 +197,34 @@
 
     const L = c.limits;
     $("#limits").textContent = (c.accounts && c.accounts.enabled)
-      ? t("limits_acc", { sec: L.max_audio_sec })
+      ? t(c.accounts.widget ? "limits_acc" : "limits_acc_soon", { sec: L.max_audio_sec, dur: durText(L.max_audio_sec) })
       : live
         ? t("limits_live", { sec: L.max_audio_sec, mb: L.max_upload_mb, n: L.ip_per_hour, left: L.daily_left })
         : t("limits_demo", { sec: L.max_audio_sec, n: L.ip_per_hour });
-    $("#dropHint").textContent = t("drop_hint", { mb: L.max_upload_mb });
+    $("#dropHint").textContent = t("drop_hint", { mb: L.max_upload_mb, dur: durText(L.max_audio_sec) });
+    renderAbout(c);
     $("#tgLine").hidden = !c.telegram;
     $("#tgLine").textContent = t("tg_line");
+  }
+
+  /* ---------- RU: honest integration line + technical details folded away for specialists ---------- */
+  function renderAbout(c) {
+    const on = isRu();
+    $("#integLine").hidden = !on; $("#techBox").hidden = !on;
+    if (!on) return;
+    $("#integLine").textContent = t("integ");
+    $("#techSum").textContent = t("tech_h");
+    const p = c.providers, st = (live) => t(live ? "st_live" : "st_mock"), L = c.limits;
+    const items = [
+      t("tech_stt", { st: st(p.stt === "live") }),
+      t("tech_llm", { st: st(Object.values(p.llm).includes("live")) }),
+      t("tech_tts", { st: st(p.tts === "live") }),
+      t("tech_json"),
+      t("tech_limits", { sec: L.max_audio_sec, mb: L.max_upload_mb }),
+      t("tech_store"),
+      t("tech_code"),
+    ];
+    $("#techList").innerHTML = items.map((x) => `<li>${esc(x)}</li>`).join("");
   }
 
   /* ---------- sign-in (RU edition): auth's widget.js, or a stub button until auth is live ---------- */
@@ -204,11 +251,11 @@
   const consentOk = () => !needConsent() || !!($("#consentCb") && $("#consentCb").checked);
   function consentProviders() {
     const llm = (state.cfg && state.cfg.providers && state.cfg.providers.llm) || {};
-    return llm.gigachat === "live" ? "Яндекс.Облако / GigaChat (РФ)" : "Яндекс.Облако (РФ)";
+    return llm.gigachat === "live" ? "Яндекс.Облако и GigaChat (Россия)" : "Яндекс.Облако (Россия)";
   }
   function syncConsent() {
-    const p = $("#consentBox p");
-    if (p) p.textContent = p.textContent.replace(/Расшифровка: .*?\(РФ\)/, "Расшифровка: " + consentProviders());
+    const p = $("#consentText");
+    if (p) p.textContent = p.textContent.replace(/уходит в .*?\(Россия\)/, "уходит в " + consentProviders());
     const tab = ($("[data-tab].on") || {}).dataset ? $("[data-tab].on").dataset.tab : "samples";
     if ($("#consentBox")) $("#consentBox").hidden = !needConsent() || tab === "samples";
     const lock = !consentOk();
@@ -336,6 +383,10 @@
 
   /* ---------- render ---------- */
   function chip(txt) { return `<span class="chip">${esc(txt)}</span>`; }
+  function status(mode, label) {  // RU: "готовый пример" / "имитация" / "вживую" / "распознал браузер"
+    const m = mode || "sample";
+    return `<span class="chip st-${esc(m)}">${esc(label || t("c_" + m))}</span>`;
+  }
   function provLabel(p) { return t("p_" + p) !== "p_" + p ? t("p_" + p) : p; }
 
   async function render(r, opts = {}) {
@@ -355,24 +406,32 @@
     if (r.duration_sec) meta.push(t("dur", { s: Math.round(r.duration_sec) }));
     if (tr.language) meta.push(tr.language.toUpperCase());
     if (segs.length) meta.push(t("seg_count", { n: segs.length }));
-    meta.push("STT: " + provLabel(r.mode && r.mode.stt));
-    $("#trMeta").innerHTML = meta.map(chip).join("");
+    if (isRu()) {
+      meta.length = 0;
+      if (r.duration_sec) meta.push(t("dur", { s: Math.round(r.duration_sec) }));
+    } else meta.push("STT: " + provLabel(r.mode && r.mode.stt));
+    $("#trMeta").innerHTML = meta.map(chip).join("") + (isRu() ? status(r.mode && r.mode.stt) : "");
 
     await step("summary");
     $("#summary").innerHTML = `<span class="reveal">${esc(r.summary)}</span>`;
     const real = r.llm && LLM_NAMES[r.llm.provider];
     const llmChip = !r.llm ? t("p_sample") : real ? `LLM: ${real}${r.llm.model ? " · " + r.llm.model : ""}` : `LLM: ${t("p_mock")}`;
-    $("#llmMeta").innerHTML = chip(llmChip);
+    $("#llmMeta").innerHTML = !isRu() ? chip(llmChip)
+      : r.mode && r.mode.llm === "live" && real ? status("live", t("c_llm_live", { p: real }))
+        : status(r.mode && r.mode.llm === "live" ? "live" : (r.mode && r.mode.llm) || "sample");
 
     await step("tasks");
     renderTasks(r.tasks || []);
 
     await step("reply");
     $("#reply").innerHTML = `<span class="reveal">${esc(r.reply.text)}</span>`;
-    $("#ttsMeta").innerHTML = chip("TTS: " + provLabel(r.reply.audio ? (r.mode.tts === "sample" ? "sample" : "live") : "browser"));
+    const ttsMode = r.reply.audio ? (r.mode.tts === "sample" ? "sample" : "live") : "browser";
+    $("#ttsMeta").innerHTML = !isRu() ? chip("TTS: " + provLabel(ttsMode))
+      : status(ttsMode, ttsMode === "live" ? t("c_tts_live") : ttsMode === "browser" ? t("c_tts_browser") : "");
     $("#replyAudio").src = r.reply.audio || "";
 
-    const ns = (r.notices || []).map((n) => t("n_" + n)).filter((x) => !x.startsWith("n_"));
+    const nk = (r.notices || []).filter((n) => !(isRu() && n === "llm_mock" && r.notices.includes("stt_mock")));
+    const ns = nk.map((n) => t("n_" + n)).filter((x) => !x.startsWith("n_"));
     if (r.account && r.account.user_left != null) ns.push(t("n_acc_left", { n: r.account.user_left }));
     $("#notice").hidden = !ns.length;
     $("#notice").textContent = ns.join(" ");

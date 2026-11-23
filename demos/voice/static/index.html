@@ -42,7 +42,7 @@
         <button type="button" role="tab" data-tab="upload" data-i18n="t_upload">Upload file</button>
         <button type="button" role="tab" data-tab="record" data-i18n="t_record">Record</button>
       </div>
-      <div class="llm">
+      <div class="llm" id="llmBox">
         <span class="muted" data-i18n="llm">LLM</span>
         <div class="seg" id="llmSeg" role="radiogroup" aria-label="LLM"></div>
       </div>
@@ -54,7 +54,7 @@
 
     <!--ru-only-->
     <div class="consent" id="consentBox" hidden>
-      <p>Демо не для персональных данных: загружайте тестовую запись. Расшифровка: Яндекс.Облако / GigaChat (РФ), аудио удаляется сразу, запросы не журналируются.</p>
+      <p id="consentText">Загружайте только тестовую запись, без чужих персональных данных. При живой обработке запись уходит в Яндекс.Облако (Россия) и сразу удаляется, запросы не журналируются.</p>
       <label class="consent-check"><input type="checkbox" id="consentCb"> <span>Даю <a href="https://auth.demo.sedlab.dev/consent/voice" target="_blank" rel="noopener">согласие</a> и подтверждаю, что у меня есть согласие людей, чьи голоса и данные есть в записи (<a href="https://auth.demo.sedlab.dev/terms#3a" target="_blank" rel="noopener">условия</a>).</span></label>
     </div>
     <!--/ru-only-->
@@ -139,6 +139,11 @@
       <li data-i18n="f5">Cost control: rate limit per user, daily budget, maximum audio length.</li>
     </ul>
     <p class="muted" id="tgLine" hidden></p>
+    <p class="integ" id="integLine" hidden></p>
+    <details class="tech" id="techBox" hidden>
+      <summary id="techSum"></summary>
+      <ul class="feat" id="techList"></ul>
+    </details>
   </section>
 </main>
 

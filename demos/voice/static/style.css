@@ -120,6 +120,12 @@ h1 { font-size: clamp(24px, 4vw, 36px); line-height: 1.15; margin: 0 0 10px; let
 .col { display: flex; flex-direction: column; gap: 16px; }
 .chips { display: flex; gap: 6px; flex-wrap: wrap; }
 .chip { font-size: 12px; padding: 2px 8px; border-radius: 99px; background: var(--surface-2); color: var(--muted); }
+.chip.st-mock { background: var(--warn-soft); color: var(--warn); font-weight: 600; }
+.chip.st-live { color: var(--ok); font-weight: 600; }
+.integ { margin: 12px 0 0; font-size: 14px; }
+.tech { margin-top: 12px; font-size: 14px; }
+.tech summary { cursor: pointer; color: var(--muted); }
+.tech .feat { margin-top: 8px; color: var(--muted); }
 audio, video { width: 100%; margin-bottom: 10px; border-radius: 10px; }
 video { max-height: 200px; background: #000; }
 .segments { max-height: 360px; overflow: auto; display: flex; flex-direction: column; gap: 2px; }

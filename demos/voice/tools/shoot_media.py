@@ -62,8 +62,8 @@ async def video(b, base: str, samples: list[str], tmp: Path) -> Path:
     await pg.goto(base)
     await pg.wait_for_selector(".sample")
     await pg.wait_for_timeout(1500)
-    n = await pg.locator("#llmSeg button").count()
-    for i in [*range(1, n), 0]:  # the LLM switch (buttons re-render on click → locate by index)
+    n = await pg.locator("#llmSeg button:visible").count()  # RU hides the switch
+    for i in ([*range(1, n), 0] if n else []):  # the LLM switch (buttons re-render on click → locate by index)
         await pg.locator("#llmSeg button").nth(i).click()
         await pg.wait_for_timeout(450)
     first = True
