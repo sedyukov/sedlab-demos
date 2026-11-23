@@ -27,6 +27,7 @@
   let nowTs = $state(Math.floor(Date.now() / 1000))
   let starsSheet = $state(null) // {title, amount, resolve}
   let checkoutUrl = $state('')
+  let liveLink = $state('')
   let checkoutResolve = null
   let timer, poller
 
@@ -110,14 +111,20 @@
       const p = await api('POST', `/api/bookings/${booking.id}/pay`, { method })
       booking = { ...booking, pay_amount: p.amount, pay_currency: p.currency }
       if (p.live) flash(L('liveOn', { n: p.live_left }))
-      else if (['user_daily', 'global_daily', 'budget_month'].includes(p.live_reason)) flash(L('liveOff'))
+      else if (['user_daily', 'ip_daily', 'global_daily', 'budget_month'].includes(p.live_reason)) flash(L('liveOff'))
       if (p.method === 'stars') {
         const status = await tg.openInvoice(p.invoice_link)
         if (status === 'paid') { tg.haptic('success'); await openBooking(booking.id, true) }
         else if (status === 'failed') flash(L('err'))
       } else {
         // live test shop is a real external page: open it outside the emulator overlay
-        const r = p.live && tg.isEmulator ? (window.open(p.confirmation_url, '_blank', 'noopener'), 'opened') : await tg.openCheckout(p.confirmation_url)
+        let r
+        if (p.live && tg.isEmulator) { // real YooKassa page: a separate tab (it cannot live inside the imitation)
+          const w = window.open(p.confirmation_url, '_blank')
+          if (w) w.opener = null
+          else liveLink = p.confirmation_url // popup blocked: the visitor taps the link
+          r = 'opened'
+        } else r = await tg.openCheckout(p.confirmation_url)
         await openBooking(booking.id, true)
         if (r === 'canceled') flash(L('st_pending'))
       }
@@ -249,7 +256,8 @@
           </button>
         {/each}
       </div>
-      {#if lang === 'ru' && !cfg.live_available}<p class="hint">{L('demoPay')}</p>{/if}
+      {#if lang === 'ru'}<p class="hint">{cfg.live_available ? L('livePay') : L('demoPay')}</p>{/if}
+      {#if liveLink}<a class="btn soft" href={liveLink} target="_blank" rel="noopener" onclick={() => (liveLink = '')}>{L('liveOpen')} ↗</a>{/if}
       {#if booking?.status === 'pending' && holdLeft > 0}
         <p class="hint hold">⏱ {L('held', { m: Math.floor(holdLeft / 60), s: String(holdLeft % 60).padStart(2, '0') })}</p>
       {/if}

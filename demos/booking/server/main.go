@@ -207,13 +207,14 @@ func NewAppFromEnv(log *slog.Logger) (*App, error) {
 		return nil, err
 	}
 	app.acc, app.livePay = accClient, livePay
+	app.live = newLiveQuota(envInt("LIVE_PER_IP_DAY", 3), envInt("LIVE_PER_DAY", 60))
 	return app, nil
 }
 
 // NewApp wires the app (also used by tests).
 func NewApp(cfg Config, st *Store, bot *tg.Bot, maxm *maxMessenger, p pay.Provider, n Notifier, log *slog.Logger) (*App, error) {
 	tgm := newTelegramMessenger(bot, cfg.TelegramLive, cfg.Emulator, cfg.WebhookSecret)
-	a := &App{cfg: cfg, store: st, msg: tgm, tgm: tgm, max: maxm, pay: p, notify: n, log: log, now: time.Now}
+	a := &App{cfg: cfg, store: st, msg: tgm, tgm: tgm, max: maxm, pay: p, notify: n, log: log, now: time.Now, live: newLiveQuota(3, 60)}
 	if a.notify == nil {
 		a.notify = notify.NewMockClient()
 	}

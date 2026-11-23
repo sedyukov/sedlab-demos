@@ -51,7 +51,7 @@ func newHarness(t *testing.T, edition string) *harness {
 		LeadMinutes: 60, Emulator: true, WebhookSecret: secret, PaymentsMock: true}
 	log := slog.New(slog.NewTextHandler(io.Discard, nil))
 	// seed with the harness clock
-	a := &App{cfg: cfg, store: st, pay: p, log: log, now: func() time.Time { return h.now }}
+	a := &App{cfg: cfg, store: st, pay: p, log: log, now: func() time.Time { return h.now }, live: newLiveQuota(3, 60)}
 	tgm := newTelegramMessenger(bot, false, true, secret)
 	a.msg, a.tgm, a.notify = tgm, tgm, notify.NewMockClient()
 	a.cfg.MaxSecret = "test-max-secret"
@@ -436,6 +436,7 @@ func TestRuLiveModeViaAccounts(t *testing.T) {
 	}
 	live, _ := pay.OpenMock(pay.MockConfig{CheckoutURL: "https://yookassa.test.invalid/{id}"})
 	h.app.acc, h.app.livePay = ac, live
+	h.app.live = newLiveQuota(3, 0) // accounts path only (anonymous live off)
 	if _, cfg := h.do("GET", "/api/config", "", nil); cfg["accounts_ui"] != "stub" || cfg["live_available"] != true {
 		t.Fatalf("config: %v", cfg)
 	}
@@ -508,5 +509,43 @@ func TestIntlNoConsentNoNames(t *testing.T) {
 	msgs := h.chat(uid)
 	if len(msgs) != 2 || !strings.Contains(msgs[1]["text"].(string), "Nothing is stored after the session") {
 		t.Fatalf("intl welcome: %v", msgs)
+	}
+}
+
+// Owner decision 2026-11-23: without a sign-in the real YooKassa TEST shop is open to everyone, limited per IP and per day.
+func TestRuLiveAnonymousByIP(t *testing.T) {
+	h := newHarness(t, "ru")
+	live, _ := pay.OpenMock(pay.MockConfig{CheckoutURL: "https://yookassa.test.invalid/{id}"})
+	h.app.livePay, h.app.live = live, newLiveQuota(2, 3)
+	n := int64(50)
+	pay1 := func(ip string) map[string]any {
+		n++
+		tok, _ := h.login("guest", n, "ru") // a fresh visitor each time (unpaid holds are limited per user)
+		b := h.book(tok, "2026-11-24")
+		req := httptest.NewRequest("POST", fmt.Sprintf("/api/bookings/%d/pay", int64(b["id"].(float64))), strings.NewReader(`{"method":"card"}`))
+		req.Header.Set("Authorization", "Bearer "+tok)
+		req.Header.Set("Content-Type", "application/json")
+		req.Header.Set("X-Forwarded-For", ip)
+		w := httptest.NewRecorder()
+		h.app.Routes().ServeHTTP(w, req)
+		var out map[string]any
+		json.Unmarshal(w.Body.Bytes(), &out)
+		if w.Code != 200 {
+			t.Fatalf("pay %d: %s", w.Code, w.Body)
+		}
+		return out
+	}
+	for i, want := range []bool{true, true, false} { // 2 per IP
+		if p := pay1("203.0.113.7"); p["live"] != want {
+			t.Fatalf("ip A run %d: %v", i, p)
+		} else if !want && p["live_reason"] != "ip_daily" {
+			t.Fatalf("ip A reason: %v", p)
+		}
+	}
+	if p := pay1("198.51.100.9"); p["live"] != true || !strings.HasPrefix(p["confirmation_url"].(string), "https://yookassa.test.invalid/") {
+		t.Fatalf("ip B: %v", p)
+	}
+	if p := pay1("192.0.2.1"); p["live"] != false || p["live_reason"] != "global_daily" { // 3 a day overall
+		t.Fatalf("global cap: %v", p)
 	}
 }

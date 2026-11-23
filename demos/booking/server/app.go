@@ -50,6 +50,7 @@ type App struct {
 	pay     pay.Provider       // mock card payments (demo)
 	livePay pay.Provider       // real YooKassa TEST shop (ru, keys set); only in accounts live mode
 	acc     *acc.Client        // accounts (ru edition); nil in intl
+	live    *liveQuota         // live payments without a sign-in: per-IP / per-day quota
 	notify  Notifier
 	log     *slog.Logger
 	now     func() time.Time

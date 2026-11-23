@@ -49,3 +49,6 @@ Until the RU host exists, `infra/compose/booking` (DO) serves the RU edition wit
 - Честность: подпись «имитация окна мессенджера»; оплата названа «Учебная оплата (имитация)», без названий провайдеров и без карты.
 - Убраны: значок sedlab · demo, стек-чипы, /start и /my (кнопки «Меню», «Мои записи»), заглушка входа (вернётся с виджетом).
 - Админка RU: без полей EN, «Ждут оплаты». e2e RU и медиа *-ru обновлены. INTL не трогали.
+- Тестовая ЮKassa открыта всем без входа (решение владельца 23.11): лимит 3 оплаты в день с IP и 60 в день всего
+  (`LIVE_PER_IP_DAY`, `LIVE_PER_DAY`; IP только солёным хешем в памяти). Включится, когда в sec появятся
+  `PAYMENTS_YOOKASSA_SHOP_ID/SECRET_KEY`. Адрес уведомлений: https://booking.demo.sedlab.dev/payments/webhook. Тест `TestRuLiveAnonymousByIP`.
