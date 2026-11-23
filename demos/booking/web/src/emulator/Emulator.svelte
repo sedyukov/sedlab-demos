@@ -33,20 +33,28 @@
       bot: 'Bloom Salon Bot', online: 'bot', placeholder: 'Message', open: 'Open', start: 'Start',
       built: 'Built with', more: 'Same code runs as a real Telegram bot: just add a BotFather token.', noRem: 'Book something first: the reminder is about your next visit.',
       variants: 'International edition: English, Telegram, Stars and Stripe. A Russian edition (YooKassa, Max) runs on a Russian server.', messenger: 'Messenger', other: 'Русская версия',
-      chips: ['Go', 'SQLite', 'Svelte', 'Telegram Mini App', 'Telegram Stars', 'Stripe', 'Docker'],
+      menu: 'Menu', myBtn: 'My bookings', app: 'mini app',
+      imitation: 'This is a browser imitation of the messenger window. The same bot runs in real Telegram.',
+      gainsTitle: 'Built with', gains: ['Go, SQLite, Svelte, Docker'],
+      techTitle: 'For specialists', tech: ['Same code runs as a real Telegram bot: just add a BotFather token.'],
     },
     ru: {
-      h1: 'Бот записи в салон + Telegram Mini App', lead: 'Живое демо. Страница эмулирует Telegram, поэтому попробовать можно без аккаунта. Бэкенд боевой: подписанные данные запуска, вебхуки, песочница платежей.',
-      persona: 'Вы', guest: 'Клиент', owner: 'Владелец салона', name: 'Ваше имя', steps: 'Как попробовать',
-      s1: 'Нажмите «Записаться» в чате', s2: 'Выберите услугу, мастера и время', s3: 'Внесите предоплату картой (ЮKassa, песочница)', s4: 'Получите подтверждение и напоминания в чат',
+      h1: 'Бот записи в салон красоты', lead: 'Так клиент салона записывается через бота: выбирает услугу, мастера и время, вносит предоплату и получает напоминания. Попробуйте сами, это займёт минуту.',
+      persona: 'Посмотреть', guest: '👤 Как клиент', owner: '💼 Глазами владельца салона', name: 'Ваше имя (любое)', steps: 'Как попробовать',
+      s1: 'Нажмите «Согласен, начать», затем «Записаться» в чате справа', s2: 'Выберите услугу, мастера и время', s3: 'Внесите предоплату: оплата учебная, деньги не списываются', s4: 'Получите подтверждение и напоминание в чат',
       ownerSteps: 'Владельцу приходит сообщение о каждой новой записи, а в админке он ведёт расписание, мастеров и услуги.',
-      remind: '⏩ Прислать напоминание сейчас', admin: 'Открыть админку ↗', reset: 'Сбросить демо-данные', resetDone: 'Демо-данные восстановлены',
-      bot: 'Bloom Salon Bot', online: 'бот', placeholder: 'Сообщение', open: 'Открыть', start: 'Старт',
-      built: 'Стек', more: 'Тот же код работает как настоящий Telegram-бот, нужен только токен от BotFather.', noRem: 'Сначала запишитесь: напоминание приходит о ближайшем визите.',
-      variants: 'Российская редакция: Telegram и Max, оплата через ЮKassa, данные хранятся в России.', messenger: 'Мессенджер', other: 'English version',
+      remind: 'Показать, как придёт напоминание', admin: 'Открыть админку салона ↗', reset: 'Начать заново', resetDone: 'Данные демо восстановлены',
+      bot: 'Салон Bloom', online: 'бот', placeholder: 'Сообщение', open: 'Открыть', start: 'Старт',
+      menu: 'Меню', myBtn: 'Мои записи', app: 'запись',
+      imitation: 'Это имитация окна мессенджера в браузере, чтобы попробовать без установки. Тот же бот работает в настоящих Telegram и Max.',
+      gainsTitle: 'Что получает салон',
+      gains: ['Клиенты записываются сами, в любое время и без звонков', 'Предоплата и напоминания за сутки и за 2 часа: меньше неявок', 'Расписание мастеров, услуги и записи в одной админке', 'Работает в Telegram и Max, данные хранятся в России'],
+      techTitle: 'Для специалистов: что здесь настоящее',
+      tech: ['Настоящие: сервер и вся логика записи (слоты, удержание времени, предоплата 30%, отмена с возвратом, напоминания), админка, база данных. Это тот же код, что работает в рабочем боте.', 'Имитация: окно мессенджера (браузер вместо Telegram и Max) и оплата (учебная страница, платёжная система не подключена). Данные запуска мини-приложения подписываются и проверяются так же, как в Telegram.', 'Чтобы запустить вживую, нужны токен бота и ключи магазина платёжной системы.', 'Стек: Go, SQLite, Svelte, Docker. Сервер в России, тестовые данные удаляются через 7 дней.'],
+      noRem: 'Сначала запишитесь: напоминание приходит о ближайшем визите.',
+      variants: '', messenger: 'Мессенджер', other: 'English version',
       live: 'Живой режим', liveText: 'Войдите через Max, Яндекс ID или VK ID: предоплата пройдёт через настоящий тестовый магазин ЮKassa (несколько раз в день). Без входа работает демо-режим.',
       signIn: 'Войти и попробовать вживую', stubNote: 'Вход через Max, Яндекс ID и VK ID включится после запуска сервиса аккаунтов. Пока работает демо-режим.',
-      chips: ['Go', 'SQLite', 'Svelte', 'Telegram Mini App', 'Max', 'ЮKassa', 'Docker'],
     },
   }
   const L = $derived(T[lang])
@@ -152,7 +160,7 @@
 <div class="page">
   <section class="intro">
     <div class="top">
-      <span class="badge">sedlab · demo</span>
+      <span></span>
       {#if cfg.other_url}<a class="other" href={cfg.other_url}>{L.other} ↗</a>{/if}
     </div>
     <h1>{L.h1}</h1>
@@ -161,8 +169,8 @@
     <div class="block">
       <div class="label">{L.persona}</div>
       <div class="seg">
-        <button class:on={persona === 'guest'} onclick={() => switchPersona('guest')}>👤 {L.guest}</button>
-        <button class:on={persona === 'owner'} onclick={() => switchPersona('owner')}>💼 {L.owner}</button>
+        <button class:on={persona === 'guest'} onclick={() => switchPersona('guest')}>{L.guest}</button>
+        <button class:on={persona === 'owner'} onclick={() => switchPersona('owner')}>{L.owner}</button>
       </div>
       {#if persona === 'guest' && cfg.max}
         <div class="label sp">{L.messenger}</div>
@@ -188,7 +196,7 @@
         <div class="row"><button class="btn" onclick={openAdmin}>{L.admin}</button><button class="btn ghost" onclick={resetDemo}>{L.reset}</button></div>
       </div>
     {/if}
-    {#if cfg.accounts_ui === 'stub' || cfg.accounts_ui === 'widget'}
+    {#if cfg.accounts_ui === 'widget'}
       <div class="block live">
         <div class="label">{L.live}</div>
         <p>{L.liveText}</p>
@@ -196,12 +204,15 @@
         {:else}<button class="btn" onclick={() => flash(L.stubNote)}>{L.signIn}</button>{/if}
       </div>
     {/if}
-    <p class="hint">{L.variants}</p>
-    <div class="block stack">
-      <div class="label">{L.built}</div>
-      <div class="chips">{#each L.chips as c}<span>{c}</span>{/each}</div>
-      <p class="hint">{L.more}</p>
+    {#if L.variants}<p class="hint">{L.variants}</p>{/if}
+    <div class="block">
+      <div class="label">{L.gainsTitle}</div>
+      <ul class="gains">{#each L.gains as g}<li>{g}</li>{/each}</ul>
     </div>
+    <details class="block tech">
+      <summary>{L.techTitle}</summary>
+      {#each L.tech as p}<p>{p}</p>{/each}
+    </details>
     {#if notice}<div class="notice">{notice}</div>{/if}
   </section>
 
@@ -221,18 +232,19 @@
         {/each}
       </div>
       <div class="composer">
-        <button class="chip" onclick={() => send('/start')}>/start</button>
-        <button class="chip" onclick={() => send('/my')}>/my</button>
+        <button class="chip" onclick={() => send('/start')}>{L.menu}</button>
+        <button class="chip" onclick={() => send('/my')}>{L.myBtn}</button>
         <input placeholder={L.placeholder} bind:value={input} onkeydown={(e) => e.key === 'Enter' && send()} maxlength="200" />
         <button class="send" onclick={() => send()} aria-label="send">➤</button>
       </div>
       {#if appUrl}
         <div class="miniapp">
-          <div class="ma-head"><button onclick={() => (appUrl = '')}>✕</button><b>Bloom Salon</b><span class="hint">{onMax ? 'Max · ' : ''}mini app</span></div>
+          <div class="ma-head"><button onclick={() => (appUrl = '')}>✕</button><b>{L.bot}</b><span class="hint">{onMax ? 'Max · ' : ''}{L.app}</span></div>
           <iframe src={appUrl} title="Mini App"></iframe>
         </div>
       {/if}
     </div>
+    <p class="hint imitation">{L.imitation}</p>
   </section>
 </div>
 {/if}
@@ -255,6 +267,10 @@
   .seg button.on, .lang button.on { background: #6b4eff; color: #fff; }
   .label.sp { margin-top: 12px; }
   .live p { margin: 0 0 10px; color: #4b4b57; }
+  .gains { margin: 6px 0 0; padding-left: 20px; color: #4b4b57; line-height: 1.5; }
+  .tech summary { cursor: pointer; color: #6b6b78; font-size: 14px; }
+  .tech p { color: #6b6b78; font-size: 14px; margin: 8px 0 0; }
+  .imitation { max-width: 400px; margin: 10px auto 0; text-align: center; font-size: 13px; }
   .live .btn { width: auto; display: inline-block; }
   .phone.max .chat { background: #eef1f7; }
   .phone.max .bot-ava { background: linear-gradient(135deg, #3a7bff, #8a4dff); }

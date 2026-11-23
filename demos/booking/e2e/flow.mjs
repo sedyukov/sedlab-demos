@@ -30,7 +30,7 @@ await page.addInitScript((n) => { if (!sessionStorage.getItem('init')) { localSt
 const app = () => page.frameLocator('iframe[title="Mini App"]')
 const step = (s) => console.log('·', s)
 const T = ED === 'ru'
-  ? { book: '📅 Записаться', next: 'Далее', booked: 'Вы записаны!', any: 'Любой свободный мастер', card: 'Оплатить картой (ЮKassa)', pay: /^Оплатить/, owner: /Владелец салона/, admin: /Открыть админку/, remind: /Прислать напоминание/, reminder: 'Напоминание', chatBooked: 'Вы записаны' }
+  ? { book: '📅 Записаться', next: 'Далее', booked: 'Вы записаны!', any: 'Любой свободный мастер', card: 'Оплатить картой', pay: /^Оплатить/, owner: /Глазами владельца/, admin: /Открыть админку/, remind: /придёт напоминание/, reminder: 'Напоминание', chatBooked: 'Вы записаны' }
   : { book: '📅 Book now', next: 'Continue', booked: 'You are booked!', any: 'Any available master', card: 'Pay by card (Stripe)', pay: /^Pay/, owner: /Salon owner/, admin: /admin panel/, remind: /Send me a reminder now/, reminder: 'Reminder', chatBooked: 'Booked!' }
 
 async function pickSlot(service, master, dayIndex = 1) {
@@ -96,7 +96,7 @@ if (ED === 'intl') {
   await app().getByRole('button', { name: T.next }).click(); await pause(900)
   if (await app().getByText('Оплатить Telegram Stars').count()) throw new Error('Stars offered in ru edition')
   await shot(page, '05-confirm-card-ru.png')
-  await payByCard(); step('card (YooKassa) → confirmed'); await pause(1500)
+  await payByCard(); step('card (imitation) → confirmed'); await pause(1500)
   await shot(page, '04-booked-ru.png')
   await closeApp()
   await page.locator('.bubble', { hasText: T.chatBooked }).last().waitFor(); step('confirmation in chat'); await pause(800)
@@ -113,9 +113,8 @@ if (ED === 'intl') {
   await page.locator('.bubble', { hasText: T.chatBooked }).last().waitFor(); await pause(800)
   await page.getByRole('button', { name: 'Telegram', exact: true }).click(); await pause(500)
   await page.getByRole('button', { name: T.book }).last().waitFor()
-  // accounts: until the auth service is up the sign-in button is a stub that explains it
-  await page.getByRole('button', { name: 'Войти и попробовать вживую' }).click()
-  await page.locator('.notice', { hasText: 'сервиса аккаунтов' }).waitFor(); step('accounts sign-in stub')
+  // honesty: no provider names or fake card on the imitated checkout; sign-in stub is hidden
+  if (await page.getByRole('button', { name: 'Войти и попробовать вживую' }).count()) throw new Error('accounts stub shown')
 }
 
 await page.getByRole('button', { name: T.remind }).click()

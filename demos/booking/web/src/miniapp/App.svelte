@@ -249,6 +249,7 @@
           </button>
         {/each}
       </div>
+      {#if lang === 'ru' && !cfg.live_available}<p class="hint">{L('demoPay')}</p>{/if}
       {#if booking?.status === 'pending' && holdLeft > 0}
         <p class="hint hold">⏱ {L('held', { m: Math.floor(holdLeft / 60), s: String(holdLeft % 60).padStart(2, '0') })}</p>
       {/if}
@@ -306,7 +307,7 @@
 
   {#if checkoutUrl}
     <div class="checkout">
-      <div class="checkout-bar"><span>🔒 {new URL(checkoutUrl).host}</span><button class="icon" onclick={() => { checkoutUrl = ''; checkoutResolve?.('closed') }}>✕</button></div>
+      <div class="checkout-bar"><span>{new URL(checkoutUrl).host === location.host ? (lang === 'ru' ? 'Учебная оплата' : 'Practice payment') : '🔒 ' + new URL(checkoutUrl).host}</span><button class="icon" onclick={() => { checkoutUrl = ''; checkoutResolve?.('closed') }}>✕</button></div>
       <iframe src={checkoutUrl} title="checkout"></iframe>
     </div>
   {/if}

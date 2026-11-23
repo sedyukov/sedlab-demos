@@ -9,8 +9,8 @@
   const embed = q.get('embed') === '1'
   const pid = location.pathname.split('/').filter(Boolean).pop()
   const T = {
-    en: { title: 'Demo checkout', sub: 'Sandbox of the card payment provider: no real money moves', pay: 'Pay', cancel: 'Cancel payment', card: 'Test card', ok: 'Payment received', canceled: 'Payment cancelled', back: 'Back to the app', nf: 'Payment not found', note: 'In production this is Stripe’s hosted checkout page (payments module).' },
-    ru: { title: 'Демо-оплата', sub: 'Песочница платёжного провайдера: реальные деньги не списываются', pay: 'Оплатить', cancel: 'Отменить платёж', card: 'Тестовая карта', ok: 'Оплата прошла', canceled: 'Платёж отменён', back: 'Вернуться в приложение', nf: 'Платёж не найден', note: 'В проде здесь страница оплаты ЮKassa (модуль payments).' },
+    en: { title: 'Practice payment (imitation)', sub: 'No money moves and no card is needed', pay: 'Pay', cancel: 'Cancel payment', ok: 'Payment received', canceled: 'Payment cancelled', back: 'Back to the app', nf: 'Payment not found', note: 'In a working bot the payment page of the salon’s payment provider opens here.' },
+    ru: { title: 'Учебная оплата (имитация)', sub: 'Деньги не списываются, карту вводить не нужно', pay: 'Оплатить', cancel: 'Отменить платёж', ok: 'Оплата прошла', canceled: 'Платёж отменён', back: 'Вернуться в приложение', nf: 'Платёж не найден', note: 'В рабочем боте здесь откроется страница оплаты платёжной системы салона.' },
   }[lang]
   let p = $state(null), state = $state('loading'), busy = $state(false)
 
@@ -36,14 +36,13 @@
 
 <div class="wrap">
   <div class="card box">
-    <div class="brand"><span class="lock">🔒</span><div><b>{T.title}</b><div class="hint">{T.sub}</div></div></div>
+    <div class="brand"><span class="lock">🎓</span><div><b>{T.title}</b><div class="hint">{T.sub}</div></div></div>
     {#if state === 'loading'}<p class="hint">…</p>
     {:else if state === 'nf'}<p>{T.nf}</p>
     {:else if p}
       <div class="amount">{money(p.amount.currency, p.amount.value, lang)}</div>
       <div class="desc">{p.description}</div>
       {#if state === 'form'}
-        <div class="cardnum"><span class="hint">{T.card}</span><b>5555 5555 5555 4477</b><span class="hint">12/30 · 123</span></div>
         <button class="btn" disabled={busy} onclick={() => complete('succeeded')}>{T.pay} {money(p.amount.currency, p.amount.value, lang)}</button>
         <button class="btn ghost" disabled={busy} onclick={() => complete('canceled')}>{T.cancel}</button>
       {:else}

@@ -43,3 +43,9 @@ Until the RU host exists, `infra/compose/booking` (DO) serves the RU edition wit
   (see `infra/compose/booking-ru/env.keys`). Test: `TestRuLiveModeViaAccounts`.
 - Optional live bots: Telegram (BotFather token) and Max (token) via orchestrator / `sec`.
 - Real Max client: verify the Max bridge script for Mini Apps (window.WebApp) before a live Max launch.
+
+## 2026-11-23: понятный интерфейс и честные интеграции (аудит, пункт А)
+- Демо-страница без техники: заголовок и шаги для заказчика, блок «Что получает салон», детали в свёрнутом «Для специалистов».
+- Честность: подпись «имитация окна мессенджера»; оплата названа «Учебная оплата (имитация)», без названий провайдеров и без карты.
+- Убраны: значок sedlab · demo, стек-чипы, /start и /my (кнопки «Меню», «Мои записи»), заглушка входа (вернётся с виджетом).
+- Админка RU: без полей EN, «Ждут оплаты». e2e RU и медиа *-ru обновлены. INTL не трогали.

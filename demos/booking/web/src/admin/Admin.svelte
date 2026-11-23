@@ -16,12 +16,12 @@
       st: { pending: 'Awaiting payment', confirmed: 'Confirmed', completed: 'Completed', cancelled: 'Cancelled' }, refunded: 'refunded', newMaster: 'New master', newService: 'New service',
       wd: ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'] },
     ru: { title: 'Админка салона', schedule: 'Расписание', bookings: 'Записи', services: 'Услуги', masters: 'Мастера', today: 'Сегодня',
-      kWeek: 'Записей на 7 дней', kRub: 'Предоплаты картой, 30 дн', kStars: 'Предоплаты Stars, 30 дн', kHold: 'Неоплаченных броней',
+      kWeek: 'Записей на 7 дней', kRub: 'Предоплаты картой, 30 дн', kStars: 'Предоплаты Stars, 30 дн', kHold: 'Ждут оплаты',
       client: 'Клиент', service: 'Услуга', master: 'Мастер', when: 'Когда', status: 'Статус', paid: 'Предоплата', actions: '',
       cancel: 'Отменить', cancelRefund: 'Отменить + возврат', complete: 'Пришёл', all: 'Все', save: 'Сохранить', add: 'Добавить', active: 'Активна',
-      nameRu: 'Название (RU)', nameEn: 'Название (EN)', duration: 'Длительность, мин', priceRub: 'Цена, ₽', priceUsd: 'Цена, $', priceStars: 'Цена, ⭐',
-      roleRu: 'Специализация (RU)', roleEn: 'Специализация (EN)', color: 'Цвет', hours: 'Часы работы', does: 'Услуги', off: 'выходной', saved: 'Сохранено',
-      noAccess: 'Только для владельца. Откройте админку из бота (/admin) или из демо-эмулятора как «Владелец салона».', free: 'свободно',
+      nameRu: 'Название', nameEn: 'Название (EN)', duration: 'Длительность, мин', priceRub: 'Цена, ₽', priceUsd: 'Цена, $', priceStars: 'Цена, ⭐',
+      roleRu: 'Специализация', roleEn: 'Специализация (EN)', color: 'Цвет', hours: 'Часы работы', does: 'Услуги', off: 'выходной', saved: 'Сохранено',
+      noAccess: 'Только для владельца салона. Откройте админку на демо-странице в режиме «Глазами владельца салона».', free: 'свободно',
       st: { pending: 'Ждёт оплаты', confirmed: 'Подтверждена', completed: 'Завершена', cancelled: 'Отменена' }, refunded: 'возвращена', newMaster: 'Новый мастер', newService: 'Новая услуга',
       wd: ['Вс', 'Пн', 'Вт', 'Ср', 'Чт', 'Пт', 'Сб'] },
   }
@@ -80,14 +80,14 @@
 
   async function saveService(s) {
     const cents = Math.round(+s.price_view * 100)
-    try { await api('POST', '/api/admin/services', { ...s, duration_min: +s.duration_min, ...(isRU ? { price_rub: cents } : { price_usd: cents }), price_stars: +s.price_stars }); flash(L.saved); await loadCatalog() }
+    try { await api('POST', '/api/admin/services', { ...s, name_en: s.name_en || s.name_ru, duration_min: +s.duration_min, ...(isRU ? { price_rub: cents } : { price_usd: cents }), price_stars: +s.price_stars }); flash(L.saved); await loadCatalog() }
     catch (e) { flash(e.message) }
   }
   function addService() { services = [...services, { id: 0, name_ru: '', name_en: '', duration_min: 60, price_rub: 100000, price_usd: 2000, price_stars: 600, active: true, sort: services.length + 1 }] }
 
   async function saveMaster(m) {
     const hours = Object.values(m.hoursMap).filter(Boolean).map((h) => ({ weekday: h.weekday, start_min: +h.start_min, end_min: +h.end_min }))
-    try { await api('POST', '/api/admin/masters', { ...m, hours }); flash(L.saved); await loadCatalog() } catch (e) { flash(e.message) }
+    try { await api('POST', '/api/admin/masters', { ...m, name_en: m.name_en || m.name_ru, role_en: m.role_en || m.role_ru, hours }); flash(L.saved); await loadCatalog() } catch (e) { flash(e.message) }
   }
   function addMaster() { masters = [...masters, { id: 0, name_ru: '', name_en: '', role_ru: '', role_en: '', color: '#2b8cff', active: true, service_ids: [], hours: [], hoursMap: {} }] }
   function toggleDay(m, wd) { m.hoursMap[wd] = m.hoursMap[wd] ? undefined : { weekday: wd, start_min: 600, end_min: 1200 } }
@@ -183,12 +183,12 @@
     {:else if tab === 'services'}
       <div class="card table-wrap">
         <table class="edit">
-          <thead><tr><th>{L.nameRu}</th><th>{L.nameEn}</th><th>{L.duration}</th><th>{isRU ? L.priceRub : L.priceUsd}</th>{#if !isRU}<th>{L.priceStars}</th>{/if}<th>{L.active}</th><th></th></tr></thead>
+          <thead><tr><th>{L.nameRu}</th>{#if !isRU}<th>{L.nameEn}</th>{/if}<th>{L.duration}</th><th>{isRU ? L.priceRub : L.priceUsd}</th>{#if !isRU}<th>{L.priceStars}</th>{/if}<th>{L.active}</th><th></th></tr></thead>
           <tbody>
             {#each services as s, i (s.id || 'new' + i)}
               {@const _ = (s.price_view ??= (isRU ? s.price_rub : s.price_usd) / 100)}
               <tr>
-                <td><input bind:value={s.name_ru} /></td><td><input bind:value={s.name_en} /></td>
+                <td><input bind:value={s.name_ru} /></td>{#if !isRU}<td><input bind:value={s.name_en} /></td>{/if}
                 <td><input type="number" step="15" min="15" bind:value={s.duration_min} class="num" /></td>
                 <td><input type="number" min="1" bind:value={s.price_view} class="num" /></td>
                 {#if !isRU}<td><input type="number" min="1" bind:value={s.price_stars} class="num" /></td>{/if}
@@ -205,8 +205,8 @@
       <div class="masters">
         {#each masters as m, i (m.id || 'new' + i)}
           <div class="card mcard">
-            <div class="mhead"><input type="color" bind:value={m.color} /><input bind:value={m.name_ru} placeholder={L.nameRu} /><input bind:value={m.name_en} placeholder={L.nameEn} /><label class="chk"><input type="checkbox" bind:checked={m.active} />{L.active}</label></div>
-            <div class="mrow"><input bind:value={m.role_ru} placeholder={L.roleRu} /><input bind:value={m.role_en} placeholder={L.roleEn} /></div>
+            <div class="mhead"><input type="color" bind:value={m.color} /><input bind:value={m.name_ru} placeholder={L.nameRu} />{#if !isRU}<input bind:value={m.name_en} placeholder={L.nameEn} />{/if}<label class="chk"><input type="checkbox" bind:checked={m.active} />{L.active}</label></div>
+            <div class="mrow"><input bind:value={m.role_ru} placeholder={L.roleRu} />{#if !isRU}<input bind:value={m.role_en} placeholder={L.roleEn} />{/if}</div>
             <div class="label">{L.does}</div>
             <div class="svcs">
               {#each services as s (s.id)}
