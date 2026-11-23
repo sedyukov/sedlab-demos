@@ -1,4 +1,4 @@
-# STATUS: S6 «Мониторинг цен WB и Ozon» (app: prices) · 2026-11-21
+# STATUS: S6 «Мониторинг цен WB и Ozon» (app: prices) · 2026-11-23
 
 Только RU-редакция (решение владельца 22.11: INTL не делаем). Адрес: https://prices.demo.sedlab.dev (RU-хост freelance-ru).
 
@@ -38,11 +38,13 @@
   e2e 29/29 против контейнера через SSH-туннель; память 2 МБ в простое, 8 МБ после e2e. accounts: provider http, demo prices.
   Снаружи по `--resolve …:443:5.35.4.25` TLS не отвечает (сертификат выпустится после A-записи; у auth так же).
 
+- **23.11: прод.** Пакет GHCR приватный, CI build-prices зелёный (run 44951526297, `sha-e910a49`). A-запись `prices.demo → 5.35.4.25`.
+  Обычный деплой `infra/deploy.sh prices-ru --host freelance-ru --tag sha-e910a49` (pull из GHCR), check-demos зелёное, сертификат 89 дней.
+  e2e по https://prices.demo.sedlab.dev: 29/29. Ссылки согласия (auth.demo/consent/prices, /terms) отвечают 200. Память 6,6 МБ.
+
 ## Осталось
-- **Владелец:** github.com/users/sedyukov/packages/container/prices/settings → Change visibility → Private, затем Re-run build-prices.
-- После Private и зелёного CI: обычный деплой `infra/deploy.sh prices-ru --host freelance-ru --tag sha-<7>`.
-- После A-записи `prices.demo → 5.35.4.25`: `infra/check-demos.sh prices-ru --host freelance-ru` и e2e по https.
-- `infra/demos.txt`: строке prices нужен флаг `ru-only` (зона infra), A-запись `prices.demo → 5.35.4.25`.
+- Сценарий со входом: войти через виджет, отметить чекбокс, в логе prices `journal=auth` (после OAuth-приложений владельца; виджет: раскомментировать `AUTH_WIDGET_URL` в compose).
 - Живая YandexGPT: ресурс `yandex-llm` для prices в auth есть (3 вызова в день на человека, бюджет общий с voice). Нужны ключи
-  `AI_YANDEX_API_KEY` + `AI_YANDEX_FOLDER_ID` в sec (их ждёт и voice), затем `AI_LLM_PROVIDER: yandexgpt` в compose. Виджет входа: после DNS auth.
-- Живой сбор (по желанию): WB через `marketplaces.CompetitorPrices` (теперь с остатками), Ozon через scraping http; в публичном демо не включаем.
+  `AI_YANDEX_API_KEY` + `AI_YANDEX_FOLDER_ID` в sec, затем `AI_LLM_PROVIDER: yandexgpt` в compose.
+- Цены в README: на утверждении у владельца.
+- Живой сбор (по желанию): WB через `marketplaces.CompetitorPrices`, Ozon через scraping http; в публичном демо не включаем.
