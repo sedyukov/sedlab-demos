@@ -181,8 +181,10 @@
   }
 
   // ---------- sign-in (RU edition): auth widget renders the button and limits; the banner says simulation or real
+  // sign-in only promises something when a real CRM is connected; otherwise it would be "try it live" with nothing live
+  function hasLive(c) { return (c.profiles || []).some(function (p) { return p.modes.crm === 'live'; }); }
   function mountAuth(c) {
-    if (!c.auth_widget || !c.auth_widget.url) return;
+    if (!c.auth_widget || !c.auth_widget.url || !hasLive(c)) return;
     var box = document.createElement('div'); box.id = 'sl-account'; box.className = 'acct';
     $('.controls').insertBefore(box, $('.controls').firstChild);
     var sc = document.createElement('script');
@@ -198,7 +200,7 @@
     window.addEventListener('sedlab:account', function () { refreshMode(); });
   }
   function refreshMode() {
-    if (!S.cfg || !S.cfg.auth_widget) return;
+    if (!S.cfg || !S.cfg.auth_widget || !hasLive(S.cfg)) return;
     fetch('/api/mode?profile=' + S.profile, { credentials: 'same-origin' }).then(function (r) { return r.json(); }).then(function (m) {
       var b = $('#modeBanner');
       if (!m.gated) { b.hidden = true; return; }
