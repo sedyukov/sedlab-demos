@@ -195,7 +195,7 @@
     {:else}
       <div class="block">
         <p>{L.ownerSteps}</p>
-        <div class="row"><button class="btn" onclick={openAdmin}>{L.admin}</button><button class="btn ghost" onclick={resetDemo}>{L.reset}</button></div>
+        <div class="row"><button class="btn" disabled={!initData} onclick={openAdmin}>{L.admin}</button><button class="btn ghost" onclick={resetDemo}>{L.reset}</button></div>
       </div>
     {/if}
     {#if cfg.accounts_ui === 'widget'}

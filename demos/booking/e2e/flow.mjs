@@ -124,7 +124,7 @@ await page.locator('.bubble', { hasText: T.reminder }).last().waitFor(); step('r
 await page.getByRole('button', { name: T.owner }).click()
 await page.getByRole('button', { name: T.admin }).waitFor(); await pause(800)
 const [admin] = await Promise.all([ctx.waitForEvent('page'), page.getByRole('button', { name: T.admin }).click()])
-await admin.locator('.appt').first().waitFor(); step('admin schedule'); await pause(800)
+await admin.locator('.appt').first().waitFor().catch(async (e) => { await admin.screenshot({ path: TMP + '../fail.png' }); throw e }); step('admin schedule'); await pause(800)
 await shot(admin, `06-admin-schedule-${SFX}.png`)
 await admin.locator('nav button').nth(1).click(); await admin.locator('tbody tr').first().waitFor(); await pause(800)
 step('admin bookings')

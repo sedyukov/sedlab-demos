@@ -50,11 +50,11 @@
     tg.ready()
     document.documentElement.dataset.theme = tg.colorScheme()
     try {
+      cfg = await api('GET', '/api/config') // first: the language of the edition, also for the no-access message
+      tz = cfg.tz; lang = cfg.lang === 'ru' ? 'ru' : 'en'
       const a = await api('POST', '/api/auth', { init_data: tg.initData() })
       setToken(a.token)
       if (a.role !== 'owner') { err = 'noAccess'; return }
-      cfg = await api('GET', '/api/config')
-      tz = cfg.tz; lang = cfg.lang === 'ru' ? 'ru' : 'en'
       date = isoToday()
       await Promise.all([loadOverview(), loadCatalog()])
       ready = true
