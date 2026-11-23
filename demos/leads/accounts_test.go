@@ -3,8 +3,11 @@ package main
 import (
 	"bytes"
 	"context"
+	"crypto/sha256"
 	"encoding/json"
+	"io"
 	"net/http"
+	"net/url"
 	"strings"
 	"testing"
 
@@ -130,5 +133,53 @@ func TestPublicTestPayments(t *testing.T) {
 	p.payPublic = false
 	if m := p.PublicModes(); m.Payments != "mock" {
 		t.Fatal("without PAYMENTS_PUBLIC the sandbox stays simulated")
+	}
+}
+
+// Robokassa test shop open to everyone: the signed link goes to the visitor, ResultURL is answered with
+// exactly "OK<InvId>" (text/plain, duplicates too), the deal is won, the CRM stays simulated.
+func TestRobokassaPublicResultURL(t *testing.T) {
+	h := newEditionHarness(t, nil, EditionRU)
+	acc, _ := accounts.New(accounts.Config{Provider: "mock", Demo: "leads"})
+	h.app.Acc = acc
+	rk, err := payments.NewRobokassa(payments.RobokassaConfig{MerchantLogin: "demo", Password1: "p1", Password2: "p2", Hash: "sha256", Test: true})
+	if err != nil {
+		t.Fatal(err)
+	}
+	p := h.app.Profiles["ru"]
+	p.shared.Pay, p.payPublic, p.PayName = rk, true, "Robokassa"
+	p.Modes.Payments = "live"
+	s := sid(34)
+	l := h.submitAndWait(s, "ru", "rk-1")
+	u, err := url.Parse(l.ConfirmationURL)
+	if err != nil || !strings.Contains(u.Host, "robokassa") || u.Query().Get("IsTest") != "1" || l.PaymentID == "" {
+		t.Fatalf("payment link %q id %q", l.ConfirmationURL, l.PaymentID)
+	}
+	q := u.Query()
+	shp := map[string]string{}
+	form := url.Values{"OutSum": {q.Get("OutSum")}, "InvId": {q.Get("InvId")}}
+	for k, v := range q {
+		if strings.HasPrefix(k, "Shp_") {
+			shp[k] = v[0]
+			form.Set(k, v[0])
+		}
+	}
+	form.Set("SignatureValue", payments.RobokassaSignature(sha256.New, payments.RobokassaResultBase(q.Get("OutSum"), q.Get("InvId"), "p2", shp)))
+	for i := 0; i < 2; i++ { // second delivery is a duplicate: same reply
+		resp, err := http.Post(h.srv.URL+"/webhooks/payments/ru", "application/x-www-form-urlencoded", strings.NewReader(form.Encode()))
+		if err != nil {
+			t.Fatal(err)
+		}
+		b, _ := io.ReadAll(resp.Body)
+		resp.Body.Close()
+		if resp.StatusCode != 200 || string(b) != "OK"+q.Get("InvId") || !strings.HasPrefix(resp.Header.Get("Content-Type"), "text/plain") {
+			t.Fatalf("delivery %d: %d %q %q", i, resp.StatusCode, b, resp.Header.Get("Content-Type"))
+		}
+	}
+	h.waitFor(s, l.ID, func(l *Lead) bool { return l.DealStage == "Won" && l.Status == "paid" })
+	form.Set("SignatureValue", strings.Repeat("0", 64))
+	resp, _ := http.Post(h.srv.URL+"/webhooks/payments/ru", "application/x-www-form-urlencoded", strings.NewReader(form.Encode()))
+	if resp.StatusCode != 401 {
+		t.Fatalf("forged ResultURL: %d", resp.StatusCode)
 	}
 }

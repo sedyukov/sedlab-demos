@@ -357,7 +357,7 @@ func (a *App) process(s *Session, lead *Lead) error {
 	var pay *payments.Payment
 	if err := a.step(ctx, s, lead, "payments.create_payment", "payments", func(ctx context.Context) (string, map[string]any, error) {
 		p, err := st.Pay.CreatePayment(ctx, payments.CreatePaymentInput{
-			Amount: payments.Money{Value: lead.Amount.Value, Currency: lead.Amount.Currency}, Description: fmt.Sprintf("Order %s (%s)", lead.ID, lead.Plan),
+			Amount: payments.Money{Value: lead.Amount.Value, Currency: lead.Amount.Currency}, Description: tr(lead.Lang, fmt.Sprintf("Order %s (%s)", lead.ID, lead.Plan), fmt.Sprintf("Заказ %s, тариф %s", lead.ID, planRU(lead.Plan))),
 			IdempotencyKey: "pay-" + lead.SubmissionID, ReturnURL: a.PublicURL + "/?paid=" + lead.ID,
 			Customer: customer(lead), Metadata: map[string]string{"lead_id": lead.ID, "session": s.ID, "deal_id": deal.ID, "profile": lead.Profile}})
 		if err != nil {
@@ -526,11 +526,12 @@ func routeHint(body []byte) (sid, leadID string) {
 	return "", ""
 }
 
-// HandlePaymentWebhook verifies + dedupes the webhook and advances the deal. Returns the HTTP status to answer.
-func (a *App) HandlePaymentWebhook(ctx context.Context, profile string, headers map[string]string, body []byte) int {
+// HandlePaymentWebhook verifies + dedupes the webhook and advances the deal. Returns the HTTP status to answer
+// and the provider's required reply body, if any (Robokassa: "OK<InvId>").
+func (a *App) HandlePaymentWebhook(ctx context.Context, profile string, headers map[string]string, body []byte) (int, string) {
 	prof := a.Profiles[profile]
 	if prof == nil {
-		return http.StatusNotFound
+		return http.StatusNotFound, ""
 	}
 	var parser payments.Provider = prof.shared.Pay
 	var s *Session
@@ -539,7 +540,7 @@ func (a *App) HandlePaymentWebhook(ctx context.Context, profile string, headers 
 		// sandbox payment: route to the visitor's stack, whose mock verifies the signature
 		sid, lid := routeHint(body)
 		if s = a.Sessions.Peek(sid); s == nil {
-			return http.StatusNotFound
+			return http.StatusNotFound, ""
 		}
 		lead = s.lead(lid)
 		if lead != nil {
@@ -559,9 +560,9 @@ func (a *App) HandlePaymentWebhook(ctx context.Context, profile string, headers 
 				Message: tr(leadLang(lead, prof), "Webhook rejected → HTTP 401: ", "Вебхук отклонён → HTTP 401: ") + info.Code + " (" + info.Message + ")", Data: map[string]any{"error": info}})
 		}
 		if info.Code == "signature_invalid" {
-			return http.StatusUnauthorized
+			return http.StatusUnauthorized, ""
 		}
-		return http.StatusBadRequest
+		return http.StatusBadRequest, ""
 	}
 	if s == nil && ev.Payment != nil { // live: route by verified metadata
 		s = a.Sessions.Peek(ev.Payment.Metadata["session"])
@@ -570,19 +571,19 @@ func (a *App) HandlePaymentWebhook(ctx context.Context, profile string, headers 
 		}
 	}
 	if s == nil || lead == nil {
-		return http.StatusOK // not ours (or session expired) — acknowledge so the provider stops retrying
+		return http.StatusOK, ev.Reply // not ours (or session expired) — acknowledge so the provider stops retrying
 	}
 	if ev.Duplicate {
 		a.emit(s, lead, Event{Step: "webhook.payment", Service: "webhook", Status: "duplicate", Duration: dur, Provider: label,
 			Message: fmt.Sprintf(tr(lead.Lang, "Duplicate webhook %s → HTTP 200, already processed, nothing changed",
 				"Повторный вебхук %s → HTTP 200, уже обработан, ничего не изменилось"), ev.ID), Data: map[string]any{"event_id": ev.ID}})
-		return http.StatusOK
+		return http.StatusOK, ev.Reply // Robokassa wants "OK<InvId>" for duplicates too
 	}
 	a.emit(s, lead, Event{Step: "webhook.payment", Service: "webhook", Status: "ok", Duration: dur, Provider: label,
 		Message: fmt.Sprintf(tr(lead.Lang, "Webhook %s verified (signature ✓, first delivery) → %s",
 			"Вебхук %s проверен (подпись ✓, первая доставка) → %s"), ev.ID, ev.Type), Data: map[string]any{"event": ev}})
 	go a.onPayment(s, lead, ev)
-	return http.StatusOK
+	return http.StatusOK, ev.Reply
 }
 
 func (a *App) onPayment(s *Session, lead *Lead, ev *payments.WebhookEvent) {

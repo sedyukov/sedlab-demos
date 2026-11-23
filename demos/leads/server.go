@@ -86,6 +86,7 @@ func NewServer(app *App, g *Guard) *Server {
 	s.mux.HandleFunc("POST /api/leads/{id}/{action}", s.limited(s.leadAction))
 	s.mux.HandleFunc("POST /api/session/{action}", s.limited(s.sessionAction))
 	s.mux.HandleFunc("POST /webhooks/payments/{profile}", s.paymentWebhook)
+	s.mux.HandleFunc("GET /webhooks/payments/{profile}", s.paymentWebhook)
 	s.mux.HandleFunc("POST /webhooks/crm/{profile}", s.crmWebhook)
 	s.mux.Handle("GET /", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if r.URL.Path == "/widget.js" {
@@ -497,7 +498,17 @@ func (s *Server) paymentWebhook(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusBadRequest)
 		return
 	}
-	w.WriteHeader(s.App.HandlePaymentWebhook(r.Context(), r.PathValue("profile"), headerMap(r), body))
+	if r.Method == http.MethodGet { // Robokassa can send ResultURL as GET: the raw query is the payload
+		body = []byte(r.URL.RawQuery)
+	}
+	code, reply := s.App.HandlePaymentWebhook(r.Context(), r.PathValue("profile"), headerMap(r), body)
+	if reply != "" {
+		w.Header().Set("Content-Type", "text/plain; charset=utf-8")
+		w.WriteHeader(code)
+		io.WriteString(w, reply)
+		return
+	}
+	w.WriteHeader(code)
 }
 
 func (s *Server) crmWebhook(w http.ResponseWriter, r *http.Request) {
